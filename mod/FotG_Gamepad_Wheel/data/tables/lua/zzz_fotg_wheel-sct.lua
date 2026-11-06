@@ -1,4 +1,4 @@
--- Fate of the Galaxy Gamepad Wheel, for FotG 1.1.0 / FSO 26.0.1 SDL3.
+-- Fate of the Galaxy Gamepad Wheel, for FotG 1.1.0 and 1.1.1 / FSO 26.0.1 SDL3.
 -- Additive HUD/input script. It does not replace FotG's own scripts or tables.
 
 FotGWheel = {

@@ -6,14 +6,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath($GameRoot).TrimEnd('\')
-$manifest = Join-Path $root 'kn_portable\Library\FotG_R\FotG_R-1.1.0\mod.json'
+# Supported game releases, newest first; keep in step with setup\Setup.cs and bridge\WheelBridge.cs.
+$supportedVersions = @('1.1.1', '1.1.0')
+$gameVersion = $supportedVersions | Where-Object {
+    Test-Path -LiteralPath (Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$_\mod.json")
+} | Select-Object -First 1
+if (-not $gameVersion) {
+    throw "Select a complete Fate of the Galaxy $($supportedVersions[-1..0] -join ' or ') Windows installation (the folder containing kn_portable)."
+}
+$manifest = Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$gameVersion\mod.json"
 $engine = Join-Path $root 'kn_portable\Library\bin\FSO_2601SDL3-1.0.0\windows-x64\fs2_open_26_0_1_sdl3_x64_SSE2.exe'
-if (-not (Test-Path -LiteralPath $manifest) -or -not (Test-Path -LiteralPath $engine)) {
-    throw 'Select a complete Fate of the Galaxy 1.1.0 Windows installation with the SDL3 engine.'
+if (-not (Test-Path -LiteralPath $engine)) {
+    throw "Fate of the Galaxy $gameVersion was found, but not its FSO 26.0.1 SDL3 engine."
 }
-if ((Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).version -ne '1.1.0') {
-    throw 'This command wheel was prepared for Fate of the Galaxy 1.1.0 only.'
+if ((Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).version -ne $gameVersion) {
+    throw "The FotG_R-$gameVersion manifest reports a different version. Repair the game in Knossos first."
 }
+Write-Host "Fate of the Galaxy $gameVersion found."
 if (Get-Process fs2_open* -ErrorAction SilentlyContinue) {
     throw 'Close Fate of the Galaxy before installing the command wheel.'
 }
@@ -134,7 +143,7 @@ if ($null -ne $savedConfig) {
 }
 $presetBuilder = Join-Path $PSScriptRoot 'BuildFlightPreset.ps1'
 if (-not (Test-Path -LiteralPath $presetBuilder)) { throw 'The flight preset builder is missing from the package.' }
-& $presetBuilder -GameRoot $root -Destination (Join-Path $destination 'data\tables\Controlconfigdefaults.tbl')
+& $presetBuilder -GameRoot $root -GameVersion $gameVersion -Destination (Join-Path $destination 'data\tables\Controlconfigdefaults.tbl')
 if ($null -ne $savedConfig) {
     $configText = [IO.File]::ReadAllText($existingConfig)
     if ($configText -notmatch '\bflight_axes\s*=') {

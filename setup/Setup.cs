@@ -127,13 +127,28 @@ internal sealed class WheelSetup : Form {
         button.Click += delegate { try { action(); } catch (Exception e) { MessageBox.Show(e.Message, Text); } };
         return button;
     }
-    static string GameManifest(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-1.1.0", "mod.json"); }
+    // Game releases this build supports, newest first. Each installs to kn_portable\Library\FotG_R\FotG_R-<version>
+    // and runs on the same FSO 26.0.1 SDL3 engine. Keep this list in step with Install.ps1, BuildFlightPreset.ps1
+    // and WheelBridge.cs, and add a release only after BuildFlightPreset.ps1 accepts its control defaults.
+    static readonly string[] SupportedVersions = { "1.1.1", "1.1.0" };
+    static string GameLibrary(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R"); }
+    static string GameManifest(string root, string version) { return Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json"); }
     static string GameEngine(string root) { return Path.Combine(root, "kn_portable", "Library", "bin", "FSO_2601SDL3-1.0.0", "windows-x64", "fs2_open_26_0_1_sdl3_x64_SSE2.exe"); }
-    static bool LooksLikeGame(string root) { return Directory.Exists(root) && File.Exists(GameManifest(root)) && File.Exists(GameEngine(root)); }
+    // The newest supported release present, or null.
+    static string GameVersion(string root) {
+        foreach (string version in SupportedVersions) if (File.Exists(GameManifest(root, version))) return version;
+        return null;
+    }
+    static bool LooksLikeGame(string root) { return Directory.Exists(root) && GameVersion(root) != null && File.Exists(GameEngine(root)); }
+    // Every installed FotG_R release folder, to tell the player which version they have.
+    static string[] InstalledVersions(string root) {
+        try { return Directory.GetDirectories(GameLibrary(root), "FotG_R-*").Select(d => Path.GetFileName(d).Substring("FotG_R-".Length)).OrderBy(v => v).ToArray(); }
+        catch { return new string[0]; }
+    }
     static string FindGame() {
         string here = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         string parent = Path.GetDirectoryName(here);
-        string[] direct = { here, parent, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Fate of the Galaxy 1.1.0"), @"C:\Games\Fate of the Galaxy 1.1.0" };
+        string[] direct = { here, parent, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Fate of the Galaxy 1.1.0"), @"C:\Games\Fate of the Galaxy 1.1.0", @"C:\Games\FotG" };
         foreach (string path in direct) if (!String.IsNullOrEmpty(path) && LooksLikeGame(path)) return path;
         foreach (string basePath in new[] { parent, @"C:\Games" }) {
             if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath)) continue;
@@ -153,10 +168,20 @@ internal sealed class WheelSetup : Form {
         string root = gamePath.Text.Trim().Trim('"');
         if (root.Length == 0) { verdict.Text = "CHOOSE THE FATE OF THE GALAXY GAME FOLDER"; details.Text = "Select the folder that contains kn_portable. The game must be installed separately."; return; }
         try { root = Path.GetFullPath(root); } catch { verdict.Text = "INVALID FOLDER PATH"; details.Text = "Choose the game folder with Browse game."; return; }
-        if (!LooksLikeGame(root)) { verdict.Text = "GAME VERSION OR ENGINE NOT FOUND"; details.Text = "This setup needs Fate of the Galaxy 1.1.0 and its FSO 26.0.1 SDL3 engine. Choose the folder containing kn_portable."; return; }
+        // Report the actual problem: wrong folder, unsupported release, or missing engine.
+        if (!Directory.Exists(Path.Combine(root, "kn_portable"))) { verdict.Text = "GAME FOLDER NOT FOUND"; details.Text = "This folder has no kn_portable folder. Choose the Fate of the Galaxy folder that contains kn_portable."; return; }
+        string version = GameVersion(root);
+        if (version == null) {
+            string[] found = InstalledVersions(root);
+            verdict.Text = "UNSUPPORTED GAME VERSION";
+            details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in kn_portable\\Library\\FotG_R.\r\n")
+                + "This build supports Fate of the Galaxy " + String.Join(" and ", SupportedVersions.Reverse()) + ". Check for a newer Flight Control release.";
+            return;
+        }
+        if (!File.Exists(GameEngine(root))) { verdict.Text = "SDL3 ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO 26.0.1 SDL3 engine. Launch the game once from Knossos so it installs the engine, then click Check again."; return; }
         try {
-            var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<System.Collections.Generic.Dictionary<string, object>>(File.ReadAllText(GameManifest(root)));
-            if (!manifest.ContainsKey("version") || Convert.ToString(manifest["version"]) != "1.1.0") { verdict.Text = "UNSUPPORTED GAME VERSION"; details.Text = "This preview supports Fate of the Galaxy 1.1.0 only."; return; }
+            var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<System.Collections.Generic.Dictionary<string, object>>(File.ReadAllText(GameManifest(root, version)));
+            if (!manifest.ContainsKey("version") || Convert.ToString(manifest["version"]) != version) { verdict.Text = "UNSUPPORTED GAME VERSION"; details.Text = "The FotG_R-" + version + " folder's manifest reports a different version. Repair the game in Knossos, then click Check again."; return; }
         } catch { verdict.Text = "GAME MANIFEST COULD NOT BE READ"; details.Text = "The game installation may be incomplete."; return; }
         validatedRoot = root;
         string prefs = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen", "data");
@@ -180,7 +205,7 @@ internal sealed class WheelSetup : Form {
         if (running) { verdict.Text = "CLOSE THE GAME BEFORE INSTALLING"; details.Text = "The game is running. Close it, then click Check again."; return; }
         install.Enabled = true;
         verdict.Text = installed ? "READY TO REPAIR OR UPDATE" : "READY TO INSTALL";
-        details.Text = "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy 1.1.0 / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
+        details.Text = "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + " / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
     }
     void Install() {
         Check();

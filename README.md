@@ -14,7 +14,7 @@ The original add-on code, companion programs and documentation are released unde
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). For source builds and release packaging, see [docs/RELEASE.md](docs/RELEASE.md).
 
-An independent, additive controller mod for **Fate of the Galaxy 1.1.0** on Windows with the bundled **FSO 26.0.1 SDL3** engine. The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. The external Flight Control Console configures wheel layouts and macros, and backs up native pilot settings.
+An independent, additive controller mod for **Fate of the Galaxy 1.1.0 or 1.1.1** on Windows with the bundled **FSO 26.0.1 SDL3** engine. The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. The external Flight Control Console configures wheel layouts and macros, and backs up native pilot settings.
 
 ![Setup detects the installed game](docs/screenshots/setup-final.png)
 
@@ -22,7 +22,7 @@ The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/s
 
 ## Install
 
-1. Install Fate of the Galaxy 1.1.0 with its bundled FSO 26.0.1 SDL3 engine. Run the unmodified game once and create a pilot, then exit. Connect the gamepad before running Setup.
+1. Install Fate of the Galaxy 1.1.0 or 1.1.1 with its bundled FSO 26.0.1 SDL3 engine. Run the unmodified game once and create a pilot, then exit. Connect the gamepad before running Setup.
 2. Extract the entire ZIP. Close the game and any older FotG controller companion.
 3. Double-click **Setup.exe**. It finds common game locations; otherwise choose the folder containing `kn_portable` with **Browse game**. Click **Install / Repair**.
 4. Use **Play with Wheel** in Setup, or **Play with Gamepad Wheel.exe** in the game folder. This is the gamepad launch entry; the original **Play Fate of the Galaxy.cmd** runs without the wheel. Keep the bridge's tray icon running while playing.
@@ -71,4 +71,4 @@ The console's **Restore latest backup** restores the selected pilot and matching
 
 ## Review status
 
-Source is included. Build and offline checks passed. On a Legion Go 2, testing confirmed that the repaired Classic direct preset restores right-stick yaw/pitch and left-stick roll/throttle in the practice mission. The prior failure was traced to a stale SDL2 joystick GUID in the wheel profile and a raw SDL3 joystick axis mapping applied to FSO's canonical SDL3 gamepad axes. The installer now detects the connected controller through the bundled SDL3 library. Classic inverted pitch is generated and selectable, but has not yet had a physical flight test. Issuing an actual squad order, all four panels, macro effects, broader mission compatibility, and multiplayer behavior still need review. Some mission-specific screens may still require stick pointer control. This remains a preview until those checks are complete.
+Source is included. Build and offline checks passed. On a Legion Go 2, testing confirmed that the repaired Classic direct preset restores right-stick yaw/pitch and left-stick roll/throttle in the practice mission. The prior failure was traced to a stale SDL2 joystick GUID in the wheel profile and a raw SDL3 joystick axis mapping applied to FSO's canonical SDL3 gamepad axes. The installer now detects the connected controller through the bundled SDL3 library. Classic inverted pitch is generated and selectable, but has not yet had a physical flight test. Issuing an actual squad order, all four panels, macro effects, broader mission compatibility, and multiplayer behavior still need review. Some mission-specific screens may still require stick pointer control. This remains a preview until those checks are complete. Fate of the Galaxy 1.1.1 is also supported: Setup detection and the Classic preset build were checked against a real 1.1.1 install, which uses the same packages, launch flags and FSO 26.0.1 SDL3 engine as 1.1.0, but in-game play on 1.1.1 has not yet been tested.

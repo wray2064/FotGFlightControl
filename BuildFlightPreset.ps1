@@ -1,10 +1,17 @@
 param(
     [Parameter(Mandatory = $true)][string]$GameRoot,
-    [Parameter(Mandatory = $true)][string]$Destination
+    [Parameter(Mandatory = $true)][string]$Destination,
+    # Defaults to the newest supported release installed under GameRoot.
+    [string]$GameVersion
 )
 $ErrorActionPreference = 'Stop'
-$stockPath = Join-Path $GameRoot 'kn_portable\Library\FotG_R\FotG_R-1.1.0\FG_Core\data\tables\Controlconfigdefaults.tbl'
-if (-not (Test-Path -LiteralPath $stockPath)) { throw 'FotG 1.1.0 control defaults were not found.' }
+$tablePath = { param($version) Join-Path $GameRoot "kn_portable\Library\FotG_R\FotG_R-$version\FG_Core\data\tables\Controlconfigdefaults.tbl" }
+if (-not $GameVersion) {
+    $GameVersion = @('1.1.1', '1.1.0') | Where-Object { Test-Path -LiteralPath (& $tablePath $_) } | Select-Object -First 1
+    if (-not $GameVersion) { throw 'Fate of the Galaxy 1.1.0 or 1.1.1 control defaults were not found.' }
+}
+$stockPath = & $tablePath $GameVersion
+if (-not (Test-Path -LiteralPath $stockPath)) { throw "FotG $GameVersion control defaults were not found." }
 $stock = [IO.File]::ReadAllText($stockPath)
 # The SDL3 gamepad D-pad is also the engine's native view hat. Keep the game's
 # keyboard view arrows, but remove the hat only in this wheel overlay. The

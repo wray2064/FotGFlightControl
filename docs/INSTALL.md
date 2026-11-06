@@ -1,6 +1,6 @@
 # Install the gamepad wheel
 
-This preview works with the Windows portable **Fate of the Galaxy 1.1.0** release
+This preview works with the Windows portable **Fate of the Galaxy 1.1.0 or 1.1.1** release
 and its **FSO 26.0.1 SDL3** engine. The game is a separate download. The add-on
 does not include the game or engine.
 

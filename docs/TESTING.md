@@ -3,7 +3,7 @@
 Test with the game closed before changing any settings. Keep the original game
 launcher available for comparison.
 
-1. Start Setup. Verify that it detects a complete 1.1.0 install, a native pilot,
+1. Start Setup. Verify that it detects a complete 1.1.0 or 1.1.1 install, a native pilot,
    and the SDL3 engine. Check the Browse and Check again paths.
 2. Install or repair. Confirm the two game-folder launchers are created and the
    console opens from Setup. Check that a timestamped pilot backup exists.

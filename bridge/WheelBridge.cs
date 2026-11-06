@@ -187,10 +187,12 @@ sealed class Bridge : ApplicationContext {
     }
     void Launch() {
         string exe = Path.Combine(root, "kn_portable", "Library", "bin", "FSO_2601SDL3-1.0.0", "windows-x64", "fs2_open_26_0_1_sdl3_x64_SSE2.exe");
-        if (!File.Exists(exe)) throw new FileNotFoundException("Fate of the Galaxy 1.1.0 SDL3 engine was not found", exe);
+        if (!File.Exists(exe)) throw new FileNotFoundException("The Fate of the Galaxy FSO 26.0.1 SDL3 engine was not found", exe);
         string mod = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "data", "tables", "lua", "zzz_fotg_wheel-sct.lua");
         if (!File.Exists(mod)) throw new FileNotFoundException("Command wheel mod was not found", mod);
-        string basePath = @"kn_portable\Library\FotG_R\FotG_R-1.1.0\";
+        string version = GameVersion(root);
+        if (version == null) throw new FileNotFoundException("Fate of the Galaxy 1.1.0 or 1.1.1 was not found in this game folder.");
+        string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version + @"\";
         string[] packages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
         StringBuilder paths = new StringBuilder(@"GamepadMods\FotG_Gamepad_Wheel");
         foreach (string package in packages) paths.Append(',').Append(basePath).Append(package);
@@ -200,6 +202,13 @@ sealed class Bridge : ApplicationContext {
         info.EnvironmentVariables["FSO_PREFERENCES_PATH"] = preferences;
         info.Arguments = "-mod \"" + paths + "\" -aa -soft_particles -deferred_cockpit";
         game = Process.Start(info);
+    }
+    // Supported game releases, newest first; keep in step with setup\Setup.cs and Install.ps1.
+    static readonly string[] SupportedVersions = { "1.1.1", "1.1.0" };
+    static string GameVersion(string root) {
+        foreach (string version in SupportedVersions)
+            if (File.Exists(Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version, "mod.json"))) return version;
+        return null;
     }
     static double Axis(short value) {
         double n = Math.Max(-1.0, value / 32767.0);
@@ -440,7 +449,7 @@ static class Program {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
                 else if (args[i] == "--attach") launch=false;
             }
-            if (String.IsNullOrWhiteSpace(root)) throw new ArgumentException("Use --game <Fate of the Galaxy 1.1.0 folder>.");
+            if (String.IsNullOrWhiteSpace(root)) throw new ArgumentException("Use --game <Fate of the Galaxy game folder>.");
             // Windows command-line parsing can leave a literal quote when a
             // quoted folder argument ends in a backslash.
             root = NormalizeGameRoot(root);

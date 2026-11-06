@@ -15,7 +15,7 @@ separately by its creators.
 
 ## Install in five steps
 
-1. Install Fate of the Galaxy 1.1.0 for Windows with the FSO 26.0.1 SDL3
+1. Install Fate of the Galaxy 1.1.0 or 1.1.1 for Windows with the FSO 26.0.1 SDL3
    engine. Run it once, create a pilot, and exit.
 2. Connect an XInput gamepad. Download and fully extract the Flight Control ZIP.
 3. Open `Setup.exe`. It usually finds the game; otherwise choose the folder
@@ -46,7 +46,7 @@ actions are hidden until enabled.
 
 ## Requirements and scope
 
-Windows x64; Fate of the Galaxy 1.1.0 with FSO 26.0.1 SDL3; XInput-compatible
+Windows x64; Fate of the Galaxy 1.1.0 or 1.1.1 with FSO 26.0.1 SDL3; XInput-compatible
 controller. The game and engine are not bundled. Multiplayer and every
 mission-specific menu have not yet been validated; see the test checklist.
 

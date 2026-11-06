@@ -40,7 +40,7 @@ foreach ($item in @('Install.ps1', 'BuildFlightPreset.ps1', 'README.md', 'Help.h
 Copy-Item -LiteralPath (Join-Path $workspace 'tools') -Destination (Join-Path $stage 'tools') -Recurse
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.exe') -Destination (Join-Path $stage 'Setup.exe')
 foreach ($launcherName in @('Play with Gamepad Wheel.exe', 'Configure Gamepad Wheel.exe')) {
-    Copy-Item -LiteralPath (Join-Path $workspace 'setup' $launcherName) -Destination (Join-Path $stage $launcherName)
+    Copy-Item -LiteralPath (Join-Path (Join-Path $workspace 'setup') $launcherName) -Destination (Join-Path $stage $launcherName)
 }
 New-Item -ItemType Directory -Path (Join-Path $stage 'Assets') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.ico') -Destination (Join-Path $stage 'Assets\FlightControl.ico')
