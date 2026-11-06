@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flight Control Console — Help</title>
+<style>
+body{margin:0;background:#091119;color:#d3e4eb;font:17px/1.6 system-ui,sans-serif}
+main{max-width:920px;margin:auto;padding:44px 26px 90px}
+header{display:flex;align-items:center;gap:22px;border-bottom:1px solid #345969;padding-bottom:26px}
+header img{width:86px}
+h1,h2{color:#41dbda;line-height:1.25}
+h1{font-size:32px;margin:0}h2{margin-top:42px}
+a{color:#41dbda}nav{display:flex;gap:20px;flex-wrap:wrap;margin:28px 0}
+.note{padding:18px 22px;border-left:3px solid #e1b159;background:#111d28}
+code{background:#192b39;padding:2px 5px;border-radius:3px;overflow-wrap:anywhere}
+li{margin-bottom:10px}small{color:#96b1be}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:12px;border-bottom:1px solid #345969}
+kbd{border:1px solid #345969;padding:2px 6px}
+</style>
+</head>
+<body><main>
+<header><img src="Assets/FlightControl.png" alt="Flight Control emblem"><div><h1>Flight Control Console</h1><small>Fate of the Galaxy · external setup and command-wheel macros</small></div></header>
+<nav><a href="#start">Start</a><a href="#wheel">Wheel</a><a href="#macros">Macros</a><a href="#reserve">Reserve buttons</a><a href="#calibrate">Flight response</a><a href="#backup">Backups</a><a href="#trouble">Troubleshooting</a></nav>
+<p class="note">This app configures the separate FotG Gamepad Wheel mod. It also edits native pilot sensitivity and deadzone. The wheel mod and its companion must be installed for the in-game D-pad panels and macros to work.</p>
+<h2 id="start">1. Select the game and pilot</h2>
+<ol>
+<li>Run Fate of the Galaxy once and create a native pilot before installing the wheel. Exit the game.</li><li>Extract the complete package. Keep <code>Assets</code> and this help file beside <code>ControllerSetup.exe</code>.</li>
+<li>Select the updated game installation folder containing <code>kn_portable</code>. If the app is inside that folder, it normally detects it. Use <b>Browse folder</b> to correct the path.</li>
+<li>Select the pilot you play. <b>Reload pilots</b> refreshes the list after a new pilot is created.</li>
+<li>Choose the XInput slot that reports your controller online. This slot controls the live preview. It does not change the joystick selected in the game.</li>
+</ol>
+<h2 id="wheel">2. Command wheel layout</h2>
+<table><tr><th>D-pad</th><th>Panel</th></tr>
+<tr><td>Up</td><td>Ship systems</td></tr>
+<tr><td>Down</td><td>Squad commands, using the game's valid recipient and order menus</td></tr>
+<tr><td>Left</td><td>Targeting: choose the ships X cycles, select subsystems or turrets, return to hull, or clear target</td></tr>
+<tr><td>Right</td><td>Four configurable macro slots</td></tr></table>
+<p>Use the stick to select, <kbd>A</kbd> to confirm, and <kbd>B</kbd> to go back or close. L3 matches target speed and R3 cycles subsystems on the targeted ship when no wheel is open. The wheel checks the current mission state. Unavailable actions stay inactive. Multiplayer support is limited for actions that directly change ship energy or target a subsystem.</p>
+<p>Tap Menu / Start to pause. Hold it for 500 ms to cycle Cockpit, Chase and External cameras; turn off <b>Hold Menu cycles camera</b> if you want Pause only. The squad command wheel gains <b>Cycle boarding party task</b> during Assault missions, matching keyboard 4.</p>
+<p>The wheel now uses dark label backplates, bright text, and an amber selection outline to stay legible under fire. In this app, set <b>Wheel Text</b> to Medium (20 px) or Large (30 px), and turn <b>Bold</b> on or off. Medium Bold is the default.</p><p><b>Menu navigation:</b> D-pad selects the seven main-menu choices directly and sends arrow keys in other menus. A activates the selection; B goes back. LB/RB move between tabs. Move either stick when a custom screen needs a pointer, then A or RT clicks. No touchpad or finger mouse is needed.</p><p><b>Flight Axes:</b> Classic direct (tested) restores right-stick yaw/pitch and left-stick roll/relative throttle using the engine gamepad input. Classic inverted pitch reverses only the right stick&#39;s vertical direction. Game&#39;s saved setup leaves the current game bindings alone. The D-pad hold slider sets when a held direction begins looking around (150&#8211;600 ms); Disable look around makes D-pad presses open wheels immediately. Save Wheel and restart. For the closest v1 response, set sensitivity to 5 and center deadzone to 10% on Flight Response, then Apply with backup. The classic preset reserves A, B, X, L3, R3, LB, RB, Y and Start for the controller mod; check any custom bindings after changing presets.</p><h2 id="macros">3. Configure the four right-side slots</h2>
+<ol>
+<li>Open <b>Command Wheel / Macro Deck</b>. The four cards correspond to the four choices shown after pressing D-pad right in flight.</li>
+<li>Give each slot a short HUD label and choose an action. For <b>Target enemy subsystem</b>, choose a subsystem alias such as <code>engines</code>.</li>
+<li>The app looks for <code>GamepadMods/FotG_Gamepad_Wheel</code> inside the selected game. If you installed the mod elsewhere, use <b>Browse mod</b> and select its <code>FotG_Gamepad_Wheel</code> folder.</li>
+<li>Close the game and click <b>Save Wheel</b>. The app writes <code>data/tables/lua/zz_fotg_wheel_config-sct.lua</code> inside the wheel mod. Restart the game to load the new settings.</li>
+</ol>
+<p><b>Advanced layouts and profiles:</b> Open <b>Advanced</b> to move a top-level wheel choice up or down, or reset a panel. The squad tab rearranges only the first communications page; the game's later command menus keep their native order. <b>Use layout</b> keeps the changes in the app until you press <b>Save Wheel</b>. <b>Export profile</b> creates a portable JSON file with layouts, macros, flight axes, wheel text, and hold options; it contains no game path or pilot data. <b>Import profile</b> validates that file and loads it for review. Save Wheel and restart the game to apply it.</p>
+<p><b>Custom holds</b> is off by default. Enable its checkbox to reveal <b>Edit...</b>, where A, B, X, LB, RB, L3 and R3 can each have one hold action and a 250–1000 ms delay. A configured button's usual short action happens on release. Y and both triggers retain direct-fire behavior.</p>
+<p>Available actions: maximum shield energy, nearest enemy, enemy subsystem, match target speed, balance energy, and cycle boarding party task during Assault missions. Subsystem targeting needs a live visible enemy with a matching targetable subsystem; the exact available subsystems vary by ship. A missing or invalid target leaves the macro inactive.</p>
+<h2 id="reserve">4. Reserve A, B, X, Y, LB, RB, Start, L3, R3 and D-pad for the wheel</h2>
+<p>For an existing native pilot, click <b>Reserve wheel buttons</b> once with the game closed. The app backs up that pilot and the game settings INI, then clears only joystick buttons <code>0–5</code> (A, B, X, Y, LB, RB), <code>7–9</code> (Start, L3, R3) and D-pad values <code>128–131</code> from the native pilot bindings. This prevents the original controls from firing at the same time as the wheel. The companion maps RT to primary fire after A is reserved. Other bindings and controller selection are preserved.</p>
+<p>If the pilot uses another format or does not contain those values, the app leaves it alone. New pilots created later may need the same action. The package installer can reserve these values for all existing version-4 pilots with a backup.</p>
+<h2 id="calibrate">5. Tune flight response</h2>
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Sensitivity (0–9)</td><td>The game's native joystick response setting.</td></tr>
+<tr><td>Center deadzone (0–45%)</td><td>Input ignored around stick center. Too much reduces fine control.</td></tr>
+<tr><td>Use mouse to fly</td><td>Changes the game's native mouse-flight option. Leave unchecked for joystick flight.</td></tr></table>
+<ol>
+<li>Release both sticks and rest the controller on a stable surface.</li>
+<li>Click <b>Sample center</b>, leave the sticks untouched for several seconds, then click <b>Finish sample</b>.</li>
+<li>The suggested deadzone is the largest observed axis displacement plus three percentage points, capped at 45%.</li>
+<li>Close the game, click <b>Apply with backup</b>, then test the response in flight.</li>
+</ol>
+<p>This samples software drift; it does not recalibrate controller firmware. Moving a stick during sampling raises the result, so start again if that happens.</p>
+<h2 id="backup">6. Backups and restore</h2>
+<p>Native pilot and INI backups are stored in timestamped folders under <code>kn_portable/HardLightProductions/FreeSpaceOpen/ControllerSetupBackups</code>. <b>Restore latest backup</b> restores the latest matching pilot and the entire backed-up INI, and backs up current files first. It can undo a button reservation, but it also restores the other pilot settings saved at that time.</p>
+<p>When a macro config already exists, <b>Save Wheel</b> copies it to <code>FotG_Gamepad_Wheel/ConfigBackups</code> before replacement. It does not edit the base game's scripts or campaign saves.</p>
+<h2 id="trouble">Troubleshooting</h2>
+<ul>
+<li><b>No wheel mod:</b> install the separate mod, then choose the updated game root or its <code>FotG_Gamepad_Wheel</code> folder. The folder must contain the wheel Lua runtime.</li>
+<li><b>No controller:</b> try XInput slots 0–3 and confirm the handheld is in gamepad mode.</li>
+<li><b>No pilots:</b> create a pilot in the game, then select the correct portable installation.</li>
+<li><b>Save or reserve blocked:</b> close all FreeSpace Open engine instances.</li>
+<li><b>Macros unchanged in game:</b> restart the game after saving and confirm the launcher loads the wheel mod.</li>
+<li><b>Help, About or icon missing:</b> extract the complete package, not just the executable.</li>
+</ul>
+<p><b>Window:</b> <kbd>F1</kbd> or ? opens this guide; the i button opens <a href="About.html">About and attributions</a>. The other top-right controls minimize, maximize, and close. Drag the heading to move the window or double-click it to toggle maximize.</p>
+<p><small>By Manic Trash Panda, coded with ChatGPT. Questions: <a href="mailto:dev@manictrashpanda.dev">dev@manictrashpanda.dev</a>. Windows 10/11 x64 and .NET Framework 4.x. The app's macro file contains only selected action IDs, subsystem aliases, and display labels.</small></p>
+</main></body></html>

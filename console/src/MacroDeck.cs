@@ -1,0 +1,452 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
+
+partial class ControllerSetup {
+ const string WheelFolderName = "FotG_Gamepad_Wheel";
+ const string MacroConfigName = "zz_fotg_wheel_config-sct.lua";
+ Panel contentHost;
+ TableLayoutPanel flightPage;
+ Control macroPage;
+ Button flightTabButton, deckTabButton;
+ Label macroStatus;
+ string wheelModFolder = "";
+ readonly TextBox[] macroLabels = new TextBox[4];
+ readonly ComboBox[] macroActions = new ComboBox[4];
+ readonly ComboBox[] macroArguments = new ComboBox[4];
+ ComboBox wheelFontSize;
+ CheckBox wheelFontBold;
+ ComboBox flightAxes;
+ TrackBar lookHoldSlider;
+ Label lookHoldValue;
+ CheckBox disableLook;
+ CheckBox cameraHold,enableHoldLayer;
+ Button editHoldLayer;
+ int holdLayerMs=450;
+ static readonly string[] HoldButtons={"A","B","X","LB","RB","L3","R3"};
+ readonly string[] holdActions={"none","none","none","none","none","none","none"};
+
+ sealed class MacroAction {
+  public readonly string Id, Caption;
+  public MacroAction(string id,string caption){Id=id;Caption=caption;}
+  public override string ToString(){return Caption;}
+ }
+ sealed class MacroSpec {
+  public string Label,Action,Argument;
+  public MacroSpec(string label,string action,string argument){Label=label;Action=action;Argument=argument;}
+ }
+ static readonly MacroAction[] AvailableActions = {
+  new MacroAction("shields_max","Maximum shield energy"),
+  new MacroAction("target_nearest_enemy","Target nearest enemy"),
+  new MacroAction("target_enemy_subsystem","Target enemy subsystem"),
+  new MacroAction("match_speed","Match target speed"),
+  new MacroAction("balance_energy","Balance energy"),
+  new MacroAction("boarding_task","Cycle boarding party task")
+ };
+ static readonly MacroAction[] AvailableHoldActions = {
+  new MacroAction("none","None"),
+  new MacroAction("target_reticle","Target under reticle"),
+  new MacroAction("target_attacker","Target current attacker"),
+  new MacroAction("target_next","Next target in selected class"),
+  new MacroAction("target_nearest_enemy","Nearest enemy"),
+  new MacroAction("target_clear","Clear target"),
+  new MacroAction("target_subsystem_toggle","Subsystem / hull"),
+  new MacroAction("target_live_turret","Next live turret"),
+  new MacroAction("match_speed","Match target speed"),
+  new MacroAction("cycle_secondary","Cycle secondary bank"),
+  new MacroAction("cycle_ship_mode","Cycle ship mode"),
+  new MacroAction("shields_max","Maximum shields"),
+  new MacroAction("balance_energy","Balance energy"),
+  new MacroAction("boarding_task","Cycle boarding party task")
+ };
+ static readonly string[] SubsystemAliases = {"engines","weapons","shields","navigation","turrets","sensors"};
+ static readonly MacroSpec[] DefaultMacros = {
+  new MacroSpec("SHIELDS MAX","shields_max",""),
+  new MacroSpec("NEAREST ENEMY","target_nearest_enemy",""),
+  new MacroSpec("ENEMY ENGINES","target_enemy_subsystem","engines"),
+  new MacroSpec("MATCH SPEED","match_speed","")
+ };
+
+ void ShowPage(bool deck){
+  if(flightPage==null||macroPage==null)return;
+  flightPage.Visible=!deck;macroPage.Visible=deck;
+  if(deck)macroPage.BringToFront();else flightPage.BringToFront();
+  if(flightTabButton!=null)flightTabButton.BackColor=deck?Color.FromArgb(16,14,3):Color.FromArgb(82,66,5);
+  if(deckTabButton!=null)deckTabButton.BackColor=deck?Color.FromArgb(82,66,5):Color.FromArgb(16,14,3);
+ }
+ Control BuildMacroDeck(){
+  var deck=Grid(1,7);deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,32,34,-1,40,32,40,73);
+  deck.Controls.Add(LabelText("04 / COMMAND WHEEL  ·  RIGHT = FOUR CONFIGURABLE MACROS",12,Cyan),0,0);
+  var compass=Grid(4,1);
+  for(int i=0;i<4;i++)compass.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
+  string[] directions={"↑  SHIP SYSTEMS","←  TARGET MODES","↓  SQUAD COMMANDS","→  MACRO DECK"};
+  for(int i=0;i<4;i++){
+   var badge=LabelText(directions[i],9,i==3?Cyan:Ink);
+   badge.TextAlign=ContentAlignment.MiddleCenter;
+   badge.BackColor=Color.FromArgb(31,26,4);
+   badge.Margin=new Padding(3,0,3,5);
+   compass.Controls.Add(badge,i,0);
+  }
+  deck.Controls.Add(compass,0,1);
+  var cards=Grid(4,1);
+  for(int i=0;i<4;i++)cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
+  for(int i=0;i<4;i++)cards.Controls.Add(BuildMacroCard(i),i,0);
+  deck.Controls.Add(cards,0,2);
+  var typeRow=Grid(4,1);typeRow.Padding=new Padding(4,7,4,4);
+  typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
+  typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));
+  typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,18));
+  typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,38));
+  var typeLabel=LabelText("WHEEL TEXT",10,Cyan);typeLabel.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeLabel,0,0);
+  wheelFontSize=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  wheelFontSize.Items.AddRange(new object[]{"Medium (20 px)","Large (30 px)"});wheelFontSize.SelectedIndex=0;typeRow.Controls.Add(wheelFontSize,1,0);
+  wheelFontBold=new CheckBox{Dock=DockStyle.Fill,Text="Bold",Checked=true,ForeColor=Ink,BackColor=Surface,TextAlign=ContentAlignment.MiddleLeft};typeRow.Controls.Add(wheelFontBold,2,0);
+  var typeHint=LabelText("Dark labels and high contrast are always on. Restart game after saving.",9,Ink);typeHint.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeHint,3,0);
+  deck.Controls.Add(typeRow,0,3);
+  var flightRow=Grid(3,1);flightRow.Padding=new Padding(4,3,4,3);
+  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
+  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));
+  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,56));
+  var flightLabel=LabelText("FLIGHT AXES",10,Cyan);flightLabel.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightLabel,0,0);
+  flightAxes=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  flightAxes.Items.AddRange(new object[]{"Classic direct (tested)","Classic inverted pitch","Game's saved setup"});flightAxes.SelectedIndex=0;flightRow.Controls.Add(flightAxes,1,0);
+  var flightHint=LabelText("Classic: right stick steers; left stick rolls and changes throttle. Inverted reverses pitch only.",9,Ink);flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,2,0);
+  deck.Controls.Add(flightRow,0,4);
+  var lookRow=Grid(4,1);lookRow.Padding=new Padding(4,0,4,0);
+  lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
+  lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,40));
+  lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
+  lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,28));
+  var lookLabel=LabelText("D-PAD HOLD TO LOOK",10,Cyan);lookLabel.TextAlign=ContentAlignment.MiddleLeft;lookRow.Controls.Add(lookLabel,0,0);
+  lookHoldSlider=new TrackBar{Dock=DockStyle.Fill,AutoSize=false,Minimum=6,Maximum=24,TickFrequency=3,SmallChange=1,LargeChange=2,Value=10,BackColor=Surface};
+  lookRow.Controls.Add(lookHoldSlider,1,0);
+  lookHoldValue=LabelText("250 ms",10,Ink);lookHoldValue.TextAlign=ContentAlignment.MiddleCenter;lookRow.Controls.Add(lookHoldValue,2,0);
+  disableLook=new CheckBox{Dock=DockStyle.Fill,Text="Disable look around",Checked=false,ForeColor=Ink,BackColor=Surface,TextAlign=ContentAlignment.MiddleLeft};
+  lookRow.Controls.Add(disableLook,3,0);
+  lookHoldSlider.ValueChanged+=delegate{UpdateLookTiming();};
+  disableLook.CheckedChanged+=delegate{UpdateLookTiming();};
+  deck.Controls.Add(lookRow,0,5);
+  var foot=Grid(5,1);foot.Padding=new Padding(0,2,0,0);
+  foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,43));
+  foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
+  foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,18));
+  foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,13));
+  foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,14));
+  var options=Grid(4,1);
+  options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,40));
+  options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,28));
+  options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
+  options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
+  macroStatus=LabelText("Find or select the installed wheel mod.",9,Ink);macroStatus.TextAlign=ContentAlignment.MiddleLeft;options.Controls.Add(macroStatus,0,0);
+  cameraHold=new CheckBox{Text="Hold Menu cycles camera",Checked=true,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(cameraHold,1,0);
+  enableHoldLayer=new CheckBox{Text="Custom holds",Checked=false,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(enableHoldLayer,2,0);
+  editHoldLayer=ActionButton("Edit...",delegate{EditHoldMappings();});editHoldLayer.Visible=false;options.Controls.Add(editHoldLayer,3,0);
+  enableHoldLayer.CheckedChanged+=delegate{editHoldLayer.Visible=enableHoldLayer.Checked;};
+  foot.Controls.Add(options,0,0);
+  foot.Controls.Add(ActionButton("Browse mod",delegate{BrowseWheelMod();}),1,0);
+  foot.Controls.Add(ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();}),2,0);
+  foot.Controls.Add(ActionButton("ADVANCED",delegate{EditLayouts();}),3,0);
+  var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(82,66,5);foot.Controls.Add(save,4,0);
+  deck.Controls.Add(foot,0,6);
+  for(int i=0;i<4;i++)SetMacro(i,DefaultMacros[i]);
+  return deck;
+ }
+ void UpdateLookTiming(){
+  if(lookHoldSlider==null||lookHoldValue==null||disableLook==null)return;
+  lookHoldSlider.Enabled=!disableLook.Checked;
+  lookHoldValue.Text=disableLook.Checked?"OFF":(lookHoldSlider.Value*25)+" ms";
+ }
+ void EditHoldMappings(){
+  using(var dialog=new Form{Text="Custom hold mappings",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(620,430),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
+   var layout=Grid(2,10);layout.Padding=new Padding(16);
+   layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,150));
+   layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+   Rows(layout,42,34,34,34,34,34,34,34,46,54);
+   var intro=LabelText("HOLD ACTIONS  /  Short presses keep their usual action. Triggers and Y keep their direct-fire behavior.",9,Cyan);layout.Controls.Add(intro,0,0);layout.SetColumnSpan(intro,2);
+   var selectors=new ComboBox[HoldButtons.Length];
+   for(int i=0;i<HoldButtons.Length;i++){
+    layout.Controls.Add(LabelText(HoldButtons[i],10,Ink),0,i+1);
+    var pick=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Surface,ForeColor=Ink};
+    foreach(var action in AvailableHoldActions)pick.Items.Add(action);
+    int selected=Array.FindIndex(AvailableHoldActions,a=>a.Id==holdActions[i]);
+    pick.SelectedIndex=selected<0?0:selected;
+    selectors[i]=pick;layout.Controls.Add(pick,1,i+1);
+   }
+   layout.Controls.Add(LabelText("Hold delay",10,Cyan),0,8);
+   var duration=new NumericUpDown{Dock=DockStyle.Left,Minimum=250,Maximum=1000,Increment=50,Value=holdLayerMs,Width=145,BackColor=Surface,ForeColor=Ink};
+   layout.Controls.Add(duration,1,8);
+   var controls=Grid(2,1);controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
+   var cancel=ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;});
+   var save=ActionButton("Use these mappings",delegate{dialog.DialogResult=DialogResult.OK;});save.BackColor=Color.FromArgb(82,66,5);
+   controls.Controls.Add(cancel,0,0);controls.Controls.Add(save,1,0);layout.Controls.Add(controls,0,9);layout.SetColumnSpan(controls,2);
+   dialog.Controls.Add(layout);
+   if(dialog.ShowDialog(this)==DialogResult.OK){
+    holdLayerMs=(int)duration.Value;
+    for(int i=0;i<HoldButtons.Length;i++)holdActions[i]=((MacroAction)selectors[i].SelectedItem).Id;
+   }
+  }
+ }
+ Control BuildMacroCard(int i){
+  var card=Grid(2,4);card.BackColor=Color.FromArgb(15,14,5);TargetingFrame.Apply(card);card.Margin=new Padding(4,0,4,0);card.Padding=new Padding(4);
+  card.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,94));
+  card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+  Rows(card,22,26,26,26);
+  card.Controls.Add(LabelText("RIGHT / SLOT "+(i+1),11,Cyan),0,0);card.SetColumnSpan(card.GetControlFromPosition(0,0),2);
+  card.Controls.Add(LabelText("HUD label",9,Ink),0,1);
+  macroLabels[i]=new TextBox{Dock=DockStyle.Fill,BackColor=Night,ForeColor=Ink,MaxLength=32};
+  card.Controls.Add(macroLabels[i],1,1);
+  card.Controls.Add(LabelText("Action",9,Ink),0,2);
+  var action=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  foreach(var choice in AvailableActions)action.Items.Add(choice);
+  macroActions[i]=action;card.Controls.Add(action,1,2);
+  card.Controls.Add(LabelText("Subsystem",9,Ink),0,3);
+  var argument=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  argument.Items.AddRange(SubsystemAliases);
+  macroArguments[i]=argument;card.Controls.Add(argument,1,3);
+  int slotIndex=i;action.SelectedIndexChanged+=delegate{UpdateArgumentState(slotIndex);};
+  return card;
+ }
+ void UpdateArgumentState(int i){
+  var selected=macroActions[i].SelectedItem as MacroAction;
+  macroArguments[i].Enabled=selected!=null&&selected.Id=="target_enemy_subsystem";
+  if(macroArguments[i].Enabled&&macroArguments[i].SelectedIndex<0)macroArguments[i].SelectedIndex=0;
+  if(!macroArguments[i].Enabled)macroArguments[i].SelectedIndex=-1;
+ }
+ void SetMacro(int i,MacroSpec spec){
+  macroLabels[i].Text=spec.Label;
+  for(int n=0;n<AvailableActions.Length;n++)if(AvailableActions[n].Id==spec.Action){macroActions[i].SelectedIndex=n;break;}
+  int arg=Array.IndexOf(SubsystemAliases,spec.Argument);
+  macroArguments[i].SelectedIndex=arg<0?0:arg;
+  UpdateArgumentState(i);
+ }
+ void RefreshWheelModFolder(){
+  string candidate=Path.Combine(root.Text.Trim(),"GamepadMods",WheelFolderName);
+  wheelModFolder=Directory.Exists(candidate)?candidate:"";
+  if(macroStatus!=null){
+   macroStatus.Text=wheelModFolder.Length>0?"WHEEL MOD  "+wheelModFolder:"Wheel mod not found. Install it or choose its folder.";
+   if(wheelModFolder.Length>0)LoadMacroConfig();
+  }
+ }
+ void BrowseWheelMod(){
+  using(var d=new FolderBrowserDialog()){
+   d.Description="Select the FotG_Gamepad_Wheel mod folder";
+   if(Directory.Exists(wheelModFolder))d.SelectedPath=wheelModFolder;
+   if(d.ShowDialog(this)!=DialogResult.OK)return;
+   wheelModFolder=d.SelectedPath;
+   macroStatus.Text="WHEEL MOD  "+wheelModFolder;
+   LoadMacroConfig();
+  }
+ }
+ string MacroConfigPath(){
+  if(String.IsNullOrWhiteSpace(wheelModFolder))throw new Exception("Choose the installed FotG_Gamepad_Wheel mod folder first.");
+  if(!String.Equals(Path.GetFileName(Path.GetFullPath(wheelModFolder).TrimEnd(Path.DirectorySeparatorChar)),WheelFolderName,StringComparison.OrdinalIgnoreCase))
+   throw new Exception("Select the FotG_Gamepad_Wheel folder, not the game or Lua subfolder.");
+  string lua=Path.Combine(wheelModFolder,"data","tables","lua");
+  if(!Directory.Exists(lua))throw new Exception("The wheel mod's data/tables/lua folder was not found.");
+  if(!File.Exists(Path.Combine(lua,"zzz_fotg_wheel-sct.lua")))throw new Exception("The wheel runtime was not found. Install the wheel mod before saving macros.");
+  return Path.Combine(lua,MacroConfigName);
+ }
+ void LoadMacroConfig(){
+  string path;
+  try{path=MacroConfigPath();}catch(Exception e){macroStatus.Text=e.Message;return;}
+  if(!File.Exists(path)){macroStatus.Text="WHEEL MOD FOUND  /  Default macros ready to save.";return;}
+  string source=File.ReadAllText(path);
+  var matches=Regex.Matches(source,@"\{\s*label\s*=\s*""(?<label>(?:\\.|[^""\\])*)""\s*,\s*action\s*=\s*""(?<action>[a-z_]+)""\s*,\s*argument\s*=\s*""(?<argument>[a-z_]*)""\s*\}");
+  if(matches.Count!=4){macroStatus.Text="Existing macro config has a different format; review it before saving.";return;}
+  for(int i=0;i<4;i++){
+   string action=matches[i].Groups["action"].Value,arg=matches[i].Groups["argument"].Value;
+   if(Array.Find(AvailableActions,a=>a.Id==action)==null||(arg!=""&&Array.IndexOf(SubsystemAliases,arg)<0)){macroStatus.Text="Existing macro config uses unsupported actions; review it before saving.";return;}
+  }
+  for(int i=0;i<4;i++)SetMacro(i,new MacroSpec(UnescapeLua(matches[i].Groups["label"].Value),matches[i].Groups["action"].Value,matches[i].Groups["argument"].Value));
+  var sizeMatch=Regex.Match(source,@"\bfont_size\s*=\s*""(medium|large)""");
+  wheelFontSize.SelectedIndex=sizeMatch.Success&&sizeMatch.Groups[1].Value=="large"?1:0;
+  var boldMatch=Regex.Match(source,@"\bfont_bold\s*=\s*(true|false)\b");
+  wheelFontBold.Checked=!boldMatch.Success||boldMatch.Groups[1].Value=="true";
+  var axesMatch=Regex.Match(source,@"\bflight_axes\s*=\s*""(classic|classic_inverted|official)""");
+  flightAxes.SelectedIndex=axesMatch.Success?(axesMatch.Groups[1].Value=="official"?2:axesMatch.Groups[1].Value=="classic_inverted"?1:0):0;
+  var holdMatch=Regex.Match(source,@"\blook_hold_ms\s*=\s*(\d+)");
+  int holdMs;
+  lookHoldSlider.Value=holdMatch.Success&&Int32.TryParse(holdMatch.Groups[1].Value,out holdMs)?Math.Max(6,Math.Min(24,(int)Math.Round(holdMs/25.0))):10;
+  disableLook.Checked=Regex.IsMatch(source,@"\blook_enabled\s*=\s*false\b");
+  cameraHold.Checked=!Regex.IsMatch(source,@"\bcamera_hold_enabled\s*=\s*false\b");
+  enableHoldLayer.Checked=Regex.IsMatch(source,@"\bhold_enabled\s*=\s*true\b");
+  var holdDuration=Regex.Match(source,@"\bhold_ms\s*=\s*(\d+)");
+  int parsedHold;
+  holdLayerMs=holdDuration.Success&&Int32.TryParse(holdDuration.Groups[1].Value,out parsedHold)?Math.Max(250,Math.Min(1000,parsedHold)):450;
+  var bindings=Regex.Match(source,@"\bhold_bindings\s*=\s*\{(?<body>[^}]*)\}");
+  for(int i=0;i<HoldButtons.Length;i++){
+   var binding=Regex.Match(bindings.Groups["body"].Value,@"\b"+HoldButtons[i]+@"\s*=\s*""(?<id>[a-z_]+)""");
+   string id=binding.Success?binding.Groups["id"].Value:"none";
+   holdActions[i]=Array.Exists(AvailableHoldActions,a=>a.Id==id)?id:"none";
+  }
+  LoadLayouts(source);
+  UpdateLookTiming();
+  macroStatus.Text="WHEEL MOD READY  /  Saved macros loaded.";
+ }
+ static string EscapeLua(string input){return input.Replace("\\","\\\\").Replace("\"","\\\"").Replace("\r","\\r").Replace("\n","\\n");}
+ static string UnescapeLua(string input){return Regex.Replace(input,@"\\([\\""rn])",delegate(Match m){string v=m.Groups[1].Value;return v=="r"?"\r":v=="n"?"\n":v;});}
+ static string RenderMacroConfig(MacroSpec[] specs,string fontSize="medium",bool bold=true,string axes="classic",int lookHoldMs=250,bool lookEnabled=true,bool cameraEnabled=true,bool holdEnabled=false,int holdMs=450,string[] holdBindings=null,int[][] layouts=null){
+  var b=new StringBuilder();
+  b.AppendLine("-- Generated by Flight Control Console. Edit through the Macro Deck tab.");
+  b.AppendLine("FotGWheelConfig = {");
+  b.AppendLine("  flight_axes = \""+(axes=="official"?"official":axes=="classic_inverted"?"classic_inverted":"classic")+"\",");
+  b.AppendLine("  look_hold_ms = "+Math.Max(150,Math.Min(600,lookHoldMs))+ ",");
+  b.AppendLine("  look_enabled = "+(lookEnabled?"true":"false")+",");
+  b.AppendLine("  camera_hold_enabled = "+(cameraEnabled?"true":"false")+",");
+  b.AppendLine("  hold_enabled = "+(holdEnabled?"true":"false")+",");
+  b.AppendLine("  hold_ms = "+Math.Max(250,Math.Min(1000,holdMs)) + ",");
+  b.Append("  hold_bindings = { ");
+  for(int i=0;i<HoldButtons.Length;i++){
+   string id=holdBindings!=null&&i<holdBindings.Length&&Array.Exists(AvailableHoldActions,a=>a.Id==holdBindings[i])?holdBindings[i]:"none";
+   b.Append(HoldButtons[i]+"=\""+id+"\"");if(i<HoldButtons.Length-1)b.Append(", ");
+  }
+  b.AppendLine(" },");
+  b.AppendLine("  font_size = \""+(fontSize=="large"?"large":"medium")+"\",");
+  b.AppendLine("  font_bold = "+(bold?"true":"false")+",");
+  b.AppendLine("  layouts = {");
+  for(int i=0;i<LayoutNames.Length;i++)b.AppendLine(LayoutLine(LayoutNames[i],layouts!=null?layouts[i]:Sequence(LayoutCaptions[i].Length)));
+  b.AppendLine("  },");
+  b.AppendLine("  macros = {");
+  foreach(var m in specs)b.AppendLine("    { label = \""+EscapeLua(m.Label)+"\", action = \""+m.Action+"\", argument = \""+m.Argument+"\" },");
+  b.AppendLine("  }");
+  b.AppendLine("}");
+  return b.ToString();
+ }
+ MacroSpec[] ReadMacroCards(){
+  var result=new MacroSpec[4];
+  for(int i=0;i<4;i++){
+   string label=macroLabels[i].Text.Trim();
+   if(label.Length==0||label.Length>32)throw new Exception("Slot "+(i+1)+": enter a label between 1 and 32 characters.");
+   foreach(char c in label)if(Char.IsControl(c))throw new Exception("Slot "+(i+1)+": the label cannot contain a line break or control character.");
+   var action=macroActions[i].SelectedItem as MacroAction;
+   if(action==null)throw new Exception("Slot "+(i+1)+": choose a supported action.");
+   string arg=action.Id=="target_enemy_subsystem"?(macroArguments[i].SelectedItem as string):"";
+   if(action.Id=="target_enemy_subsystem"&&Array.IndexOf(SubsystemAliases,arg)<0)throw new Exception("Slot "+(i+1)+": choose a subsystem.");
+   result[i]=new MacroSpec(label,action.Id,arg);
+  }
+  return result;
+ }
+ void SaveMacroConfig(){
+  EnsureClosed();
+  string path=MacroConfigPath();
+  string text=RenderMacroConfig(ReadMacroCards(),wheelFontSize.SelectedIndex==1?"large":"medium",wheelFontBold.Checked,flightAxes.SelectedIndex==2?"official":flightAxes.SelectedIndex==1?"classic_inverted":"classic",lookHoldSlider.Value*25,!disableLook.Checked,cameraHold.Checked,enableHoldLayer.Checked,holdLayerMs,holdActions,layoutOrders);
+  if(File.Exists(path)){
+   string folder=Path.Combine(wheelModFolder,"ConfigBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
+   Directory.CreateDirectory(folder);
+   File.Copy(path,Path.Combine(folder,MacroConfigName));
+  }
+  string temp=path+".controller-tmp";
+  File.WriteAllText(temp,text,new UTF8Encoding(false));
+  try{if(File.Exists(path))File.Replace(temp,path,null);else File.Move(temp,path);}
+  finally{if(File.Exists(temp))File.Delete(temp);}
+  macroStatus.Text="WHEEL SAVED  /  Restart the game to load settings.";
+  MessageBox.Show("Wheel layout, macros and options saved. Restart the game to load them.",Text);
+ }
+ void ReserveWheelButtons(){
+  EnsureClosed();
+  string path=PilotPath(),ini=SettingsPath();
+  if(!File.Exists(ini))throw new Exception("The active game settings INI was not found; no pilot bindings changed.");
+  var pilot=Read(path);
+  int changed=ReserveBindingData(pilot);
+  if(changed==0){MessageBox.Show("No native wheel-button joystick bindings were found. No changes made.",Text);return;}
+  string backup=Path.Combine(prefs,"ControllerSetupBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-before-wheel-reserve");
+  Directory.CreateDirectory(backup);
+  File.Copy(path,Path.Combine(backup,Path.GetFileName(path)));
+  File.Copy(ini,Path.Combine(backup,Path.GetFileName(ini)));
+  Atomic(path,json.Serialize(pilot));
+  MessageBox.Show("Reserved "+changed+" native joystick bindings used by the wheel. Pilot backup: "+backup+"\nThe wheel companion uses RT for primary fire. Restart the game before testing.",Text);
+ }
+ static bool WheelOwnsJoystickButton(int input){
+  // View (6) keeps its native targeting action; these other buttons belong to the companion.
+  return (input>=0&&input<=5)||(input>=7&&input<=9)||(input>=128&&input<=131);
+ }
+ static int ReserveBindingData(Dictionary<string,object> pilot){
+  object version;
+  if(!pilot.TryGetValue("version",out version)||Convert.ToInt32(version)!=4)throw new Exception("This tool supports native pilot version 4 only.");
+  var sections=pilot["sections"] as Dictionary<string,object>;
+  var controls=sections==null?null:sections["controls"] as Dictionary<string,object>;
+  object raw;
+  if(controls==null||!controls.TryGetValue("controls",out raw)||raw==null||raw is string||!(raw is IEnumerable))
+   throw new Exception("Pilot controls use an unrecognized format; no bindings changed.");
+  int changed=0;
+  foreach(object item in (IEnumerable)raw){
+   var binding=item as Dictionary<string,object>;
+   if(binding==null)throw new Exception("Pilot controls use an unrecognized entry format; no bindings changed.");
+   object value;
+   if(!binding.TryGetValue("joystick",out value))continue;
+   int input;
+   try{input=Convert.ToInt32(value);}catch{throw new Exception("Pilot joystick binding format is unrecognized; no bindings changed.");}
+   if(WheelOwnsJoystickButton(input)){binding["joystick"]=-1;changed++;}
+  }
+  return changed;
+ }
+ static int ReserveWheelCli(string[] args){
+  try{
+   int at=Array.IndexOf(args,"--game");
+   if(at<0||at+1>=args.Length)throw new Exception("Usage: ControllerSetup.exe --reserve-wheel --game <game-root>");
+   string game=Path.GetFullPath(args[at+1]);
+   string prefsRoot=Path.Combine(game,"kn_portable","HardLightProductions","FreeSpaceOpen");
+   string players=Path.Combine(prefsRoot,"data","players");
+   string ini=SettingsPath(prefsRoot);
+   if(!Directory.Exists(players)||!File.Exists(ini))throw new Exception("Native portable pilot folder or active game settings INI was not found.");
+   if(System.Diagnostics.Process.GetProcesses().Length>0&&
+      Array.Exists(System.Diagnostics.Process.GetProcesses(),p=>p.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))
+    throw new Exception("Close FreeSpace Open before reserving controls.");
+   var serializer=new System.Web.Script.Serialization.JavaScriptSerializer{MaxJsonLength=16777216};
+   var changes=new Dictionary<string,string>();
+   foreach(string file in Directory.GetFiles(players,"*.json")){
+    var pilot=serializer.Deserialize<Dictionary<string,object>>(File.ReadAllText(file));
+    object version;
+    if(!pilot.TryGetValue("version",out version)||Convert.ToInt32(version)!=4)continue;
+    if(ReserveBindingData(pilot)>0)changes[file]=serializer.Serialize(pilot);
+   }
+   if(changes.Count==0)return 0;
+   string backup=Path.Combine(prefsRoot,"ControllerSetupBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-before-wheel-reserve-cli");
+   Directory.CreateDirectory(backup);
+   foreach(string file in changes.Keys)File.Copy(file,Path.Combine(backup,Path.GetFileName(file)));
+   File.Copy(ini,Path.Combine(backup,Path.GetFileName(ini)));
+   try{
+    foreach(var entry in changes)Atomic(entry.Key,entry.Value);
+   }catch{
+    foreach(string file in changes.Keys)File.Copy(Path.Combine(backup,Path.GetFileName(file)),file,true);
+    throw;
+   }
+   File.WriteAllText(Path.Combine(backup,"wheel-reserve-result.txt"),"Reserved companion-owned joystick bindings in "+changes.Count+" native v4 pilot(s).\r\n");
+   return 0;
+  }catch(Exception e){Console.Error.WriteLine(e.Message);return 1;}
+ }
+ static bool WheelSelfTest(){
+  var binding=new Dictionary<string,object>{{"key",200},{"joystick",128},{"mouse",-1}};
+  var bindingA=new Dictionary<string,object>{{"key",-1},{"joystick",0},{"mouse",-1}};
+  var bindingB=new Dictionary<string,object>{{"key",57},{"joystick",1},{"mouse",-1}};
+  var bindingX=new Dictionary<string,object>{{"key",34},{"joystick",2},{"mouse",-1}};
+  var bindingL3=new Dictionary<string,object>{{"key",50},{"joystick",8},{"mouse",-1}};
+  var bindingR3=new Dictionary<string,object>{{"key",51},{"joystick",9},{"mouse",-1}};
+  var bindingY=new Dictionary<string,object>{{"key",52},{"joystick",3},{"mouse",-1}};
+  var bindingLB=new Dictionary<string,object>{{"key",53},{"joystick",4},{"mouse",-1}};
+  var bindingRB=new Dictionary<string,object>{{"key",54},{"joystick",5},{"mouse",-1}};
+  var bindingStart=new Dictionary<string,object>{{"key",55},{"joystick",7},{"mouse",-1}};
+  var bindingView=new Dictionary<string,object>{{"key",56},{"joystick",6},{"mouse",-1}};
+  var other=new Dictionary<string,object>{{"key",12},{"joystick",10},{"mouse",-1}};
+  var controls=new Dictionary<string,object>{{"controls",new object[]{binding,bindingA,bindingB,bindingX,bindingL3,bindingR3,bindingY,bindingLB,bindingRB,bindingStart,bindingView,other}}};
+  var sections=new Dictionary<string,object>{{"controls",controls}};
+  var pilot=new Dictionary<string,object>{{"version",4},{"sections",sections}};
+  int changed=ReserveBindingData(pilot);
+  return changed==10&&Convert.ToInt32(binding["joystick"])==-1&&Convert.ToInt32(bindingA["joystick"])==-1&&Convert.ToInt32(bindingB["joystick"])==-1&&Convert.ToInt32(bindingX["joystick"])==-1&&Convert.ToInt32(bindingL3["joystick"])==-1&&Convert.ToInt32(bindingR3["joystick"])==-1&&Convert.ToInt32(bindingY["joystick"])==-1&&Convert.ToInt32(bindingLB["joystick"])==-1&&Convert.ToInt32(bindingRB["joystick"])==-1&&Convert.ToInt32(bindingStart["joystick"])==-1&&Convert.ToInt32(bindingView["joystick"])==6&&Convert.ToInt32(other["joystick"])==10&&
+   RenderMacroConfig(new MacroSpec[]{new MacroSpec("A \"quote\"","shields_max","")}).Contains("A \\\"quote\\\"")&&
+   RenderMacroConfig(DefaultMacros,"large",false).Contains("font_size = \"large\"")&&
+   RenderMacroConfig(DefaultMacros,"large",false).Contains("font_bold = false")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"official").Contains("flight_axes = \"official\"")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"classic_inverted").Contains("flight_axes = \"classic_inverted\"")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"classic",375,false).Contains("look_hold_ms = 375")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"classic",375,false).Contains("look_enabled = false")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("camera_hold_enabled = false")&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("A=\"shields_max\"")&&
+   LayoutSelfTest();
+ }
+}
