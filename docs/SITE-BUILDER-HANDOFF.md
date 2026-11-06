@@ -42,6 +42,7 @@ The game and engine are separate downloads and are not in either archive.
 - Link the matching source commit or repository when it has been published.
   Do not show the source ZIP as the primary download.
 
-Flight Control 1.0.0 runs on multiple machines but has not been tested in every
-campaign and mission, or in multiplayer. Keep that note on the page, with
-dev@manictrashpanda.dev for questions and suggestions.
+Flight Control 1.0.0 has been tested extensively in practice missions on a
+Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads. The campaign and
+multiplayer have not been tested. Keep that note on the page, with
+dev@manictrashpanda.dev for bugs, awkward interactions and ideas.

@@ -32,7 +32,8 @@ Record game version, ship, mission, controller, Windows version, and the exact
 steps for any failure. Avoid sharing pilot files or logs that contain personal
 data in public issues.
 
-Version 1.0.0 has passed build and offline checks, and install and play on
-Fate of the Galaxy 1.1.0 and 1.1.1 on multiple machines. It has not been tested
-in every campaign and mission, or in multiplayer. Send results and suggestions
-to dev@manictrashpanda.dev.
+Version 1.0.0 has passed build and offline checks. It has been tested on a
+Lenovo Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads, with Fate
+of the Galaxy 1.1.0 and 1.1.1, focusing extensively on practice missions to
+refine how flying feels. The campaign and multiplayer have not yet been tested.
+Send bugs, awkward interactions and ideas to dev@manictrashpanda.dev.
