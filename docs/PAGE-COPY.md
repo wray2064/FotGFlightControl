@@ -8,7 +8,7 @@ Fly and navigate Fate of the Galaxy with a gamepad. Flight Control adds command
 wheels, menu controls, controller calibration, and configurable layouts to the
 Windows release.
 
-**Download preview** · **View source** · **Read installation guide**
+**Download** · **View source** · **Read installation guide**
 
 Unofficial fan-made controller add-on. Game download sold or distributed
 separately by its creators.

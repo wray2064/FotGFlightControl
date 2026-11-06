@@ -1,4 +1,4 @@
-# Preview test checklist
+# Test checklist
 
 Test with the game closed before changing any settings. Keep the original game
 launcher available for comparison.
@@ -32,6 +32,7 @@ Record game version, ship, mission, controller, Windows version, and the exact
 steps for any failure. Avoid sharing pilot files or logs that contain personal
 data in public issues.
 
-The current preview has passed build and offline checks, plus limited simulated
-input and a practice-flight startup check. A complete real-controller play
-session and broad mission coverage are still outstanding.
+Version 1.0.0 has passed build and offline checks, and install and play on
+Fate of the Galaxy 1.1.0 and 1.1.1 on multiple machines. It has not been tested
+in every campaign and mission, or in multiplayer. Send results and suggestions
+to dev@manictrashpanda.dev.

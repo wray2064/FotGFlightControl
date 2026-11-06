@@ -10,8 +10,9 @@ foreach ($script in @('Install.ps1', 'BuildFlightPreset.ps1', 'tools\ProbeSdl3Gu
 $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSetup.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$name = 'FotG-Gamepad-Wheel-preview-' + $stamp
+# Release version: change it here for each public release.
+$version = '1.0.0'
+$name = 'FotG-Flight-Control-' + $version
 $dist = Join-Path $workspace 'dist'
 $stage = Join-Path $dist $name
 New-Item -ItemType Directory -Path $stage -Force | Out-Null

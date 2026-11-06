@@ -22,7 +22,7 @@ The game and engine are separate downloads and are not in either archive.
 
 ## Files
 
-- `player-download/FotG-Gamepad-Wheel-preview-*.zip`: player archive. Preserve
+- `player-download/FotG-Flight-Control-*.zip`: player archive. Preserve
   its exact name and publish its SHA-256 from `SHA256SUMS.txt` in this handoff.
 - `source-upload/FotG-Gamepad-Wheel-source-*.zip`: repository source snapshot.
 - `screenshots/setup-final.png`: actual graphical installer, ready to repair.
@@ -42,5 +42,6 @@ The game and engine are separate downloads and are not in either archive.
 - Link the matching source commit or repository when it has been published.
   Do not show the source ZIP as the primary download.
 
-This is a preview pending the full real-controller mission checklist. Do not
-call it a stable release until that checklist is completed.
+Flight Control 1.0.0 runs on multiple machines but has not been tested in every
+campaign and mission, or in multiplayer. Keep that note on the page, with
+dev@manictrashpanda.dev for questions and suggestions.

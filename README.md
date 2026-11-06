@@ -1,11 +1,13 @@
 # Flight Control for Fate of the Galaxy
 
-**Preview release.** Gamepad command wheels, menu navigation, controller calibration and shareable layouts for the Windows release of Fate of the Galaxy. Internally the add-on is called **FotG Gamepad Wheel**.
+**Version 1.0.0.** Gamepad command wheels, menu navigation, controller calibration and shareable layouts for the Windows release of Fate of the Galaxy. Internally the add-on is called **FotG Gamepad Wheel**.
 
 - **Download the player build:** https://manictrashpanda.dev/games/FotGFlightControl/ (the ZIP with Setup.exe; this repository's automatic source ZIP does not contain the compiled programs)
 - **Help:** https://manictrashpanda.dev/games/FotGFlightControl/help/
 - **Report a problem:** [GitHub issues](https://github.com/wray2064/FotGFlightControl/issues) or dev@manictrashpanda.dev
 
+> Flight Control runs on multiple machines, but it hasn't been tested in every campaign and mission, or in multiplayer. Questions and suggestions: dev@manictrashpanda.dev.
+>
 > Unofficial fan tool. Not affiliated with or endorsed by the Fate of the Galaxy team, the FreeSpace Source Code Project, Lucasfilm or Disney. The game and engine are separate downloads and are not included here.
 
 By **Manic Trash Panda**, coded with ChatGPT. Questions: **dev@manictrashpanda.dev**. See [About.html](About.html) for project and platform attributions.
@@ -28,7 +30,7 @@ The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/s
 4. Use **Play with Wheel** in Setup, or **Play with Gamepad Wheel.exe** in the game folder. This is the gamepad launch entry; the original **Play Fate of the Galaxy.cmd** runs without the wheel. Keep the bridge's tray icon running while playing.
 5. Use **Configure** in Setup, or **Configure Gamepad Wheel.exe** in the game folder, to adjust macros, flight axes, wheel text, sensitivity and deadzone. **Advanced** reorders top-level wheel choices and imports or exports shareable JSON profiles. Choose **Use layout**, then **Save Wheel**; restart the game to load wheel changes. Squad ordering affects only the first communications page, while subsequent game menus retain their native order.
 
-See the [step-by-step installation guide](docs/INSTALL.md) and [preview test checklist](docs/TESTING.md). Advanced users may still run `./Install.ps1 -GameRoot 'C:\path\to\Fate of the Galaxy 1.1.0'` in PowerShell.
+See the [step-by-step installation guide](docs/INSTALL.md) and [test checklist](docs/TESTING.md). Advanced users may still run `./Install.ps1 -GameRoot 'C:\path\to\Fate of the Galaxy 1.1.0'` in PowerShell.
 
 The installer checks the game/engine version, copies only its own `GamepadMods/FotG_Gamepad_Wheel` directory, and creates two launchers. The wheel launcher uses a separate `GamepadMods_settings.ini` profile; installation identifies the connected controller through the game's bundled SDL3 library and selects it in that profile, backing up any prior profile. The Flight Control Console edits this active profile. The installer also backs up each existing native v4 pilot before reserving A, B, X, Y, LB, RB, Start, L3, R3 and D-pad joystick bindings; those inputs are delivered to the wheel instead. RT produces the normal mouse-primary-fire input in flight. Existing keyboard bindings, game scripts, engine, campaigns and saves remain in place. Use `-SkipPilotReservation` to install files without changing pilots, then press **Reserve wheel buttons** in the console for each pilot before testing.
 
@@ -69,6 +71,6 @@ Wheel labels now have near-opaque dark backplates, bright text and a clear amber
 
 The console's **Restore latest backup** restores the selected pilot and matching FotG settings INI from a timestamped copy under `kn_portable/HardLightProductions/FreeSpaceOpen/ControllerSetupBackups`. Restore any pilots whose reserved controls you want back before removing the addon. Delete `GamepadMods/FotG_Gamepad_Wheel` and the two wheel launchers to remove it. The original game's launcher remains available.
 
-## Review status
+## Test status
 
-Source is included. Build and offline checks passed. On a Legion Go 2, testing confirmed that the repaired Classic direct preset restores right-stick yaw/pitch and left-stick roll/throttle in the practice mission. The prior failure was traced to a stale SDL2 joystick GUID in the wheel profile and a raw SDL3 joystick axis mapping applied to FSO's canonical SDL3 gamepad axes. The installer now detects the connected controller through the bundled SDL3 library. Classic inverted pitch is generated and selectable, but has not yet had a physical flight test. Issuing an actual squad order, all four panels, macro effects, broader mission compatibility, and multiplayer behavior still need review. Some mission-specific screens may still require stick pointer control. This remains a preview until those checks are complete. Fate of the Galaxy 1.1.1 is also supported. It uses the same packages, launch flags and FSO 26.0.1 SDL3 engine as 1.1.0, the Classic preset builder accepts its control defaults unchanged, and install and in-game play on 1.1.1 have been confirmed on a real install.
+Source is included. Build and offline checks passed. On a Legion Go 2, testing confirmed that the repaired Classic direct preset restores right-stick yaw/pitch and left-stick roll/throttle in the practice mission. The prior failure was traced to a stale SDL2 joystick GUID in the wheel profile and a raw SDL3 joystick axis mapping applied to FSO's canonical SDL3 gamepad axes. The installer now detects the connected controller through the bundled SDL3 library. Classic inverted pitch is generated and selectable, but has not yet had a physical flight test. Issuing an actual squad order, all four panels, macro effects, broader mission compatibility, and multiplayer behavior still need review. Some mission-specific screens may still require stick pointer control. Fate of the Galaxy 1.1.1 is also supported. It uses the same packages, launch flags and FSO 26.0.1 SDL3 engine as 1.1.0, the Classic preset builder accepts its control defaults unchanged, and install and in-game play on 1.1.1 have been confirmed. Version 1.0.0 runs on multiple machines. It has not been tested in every campaign and mission, or in multiplayer; reports from those are welcome at dev@manictrashpanda.dev.

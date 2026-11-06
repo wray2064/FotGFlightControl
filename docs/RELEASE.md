@@ -19,8 +19,8 @@ as a release asset, along with its checksum. Put the same ZIP on
 there. Do not use the repository's automatic source ZIP as the player download:
 it does not contain the compiled Setup, bridge or console.
 
-This is a preview. Complete the real-controller checklist in TESTING.md before
-marking a release stable. Do not commit game files, pilot data, backups, logs,
+Run the real-controller checklist in TESTING.md before each release and say
+which campaigns and missions it covered. Do not commit game files, pilot data, backups, logs,
 downloaded engine binaries or experimental audio files.
 
 The player ZIP has graphical Setup and two game-folder EXE launchers. The
