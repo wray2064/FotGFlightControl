@@ -1,18 +1,41 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$GameRoot,
-    [switch]$SkipPilotReservation
+    [switch]$SkipPilotReservation,
+    # Install for this game release instead of the newest supported one found.
+    [string]$GameVersion,
+    # Allow a release this build does not list. Compatibility cannot be guaranteed;
+    # the flight preset builder still refuses control defaults it does not recognise.
+    [switch]$OverrideVersionCheck
 )
 
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath($GameRoot).TrimEnd('\')
-# Supported game releases, newest first; keep in step with setup\Setup.cs and bridge\WheelBridge.cs.
-$supportedVersions = @('1.1.1', '1.1.0')
-$gameVersion = $supportedVersions | Where-Object {
-    Test-Path -LiteralPath (Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$_\mod.json")
-} | Select-Object -First 1
-if (-not $gameVersion) {
-    throw "Select a complete Fate of the Galaxy $($supportedVersions[-1..0] -join ' or ') Windows installation (the folder containing kn_portable)."
+# Supported game releases, newest first; keep in step with setup\Setup.cs, BuildFlightPreset.ps1 and bridge\WheelBridge.cs.
+$supportedVersions = @('1.1.2', '1.1.1', '1.1.0')
+$supportedText = $supportedVersions[($supportedVersions.Count - 1)..0] -join ', '
+$versionOverridden = $false
+if ($GameVersion) {
+    if ($supportedVersions -notcontains $GameVersion) {
+        if (-not $OverrideVersionCheck) {
+            throw "Fate of the Galaxy $GameVersion is not supported by this build (supported: $supportedText). Add -OverrideVersionCheck to install anyway; compatibility cannot be guaranteed."
+        }
+        $versionOverridden = $true
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$GameVersion\mod.json"))) {
+        throw "Fate of the Galaxy $GameVersion was not found in this game folder."
+    }
+} else {
+    $GameVersion = $supportedVersions | Where-Object {
+        Test-Path -LiteralPath (Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$_\mod.json")
+    } | Select-Object -First 1
+}
+if (-not $GameVersion) {
+    throw "Select a complete Fate of the Galaxy $supportedText Windows installation (the folder containing kn_portable)."
+}
+$gameVersion = $GameVersion
+if ($versionOverridden) {
+    Write-Warning "VERSION CHECK OVERRIDDEN: Fate of the Galaxy $gameVersion is not on this build's supported list ($supportedText). Compatibility cannot be guaranteed until Flight Control is updated for this version."
 }
 $manifest = Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$gameVersion\mod.json"
 $engine = Join-Path $root 'kn_portable\Library\bin\FSO_2601SDL3-1.0.0\windows-x64\fs2_open_26_0_1_sdl3_x64_SSE2.exe'
@@ -28,6 +51,17 @@ if (Get-Process fs2_open* -ErrorAction SilentlyContinue) {
 }
 if (Get-Process ControllerSetup,WheelBridge -ErrorAction SilentlyContinue) {
     throw 'Close the Gamepad Wheel settings app and controller bridge before installing or repairing.'
+}
+# Build the flight presets once into a temporary file before anything is changed, so control
+# defaults the builder does not recognise (likelier under a version override) stop the install
+# with the game and any earlier add-on untouched.
+$presetDryRun = Join-Path ([IO.Path]::GetTempPath()) ('FotGWheelPreset-' + [guid]::NewGuid().ToString('N') + '\Controlconfigdefaults.tbl')
+try {
+    & (Join-Path $PSScriptRoot 'BuildFlightPreset.ps1') -GameRoot $root -GameVersion $gameVersion -Destination $presetDryRun | Out-Null
+} catch {
+    throw "The control defaults of Fate of the Galaxy $gameVersion are not in a layout Flight Control recognises, so nothing was changed. Wait for a Flight Control update for this version. Details: $($_.Exception.Message)"
+} finally {
+    Remove-Item -LiteralPath (Split-Path -Parent $presetDryRun) -Recurse -Force -ErrorAction SilentlyContinue
 }
 if (-not $SkipPilotReservation) {
     $prefsData = Join-Path $root 'kn_portable\HardLightProductions\FreeSpaceOpen\data'
@@ -144,6 +178,14 @@ if ($null -ne $savedConfig) {
 $presetBuilder = Join-Path $PSScriptRoot 'BuildFlightPreset.ps1'
 if (-not (Test-Path -LiteralPath $presetBuilder)) { throw 'The flight preset builder is missing from the package.' }
 & $presetBuilder -GameRoot $root -GameVersion $gameVersion -Destination (Join-Path $destination 'data\tables\Controlconfigdefaults.tbl')
+# The launcher normally picks the newest supported release. An override records the
+# chosen release so the launcher uses it too; a normal install clears that record.
+$overrideRecord = Join-Path $destination 'version-override.txt'
+if ($versionOverridden) {
+    [IO.File]::WriteAllText($overrideRecord, $gameVersion, [Text.UTF8Encoding]::new($false))
+} elseif (Test-Path -LiteralPath $overrideRecord) {
+    Remove-Item -LiteralPath $overrideRecord -Force
+}
 if ($null -ne $savedConfig) {
     $configText = [IO.File]::ReadAllText($existingConfig)
     if ($configText -notmatch '\bflight_axes\s*=') {

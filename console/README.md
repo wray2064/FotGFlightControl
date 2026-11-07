@@ -4,7 +4,7 @@ By **Manic Trash Panda**, coded with ChatGPT. Questions: **dev@manictrashpanda.d
 
 The original console code and documentation are released under the [MIT License](LICENSE). The original emblem may be used only with this tool under the [artwork terms](ARTWORK-LICENSE.md).
 
-Windows x64 setup app for Fate of the Galaxy 1.1.0 or 1.1.1 and the separate FotG Gamepad Wheel mod. Extract the entire folder and run `ControllerSetup.exe`. Requires .NET Framework 4.x. The game and wheel mod must be installed separately.
+Windows x64 setup app for Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2 and the separate FotG Gamepad Wheel mod. Extract the entire folder and run `ControllerSetup.exe`. Requires .NET Framework 4.x. The game and wheel mod must be installed separately.
 
 The targeting computer themed console has two pages:
 

@@ -17,7 +17,13 @@ internal sealed class WheelSetup : Form {
     readonly Button install = new Button();
     readonly Button play = new Button();
     readonly Button configure = new Button();
+    readonly CheckBox overrideCheck = new CheckBox();
+    TableLayoutPanel status;
     string validatedRoot;
+    string checkedVersion;      // the release Install will target
+    bool usingOverride;         // that release is not on SupportedVersions
+    bool suppressOverrideEvent;
+    string overrideRoot;        // the folder the override was confirmed for
 
     WheelSetup() {
         Text = "FotG Gamepad Wheel Setup";
@@ -67,7 +73,22 @@ internal sealed class WheelSetup : Form {
         verdict.ForeColor = Cyan;
         verdict.TextAlign = ContentAlignment.MiddleLeft;
         verdict.Padding = new Padding(12, 0, 12, 0);
-        page.Controls.Add(verdict, 0, 3);
+        // Shown only when the installed release is not on the supported list.
+        overrideCheck.Text = "OVERRIDE VERSION CHECK";
+        overrideCheck.Dock = DockStyle.Fill;
+        overrideCheck.BackColor = PanelColor;
+        overrideCheck.ForeColor = Ink;
+        overrideCheck.FlatStyle = FlatStyle.Flat;
+        overrideCheck.Padding = new Padding(10, 0, 6, 0);
+        overrideCheck.Cursor = Cursors.Hand;
+        overrideCheck.Visible = false;
+        overrideCheck.CheckedChanged += delegate { OverrideChanged(); };
+        status = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0) };
+        status.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        status.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0));
+        status.Controls.Add(verdict, 0, 0);
+        status.Controls.Add(overrideCheck, 1, 0);
+        page.Controls.Add(status, 0, 3);
 
         var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
         for (int i = 0; i < 3; i++) actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333f));
@@ -130,7 +151,41 @@ internal sealed class WheelSetup : Form {
     // Game releases this build supports, newest first. Each installs to kn_portable\Library\FotG_R\FotG_R-<version>
     // and runs on the same FSO 26.0.1 SDL3 engine. Keep this list in step with Install.ps1, BuildFlightPreset.ps1
     // and WheelBridge.cs, and add a release only after BuildFlightPreset.ps1 accepts its control defaults.
-    static readonly string[] SupportedVersions = { "1.1.1", "1.1.0" };
+    static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
+    static string SupportedText() { return String.Join(", ", SupportedVersions.Reverse()); }
+    // The newest installed release with a manifest, supported or not, for the version override.
+    static string NewestInstalledVersion(string root) {
+        Version best = null; string bestText = null;
+        foreach (string v in InstalledVersions(root)) {
+            Version parsed;
+            if (!Version.TryParse(v, out parsed) || !File.Exists(GameManifest(root, v))) continue;
+            if (best == null || parsed > best) { best = parsed; bestText = v; }
+        }
+        return bestText;
+    }
+    // The checkbox column only takes space while the checkbox is offered.
+    void ShowOverride(bool visible) {
+        overrideCheck.Visible = visible;
+        if (status != null) status.ColumnStyles[1].Width = visible ? 250 : 0;
+    }
+    static string FullPathOrNull(string path) { try { return Path.GetFullPath(path); } catch { return null; } }
+    void SetOverride(bool value) { suppressOverrideEvent = true; overrideCheck.Checked = value; suppressOverrideEvent = false; }
+    void OverrideChanged() {
+        if (suppressOverrideEvent) return;
+        if (overrideCheck.Checked) {
+            string root = gamePath.Text.Trim().Trim('"');
+            string newest = NewestInstalledVersion(root);
+            var answer = MessageBox.Show(this,
+                "Fate of the Galaxy " + newest + " is not one of the versions this Flight Control build supports (" + SupportedText() + ").\r\n\r\n" +
+                "Overriding the version check installs Flight Control for " + newest + " anyway. Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated to support this version.\r\n\r\n" +
+                "Setup still checks the game's control defaults and stops if they changed in a way it doesn't recognise, and your pilot is backed up first.\r\n\r\n" +
+                "Override the version check?",
+                "Override version check", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+            if (answer != DialogResult.Yes) { SetOverride(false); return; }
+            overrideRoot = FullPathOrNull(root);
+        }
+        Check();
+    }
     static string GameLibrary(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R"); }
     static string GameManifest(string root, string version) { return Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json"); }
     static string GameEngine(string root) { return Path.Combine(root, "kn_portable", "Library", "bin", "FSO_2601SDL3-1.0.0", "windows-x64", "fs2_open_26_0_1_sdl3_x64_SSE2.exe"); }
@@ -162,6 +217,7 @@ internal sealed class WheelSetup : Form {
     } }
     void Check() {
         validatedRoot = null;
+        ShowOverride(false);
         install.Enabled = false;
         play.Enabled = false;
         configure.Enabled = false;
@@ -171,13 +227,26 @@ internal sealed class WheelSetup : Form {
         // Report the actual problem: wrong folder, unsupported release, or missing engine.
         if (!Directory.Exists(Path.Combine(root, "kn_portable"))) { verdict.Text = "GAME FOLDER NOT FOUND"; details.Text = "This folder has no kn_portable folder. Choose the Fate of the Galaxy folder that contains kn_portable."; return; }
         string version = GameVersion(root);
+        usingOverride = false;
+        checkedVersion = null;
         if (version == null) {
-            string[] found = InstalledVersions(root);
-            verdict.Text = "UNSUPPORTED GAME VERSION";
-            details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in kn_portable\\Library\\FotG_R.\r\n")
-                + "This build supports Fate of the Galaxy " + String.Join(" and ", SupportedVersions.Reverse()) + ". Check for a newer Flight Control release.";
-            return;
+            string newest = NewestInstalledVersion(root);
+            ShowOverride(newest != null);
+            if (newest != null && overrideCheck.Checked && String.Equals(overrideRoot, root, StringComparison.OrdinalIgnoreCase)) { version = newest; usingOverride = true; }
+            else {
+                SetOverride(false);
+                string[] found = InstalledVersions(root);
+                verdict.Text = "UNSUPPORTED GAME VERSION";
+                details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in kn_portable\\Library\\FotG_R.\r\n")
+                    + "This build supports Fate of the Galaxy " + SupportedText() + ". Check for a newer Flight Control release at manictrashpanda.dev/games/FotGFlightControl."
+                    + (newest != null ? "\r\n\r\nIf you know " + newest + " works, tick OVERRIDE VERSION CHECK to install anyway. Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version." : "");
+                return;
+            }
+        } else {
+            ShowOverride(false);
+            SetOverride(false);
         }
+        checkedVersion = version;
         if (!File.Exists(GameEngine(root))) { verdict.Text = "SDL3 ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO 26.0.1 SDL3 engine. Launch the game once from Knossos so it installs the engine, then click Check again."; return; }
         try {
             var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<System.Collections.Generic.Dictionary<string, object>>(File.ReadAllText(GameManifest(root, version)));
@@ -204,8 +273,11 @@ internal sealed class WheelSetup : Form {
         bool running = Process.GetProcesses().Any(p => p.ProcessName.StartsWith("fs2_open", StringComparison.OrdinalIgnoreCase));
         if (running) { verdict.Text = "CLOSE THE GAME BEFORE INSTALLING"; details.Text = "The game is running. Close it, then click Check again."; return; }
         install.Enabled = true;
-        verdict.Text = installed ? "READY TO REPAIR OR UPDATE" : "READY TO INSTALL";
-        details.Text = "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + " / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
+        verdict.Text = (installed ? "READY TO REPAIR OR UPDATE" : "READY TO INSTALL") + (usingOverride ? " · OVERRIDDEN" : "");
+        details.Text = (usingOverride
+                ? "WARNING: VERSION CHECK OVERRIDDEN. Fate of the Galaxy " + version + " is not on this build's supported list (" + SupportedText() + "). Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version.\r\n\r\n"
+                : "")
+            + "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + " / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
     }
     void Install() {
         Check();
@@ -213,6 +285,7 @@ internal sealed class WheelSetup : Form {
         string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Install.ps1");
         if (!File.Exists(script)) { MessageBox.Show("Install.ps1 is missing. Extract the complete ZIP before running Setup.exe.", Text); return; }
         string root = validatedRoot;
+        string versionArgs = usingOverride ? " -GameVersion " + checkedVersion + " -OverrideVersionCheck" : "";
         install.Enabled = false;
         verdict.Text = "INSTALLING…";
         details.Text = "Backing up pilot settings and copying the add-on. Please wait.";
@@ -220,7 +293,7 @@ internal sealed class WheelSetup : Form {
             string output; int exitCode;
             try {
                 string powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-                var info = new ProcessStartInfo(powershell, "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\" -GameRoot \"" + root + "\"");
+                var info = new ProcessStartInfo(powershell, "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\" -GameRoot \"" + root + "\"" + versionArgs);
                 info.UseShellExecute = false; info.CreateNoWindow = true; info.RedirectStandardOutput = true; info.RedirectStandardError = true;
                 using (var process = Process.Start(info)) {
                     output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();

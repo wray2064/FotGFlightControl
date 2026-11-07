@@ -3,7 +3,7 @@
 Test with the game closed before changing any settings. Keep the original game
 launcher available for comparison.
 
-1. Start Setup. Verify that it detects a complete 1.1.0 or 1.1.1 install, a native pilot,
+1. Start Setup. Verify that it detects a complete 1.1.0, 1.1.1 or 1.1.2 install, a native pilot,
    and the SDL3 engine. Check the Browse and Check again paths.
 2. Install or repair. Confirm the two game-folder launchers are created and the
    console opens from Setup. Check that a timestamped pilot backup exists.
@@ -34,6 +34,6 @@ data in public issues.
 
 Version 1.0.0 has passed build and offline checks. It has been tested on a
 Lenovo Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads, with Fate
-of the Galaxy 1.1.0 and 1.1.1, focusing extensively on practice missions to
+of the Galaxy 1.1.0, 1.1.1 and 1.1.2, focusing extensively on practice missions to
 refine how flying feels. The campaign and multiplayer have not yet been tested.
 Send bugs, awkward interactions and ideas to dev@manictrashpanda.dev.

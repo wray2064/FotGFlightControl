@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -191,11 +192,10 @@ sealed class Bridge : ApplicationContext {
         string mod = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "data", "tables", "lua", "zzz_fotg_wheel-sct.lua");
         if (!File.Exists(mod)) throw new FileNotFoundException("Command wheel mod was not found", mod);
         string version = GameVersion(root);
-        if (version == null) throw new FileNotFoundException("Fate of the Galaxy 1.1.0 or 1.1.1 was not found in this game folder.");
-        string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version + @"\";
-        string[] packages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
+        if (version == null) throw new FileNotFoundException("No supported Fate of the Galaxy release (" + String.Join(", ", SupportedVersions) + ") was found in this game folder. If the game was updated, run Flight Control Setup again.");
+        string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version;
         StringBuilder paths = new StringBuilder(@"GamepadMods\FotG_Gamepad_Wheel");
-        foreach (string package in packages) paths.Append(',').Append(basePath).Append(package);
+        foreach (string folder in GameDataFolders(root, basePath)) paths.Append(',').Append(folder);
         ProcessStartInfo info = new ProcessStartInfo(exe);
         info.WorkingDirectory = root;
         info.UseShellExecute = false;
@@ -204,11 +204,31 @@ sealed class Bridge : ApplicationContext {
         game = Process.Start(info);
     }
     // Supported game releases, newest first; keep in step with setup\Setup.cs and Install.ps1.
-    static readonly string[] SupportedVersions = { "1.1.1", "1.1.0" };
-    static string GameVersion(string root) {
-        foreach (string version in SupportedVersions)
-            if (File.Exists(Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version, "mod.json"))) return version;
+    static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
+    static readonly string[] GamePackages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
+    static bool HasRelease(string root, string version) {
+        return File.Exists(Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version, "mod.json"));
+    }
+    // An install with the version check overridden records its release in version-override.txt;
+    // otherwise the newest supported release present is used.
+    internal static string GameVersion(string root) {
+        try {
+            string record = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "version-override.txt");
+            if (File.Exists(record)) {
+                string overridden = File.ReadAllText(record).Trim();
+                if (Regex.IsMatch(overridden, @"^\d+(\.\d+){1,3}$") && HasRelease(root, overridden)) return overridden;
+            }
+        } catch (IOException) { }
+        foreach (string version in SupportedVersions) if (HasRelease(root, version)) return version;
         return null;
+    }
+    // Knossos installs a release either as one folder per package (FG_Core, FG_Effects, ...) or merged
+    // into a single data folder at the release root, as 1.1.2 is. Pass whichever is on disk.
+    internal static string[] GameDataFolders(string root, string basePath) {
+        string[] packages = GamePackages.Where(p => Directory.Exists(Path.Combine(root, basePath, p))).Select(p => basePath + @"\" + p).ToArray();
+        if (packages.Length > 0) return packages;
+        if (Directory.Exists(Path.Combine(root, basePath, "data"))) return new[] { basePath };
+        throw new DirectoryNotFoundException("The game data for " + basePath + " was not found. Repair the game in Knossos.");
     }
     static double Axis(short value) {
         double n = Math.Max(-1.0, value / 32767.0);
@@ -462,11 +482,40 @@ static class Program {
             return 0;
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }
     }
+    // Both Knossos layouts and the override record resolve to the right launch folders.
+    static bool SelfTestGameLayouts() {
+        string temp = Path.Combine(Path.GetTempPath(), "FotGWheelSelfTest-" + Guid.NewGuid().ToString("N"));
+        try {
+            string lib = Path.Combine(temp, "kn_portable", "Library", "FotG_R");
+            Directory.CreateDirectory(Path.Combine(lib, "FotG_R-1.1.1", "FG_Core"));
+            Directory.CreateDirectory(Path.Combine(lib, "FotG_R-1.1.1", "FG_UI"));
+            File.WriteAllText(Path.Combine(lib, "FotG_R-1.1.1", "mod.json"), "{}");
+            if (Bridge.GameVersion(temp) != "1.1.1") return false;
+            string[] split = Bridge.GameDataFolders(temp, @"kn_portable\Library\FotG_R\FotG_R-1.1.1");
+            if (split.Length != 2 || !split[0].EndsWith(@"\FG_Core") || !split[1].EndsWith(@"\FG_UI")) return false;
+            Directory.CreateDirectory(Path.Combine(lib, "FotG_R-1.1.2", "data"));
+            File.WriteAllText(Path.Combine(lib, "FotG_R-1.1.2", "mod.json"), "{}");
+            if (Bridge.GameVersion(temp) != "1.1.2") return false;
+            string[] merged = Bridge.GameDataFolders(temp, @"kn_portable\Library\FotG_R\FotG_R-1.1.2");
+            if (merged.Length != 1 || merged[0] != @"kn_portable\Library\FotG_R\FotG_R-1.1.2") return false;
+            Directory.CreateDirectory(Path.Combine(lib, "FotG_R-9.9.9", "data"));
+            File.WriteAllText(Path.Combine(lib, "FotG_R-9.9.9", "mod.json"), "{}");
+            if (Bridge.GameVersion(temp) != "1.1.2") return false;
+            string mod = Path.Combine(temp, "GamepadMods", "FotG_Gamepad_Wheel");
+            Directory.CreateDirectory(mod);
+            File.WriteAllText(Path.Combine(mod, "version-override.txt"), "9.9.9");
+            if (Bridge.GameVersion(temp) != "9.9.9") return false;
+            File.WriteAllText(Path.Combine(mod, "version-override.txt"), "8.8.8");
+            return Bridge.GameVersion(temp) == "1.1.2";
+        } catch { return false; }
+        finally { try { Directory.Delete(temp, true); } catch { } }
+    }
     static int SelfTest() {
         WinInput.DryRun=true;
         if (Marshal.SizeOf(typeof(WinInput.INPUT)) != 40) return 1;
         if (Marshal.SizeOf(typeof(XPad)) != 12 || Marshal.SizeOf(typeof(XState)) != 16) return 2;
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;
+        if (!SelfTestGameLayouts()) return 11;
         if (NormalizeGameRoot("C:\\Games\\Fate of the Galaxy 1.1.0\\\"") != @"C:\Games\Fate of the Galaxy 1.1.0\") return 4;
         if (WinInput.ArrowScan(0x26)!=0x48 || WinInput.ArrowScan(0x25)!=0x4b ||
             WinInput.ArrowScan(0x27)!=0x4d || WinInput.ArrowScan(0x28)!=0x50 ||

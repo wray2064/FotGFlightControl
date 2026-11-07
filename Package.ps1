@@ -11,7 +11,7 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.0.0'
+$version = '1.0.1'
 $name = 'FotG-Flight-Control-' + $version
 $dist = Join-Path $workspace 'dist'
 $stage = Join-Path $dist $name

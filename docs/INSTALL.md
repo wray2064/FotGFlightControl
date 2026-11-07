@@ -1,6 +1,6 @@
 # Install the gamepad wheel
 
-Flight Control works with the Windows portable **Fate of the Galaxy 1.1.0 or 1.1.1** release
+Flight Control works with the Windows portable **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** release
 and its **FSO 26.0.1 SDL3** engine. The game is a separate download. The add-on
 does not include the game or engine.
 
@@ -17,8 +17,15 @@ does not include the game or engine.
 
 Close the game before installing, repairing or changing pilot settings. If Setup
 reports **First run required**, create a pilot in the unmodified game, close it,
-then click **Check again**. If the game is updated to a different version, wait
-for a compatible add-on release.
+then click **Check again**.
+
+If the game is updated to a version this build doesn't list, Setup shows
+**Unsupported game version** and offers **Override version check**. Ticking it
+installs for that version anyway, after a warning: compatibility cannot be
+guaranteed while the override is in use, until Flight Control is updated for
+that version. Setup still checks the game's control defaults first and changes
+nothing if they are in a layout it doesn't recognise. From PowerShell, the same
+is `Install.ps1 -GameRoot <folder> -GameVersion <version> -OverrideVersionCheck`.
 
 **Configure** opens the Flight Control Console. Use its Flight Response page to
 sample center drift and set sensitivity/deadzone. **Apply with backup** saves

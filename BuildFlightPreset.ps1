@@ -5,10 +5,20 @@ param(
     [string]$GameVersion
 )
 $ErrorActionPreference = 'Stop'
-$tablePath = { param($version) Join-Path $GameRoot "kn_portable\Library\FotG_R\FotG_R-$version\FG_Core\data\tables\Controlconfigdefaults.tbl" }
+# Knossos installs a release either as package folders (FotG_R-<version>\FG_Core\data\...)
+# or merged into one data folder (FotG_R-<version>\data\...); accept both.
+$tablePath = {
+    param($version)
+    $release = Join-Path $GameRoot "kn_portable\Library\FotG_R\FotG_R-$version"
+    foreach ($candidate in @('FG_Core\data\tables\Controlconfigdefaults.tbl', 'data\tables\Controlconfigdefaults.tbl')) {
+        $path = Join-Path $release $candidate
+        if (Test-Path -LiteralPath $path) { return $path }
+    }
+    return (Join-Path $release 'FG_Core\data\tables\Controlconfigdefaults.tbl')
+}
 if (-not $GameVersion) {
-    $GameVersion = @('1.1.1', '1.1.0') | Where-Object { Test-Path -LiteralPath (& $tablePath $_) } | Select-Object -First 1
-    if (-not $GameVersion) { throw 'Fate of the Galaxy 1.1.0 or 1.1.1 control defaults were not found.' }
+    $GameVersion = @('1.1.2', '1.1.1', '1.1.0') | Where-Object { Test-Path -LiteralPath (& $tablePath $_) } | Select-Object -First 1
+    if (-not $GameVersion) { throw 'Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2 control defaults were not found.' }
 }
 $stockPath = & $tablePath $GameVersion
 if (-not (Test-Path -LiteralPath $stockPath)) { throw "FotG $GameVersion control defaults were not found." }
@@ -128,6 +138,11 @@ $axes = @'
         $Secondary:
             $Controller: CID_NONE
 '@
+# Drop any axis bindings the game's own default already carries (1.1.2 lists
+# JOY_BANK_AXIS as unbound), so each axis appears once, with the classic binding.
+foreach ($axis in @('JOY_HEADING_AXIS', 'JOY_PITCH_AXIS', 'JOY_BANK_AXIS', 'JOY_REL_THROTTLE_AXIS', 'JOY_ABS_THROTTLE_AXIS')) {
+    $classic = [regex]::Replace($classic, '(?ms)^[ \t]*\$Bind:\s*' + $axis + '\b.*?(?=^\s*\$Bind:|^#End)', '')
+}
 $classic = [regex]::Replace($classic, '(?m)^#End\b', $axes + "`r`n#End", 1)
 $inverted = $classic.Replace('$Name: FotG Classic Native', '$Name: FotG Classic Inverted')
 $pitch = [regex]::Match($inverted, '(?ms)^\s*\$Bind:\s*JOY_PITCH_AXIS\b.*?(?=^\s*\$Bind:|^#End)')
