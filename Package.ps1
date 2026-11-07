@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $workspace = [System.IO.Path]::GetFullPath($PSScriptRoot)
-foreach ($script in @('Install.ps1', 'BuildFlightPreset.ps1', 'tools\ProbeSdl3Guid.ps1')) {
+foreach ($script in @('Install.ps1', 'BuildFlightPreset.ps1', 'tools\ProbeSdl3Guid.ps1', 'tools\ProbeSdl2Guid.ps1')) {
     $path = Join-Path $workspace $script
     $null = [scriptblock]::Create([IO.File]::ReadAllText($path))
 }
@@ -11,7 +11,7 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.1.0'
+$version = '1.1.1'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-' + $version
@@ -28,6 +28,7 @@ Copy-Item -LiteralPath (Join-Path $workspace 'bridge\WheelBridge.exe') -Destinat
 New-Item -ItemType Directory -Path (Join-Path $targetMod 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'bridge\WheelBridge.cs') -Destination (Join-Path $targetMod 'source\WheelBridge.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'bridge\Build.ps1') -Destination (Join-Path $targetMod 'source\BuildBridge.ps1')
+Copy-Item -LiteralPath (Join-Path $workspace 'setup\GameInstall.cs') -Destination (Join-Path $targetMod 'source\GameInstall.cs')
 
 $setup = Join-Path $workspace 'console'
 $targetSetup = Join-Path $targetMod 'ControllerSetup'
@@ -51,6 +52,9 @@ Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.png')
 New-Item -ItemType Directory -Path (Join-Path $stage 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Join-Path $stage 'source\Setup.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
+foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs')) {
+    Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")
+}
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Build.ps1') -Destination (Join-Path $stage 'source\BuildSetup.ps1')
 Copy-Item -LiteralPath (Join-Path $workspace 'docs') -Destination (Join-Path $stage 'docs') -Recurse
 Copy-Item -LiteralPath (Join-Path $workspace 'Help.html') -Destination (Join-Path $targetMod 'Help.html')

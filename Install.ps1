@@ -38,10 +38,21 @@ if ($versionOverridden) {
     Write-Warning "VERSION CHECK OVERRIDDEN: Fate of the Galaxy $gameVersion is not on this build's supported list ($supportedText). Compatibility cannot be guaranteed until Flight Control is updated for this version."
 }
 $manifest = Join-Path $root "kn_portable\Library\FotG_R\FotG_R-$gameVersion\mod.json"
-$engine = Join-Path $root 'kn_portable\Library\bin\FSO_2601SDL3-1.0.0\windows-x64\fs2_open_26_0_1_sdl3_x64_SSE2.exe'
-if (-not (Test-Path -LiteralPath $engine)) {
-    throw "Fate of the Galaxy $gameVersion was found, but not its FSO 26.0.1 SDL3 engine."
+# Ask the bridge which engine it will launch (setup\GameInstall.cs), so the installer and the
+# launcher agree: the FSO 26.0.1-SDL3 package when present, otherwise the FSO engine FotG
+# depends on (an SDL2 build on a clean FotG 1.1.1 or 1.1.2 install).
+$bridgeExe = Join-Path $PSScriptRoot 'FotG_Gamepad_Wheel\WheelBridge.exe'
+if (-not (Test-Path -LiteralPath $bridgeExe)) { throw 'The controller bridge is missing from the package. Extract the complete ZIP.' }
+$engineOut = Join-Path ([IO.Path]::GetTempPath()) ('FotGWheelEngine-' + [guid]::NewGuid().ToString('N') + '.txt')
+try {
+    $query = Start-Process -FilePath $bridgeExe -ArgumentList @('--engine', '--game', ('"' + $root + '"')) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $engineOut
+    $engineLine = if (Test-Path -LiteralPath $engineOut) { [IO.File]::ReadAllText($engineOut).Trim() } else { '' }
+} finally { Remove-Item -LiteralPath $engineOut -Force -ErrorAction SilentlyContinue }
+if ($query.ExitCode -ne 0 -or $engineLine -notmatch '^(?<exe>[^|]+)\|(?<sdl>sdl2|sdl3)\|(?<label>.+)$') {
+    throw "Fate of the Galaxy $gameVersion was found, but not its FSO engine in kn_portable\Library\bin. Launch the game once from Knossos so it installs the engine, then try again."
 }
+$engine = $Matches['exe']; $engineSdl = $Matches['sdl']; $engineLabel = $Matches['label']
+Write-Host "Engine: $engineLabel"
 if ((Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).version -ne $gameVersion) {
     throw "The FotG_R-$gameVersion manifest reports a different version. Repair the game in Knossos first."
 }
@@ -98,17 +109,31 @@ foreach ($name in $launcherNames) {
     }
 }
 
-# FSO names its INI after the first -mod path component. SDL3 may give the
-# same physical pad a different GUID than the old game's SDL2 build, so ask
-# the bundled SDL3.dll instead of copying a stale selection between profiles.
+# FSO names its INI after the first -mod path component. SDL2 and SDL3 give the
+# same physical pad different GUIDs, so ask the engine's own SDL library instead
+# of copying a stale selection between profiles.
 $prefsData = Join-Path $root 'kn_portable\HardLightProductions\FreeSpaceOpen\data'
 $activeSettings = Join-Path $prefsData 'GamepadMods_settings.ini'
 $existingActive = if (Test-Path -LiteralPath $activeSettings) {
     [IO.File]::ReadAllText($activeSettings)
 } else { $null }
-$probe = Join-Path $PSScriptRoot 'tools\ProbeSdl3Guid.ps1'
-if (-not (Test-Path -LiteralPath $probe)) { throw 'SDL3 joystick probe is missing from the package.' }
-$devices = @(& $probe -GameRoot $root)
+# Raw stick numbering, as FSO axis names for left X, left Y, right X, right Y. The SDL3 build
+# reads controllers as gamepads (right stick = Z, RX); an SDL2 build reads raw joystick axes,
+# whose order the SDL2 probe reads from the connected pad. engine-axes.txt keeps the result
+# for the console's Custom axes and for a repair without the pad connected.
+$axisRecord = Join-Path $root 'GamepadMods\FotG_Gamepad_Wheel\engine-axes.txt'
+$recordedAxes = if (Test-Path -LiteralPath $axisRecord) { [IO.File]::ReadAllText($axisRecord).Trim() } else { '' }
+$axisMap = 'X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS'
+if ($engineSdl -eq 'sdl3') {
+    $probe = Join-Path $PSScriptRoot 'tools\ProbeSdl3Guid.ps1'
+    if (-not (Test-Path -LiteralPath $probe)) { throw 'SDL3 joystick probe is missing from the package.' }
+    $devices = @(& $probe -GameRoot $root -DllDir (Split-Path -Parent $engine))
+} else {
+    $probe = Join-Path $PSScriptRoot 'tools\ProbeSdl2Guid.ps1'
+    if (-not (Test-Path -LiteralPath $probe)) { throw 'SDL2 joystick probe is missing from the package.' }
+    $devices = @(& $probe -DllDir (Split-Path -Parent $engine))
+    $axisMap = if ($recordedAxes -match '^sdl2 (?<map>[A-Z_,]+)$') { $Matches['map'] } else { 'X_AXIS,Y_AXIS,RX_AXIS,RY_AXIS' }
+}
 $selection = $null
 if ($devices.Count -gt 0) {
     $chosen = if ($devices.Count -eq 1) { $devices[0] } else {
@@ -116,8 +141,12 @@ if ($devices.Count -gt 0) {
     }
     if (-not $chosen) { throw 'Multiple joysticks were found. Connect only the gamepad you want to use, then install again.' }
     $selection = '{"guid":"' + $chosen.Guid + '","id":' + $chosen.Id + '}'
+    if ($engineSdl -eq 'sdl2') {
+        $axisMap = $chosen.AxisMap
+        if (-not $chosen.Detected) { Write-Warning "The sticks of $($chosen.Name) could not be told apart from its triggers; the common Xbox layout was assumed. Check the axes in flight." }
+    }
 } elseif ($null -eq $existingActive -or $existingActive -notmatch '(?m)^Joystick\s*=') {
-    throw 'Connect the gamepad and run Install / Repair again so SDL3 can identify its flight axes.'
+    throw 'Connect the gamepad and run Install / Repair again so the engine can identify its flight axes.'
 } else {
     Write-Warning 'No connected gamepad was found. Existing joystick selection was kept; run Install / Repair with the gamepad connected before testing flight.'
 }
@@ -140,7 +169,7 @@ if ($selection -and $selection -ne $oldSelection) {
         $existingActive.TrimEnd() + "`r`n`r`n[Input]`r`nJoystick=$selection`r`n"
     }
     [IO.File]::WriteAllText($activeSettings, $updatedActive, [Text.UTF8Encoding]::new($false))
-    Write-Host "Selected SDL3 joystick: $($chosen.Name) ($($chosen.Guid))"
+    Write-Host "Selected $($engineSdl.ToUpperInvariant()) joystick: $($chosen.Name) ($($chosen.Guid))"
 }
 $destination = Join-Path $root 'GamepadMods\FotG_Gamepad_Wheel'
 $parent = Split-Path -Parent $destination
@@ -177,7 +206,9 @@ if ($null -ne $savedConfig) {
 }
 $presetBuilder = Join-Path $PSScriptRoot 'BuildFlightPreset.ps1'
 if (-not (Test-Path -LiteralPath $presetBuilder)) { throw 'The flight preset builder is missing from the package.' }
-& $presetBuilder -GameRoot $root -GameVersion $gameVersion -Destination (Join-Path $destination 'data\tables\Controlconfigdefaults.tbl')
+& $presetBuilder -GameRoot $root -GameVersion $gameVersion -AxisMap $axisMap -Destination (Join-Path $destination 'data\tables\Controlconfigdefaults.tbl')
+[IO.File]::WriteAllText($axisRecord, "$engineSdl $axisMap", [Text.UTF8Encoding]::new($false))
+Write-Host "Stick axes ($engineSdl): $axisMap"
 # The launcher normally picks the newest supported release. An override records the
 # chosen release so the launcher uses it too; a normal install clears that record.
 $overrideRecord = Join-Path $destination 'version-override.txt'

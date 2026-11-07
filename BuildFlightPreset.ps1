@@ -2,7 +2,10 @@ param(
     [Parameter(Mandatory = $true)][string]$GameRoot,
     [Parameter(Mandatory = $true)][string]$Destination,
     # Defaults to the newest supported release installed under GameRoot.
-    [string]$GameVersion
+    [string]$GameVersion,
+    # FSO axis names of left X, left Y, right X, right Y on the engine in use. The SDL3
+    # build reads gamepads (right stick = Z, RX); SDL2 builds read raw joystick axes.
+    [string]$AxisMap = 'X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS'
 )
 $ErrorActionPreference = 'Stop'
 # Knossos installs a release either as package folders (FotG_R-<version>\FG_Core\data\...)
@@ -110,28 +113,28 @@ $axes = @'
         $Primary:
             $Controller: CID_JOY0
             $Flags: AXIS, RELATIVE
-            $Input: Z_AXIS
+            $Input: __RIGHT_X__
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_PITCH_AXIS
         $Primary:
             $Controller: CID_JOY0
             $Flags: AXIS, RELATIVE
-            $Input: RX_AXIS
+            $Input: __RIGHT_Y__
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_BANK_AXIS
         $Primary:
             $Controller: CID_JOY0
             $Flags: AXIS, RELATIVE
-            $Input: X_AXIS
+            $Input: __LEFT_X__
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_REL_THROTTLE_AXIS
         $Primary:
             $Controller: CID_JOY0
             $Flags: AXIS, RELATIVE, INVERTED
-            $Input: Y_AXIS
+            $Input: __LEFT_Y__
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_ABS_THROTTLE_AXIS
@@ -145,6 +148,12 @@ $axes = @'
 foreach ($axis in @('JOY_HEADING_AXIS', 'JOY_PITCH_AXIS', 'JOY_BANK_AXIS', 'JOY_REL_THROTTLE_AXIS', 'JOY_ABS_THROTTLE_AXIS')) {
     $classic = [regex]::Replace($classic, '(?ms)^[ \t]*\$Bind:\s*' + $axis + '\b.*?(?=^\s*\$Bind:|^#End)', '')
 }
+$stick = @($AxisMap -split ',' | ForEach-Object { $_.Trim() })
+$validAxes = @('X_AXIS', 'Y_AXIS', 'Z_AXIS', 'RX_AXIS', 'RY_AXIS', 'RZ_AXIS')
+if ($stick.Count -ne 4 -or @($stick | Where-Object { $validAxes -notcontains $_ }).Count -gt 0 -or @($stick | Select-Object -Unique).Count -ne 4) {
+    throw "AxisMap must name four different FSO axes (left X, left Y, right X, right Y): $AxisMap"
+}
+$axes = $axes.Replace('__LEFT_X__', $stick[0]).Replace('__LEFT_Y__', $stick[1]).Replace('__RIGHT_X__', $stick[2]).Replace('__RIGHT_Y__', $stick[3])
 $classic = [regex]::Replace($classic, '(?m)^#End\b', $axes + "`r`n#End", 1)
 $inverted = $classic.Replace('$Name: FotG Classic Native', '$Name: FotG Classic Inverted')
 $pitch = [regex]::Match($inverted, '(?ms)^\s*\$Bind:\s*JOY_PITCH_AXIS\b.*?(?=^\s*\$Bind:|^#End)')

@@ -1,6 +1,7 @@
-param([Parameter(Mandatory=$true)][string]$GameRoot, [int]$SampleSeconds=0)
+param([Parameter(Mandatory=$true)][string]$GameRoot, [int]$SampleSeconds=0, [string]$DllDir)
 $ErrorActionPreference = 'Stop'
-$dllDir = Join-Path $GameRoot 'kn_portable\Library\bin\FSO_2601SDL3-1.0.0\windows-x64'
+# The engine folder that holds SDL3.dll; defaults to the FSO 26.0.1-SDL3 package.
+$dllDir = if ($DllDir) { $DllDir } else { Join-Path $GameRoot 'kn_portable\Library\bin\FSO_2601SDL3-1.0.0\windows-x64' }
 if (-not (Test-Path -LiteralPath (Join-Path $dllDir 'SDL3.dll'))) { throw 'Bundled SDL3.dll was not found.' }
 if (-not ('SdlProbe' -as [type])) { Add-Type -TypeDefinition @'
 using System;

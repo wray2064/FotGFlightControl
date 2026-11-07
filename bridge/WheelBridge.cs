@@ -187,12 +187,13 @@ sealed class Bridge : ApplicationContext {
         timer.Start();
     }
     void Launch() {
-        string exe = Path.Combine(root, "kn_portable", "Library", "bin", "FSO_2601SDL3-1.0.0", "windows-x64", "fs2_open_26_0_1_sdl3_x64_SSE2.exe");
-        if (!File.Exists(exe)) throw new FileNotFoundException("The Fate of the Galaxy FSO 26.0.1 SDL3 engine was not found", exe);
         string mod = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "data", "tables", "lua", "zzz_fotg_wheel-sct.lua");
         if (!File.Exists(mod)) throw new FileNotFoundException("Command wheel mod was not found", mod);
         string version = GameVersion(root);
         if (version == null) throw new FileNotFoundException("No supported Fate of the Galaxy release (" + String.Join(", ", SupportedVersions) + ") was found in this game folder. If the game was updated, run Flight Control Setup again.");
+        EngineInfo engine = GameInstall.FindEngine(root, version);
+        if (engine == null) throw new FileNotFoundException("The Fate of the Galaxy engine (FSO) was not found in kn_portable\\Library\\bin. Launch the game once from Knossos, then try again.");
+        string exe = engine.Exe;
         string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version;
         StringBuilder paths = new StringBuilder(@"GamepadMods\FotG_Gamepad_Wheel");
         foreach (string folder in GameDataFolders(root, basePath)) paths.Append(',').Append(folder);
@@ -464,6 +465,18 @@ static class Program {
     [STAThread] static int Main(string[] args) {
         try {
             if (args.Length > 0 && args[0] == "--self-test") return SelfTest();
+            // Install.ps1 asks which engine the launcher will start, so both use one rule.
+            // Prints "<exe>|sdl3|<label>" or "<exe>|sdl2|<label>"; exit code 2 when none is found.
+            if (args.Length > 0 && args[0] == "--engine") {
+                int at = Array.IndexOf(args, "--game");
+                if (at < 0 || at + 1 >= args.Length) return 1;
+                string game = NormalizeGameRoot(args[at + 1]).TrimEnd('\\');
+                EngineInfo found = GameInstall.FindEngine(game, Bridge.GameVersion(game));
+                if (found == null) return 2;
+                Console.Out.Write(found.Exe + "|" + (found.Sdl3 ? "sdl3" : "sdl2") + "|" + found.Label);
+                Console.Out.Flush();
+                return 0;
+            }
             string root = null; bool launch = true;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
@@ -516,6 +529,7 @@ static class Program {
         if (Marshal.SizeOf(typeof(XPad)) != 12 || Marshal.SizeOf(typeof(XState)) != 16) return 2;
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;
         if (!SelfTestGameLayouts()) return 11;
+        if (!GameInstall.SelfTest()) return 12;
         if (NormalizeGameRoot("C:\\Games\\Fate of the Galaxy 1.1.0\\\"") != @"C:\Games\Fate of the Galaxy 1.1.0\") return 4;
         if (WinInput.ArrowScan(0x26)!=0x48 || WinInput.ArrowScan(0x25)!=0x4b ||
             WinInput.ArrowScan(0x27)!=0x4d || WinInput.ArrowScan(0x28)!=0x50 ||

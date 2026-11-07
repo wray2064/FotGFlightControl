@@ -75,7 +75,19 @@ partial class ControllerSetup {
  static readonly string[] AxisSources={"left_x","left_y","right_x","right_y","none"};
  static readonly string[] AxisSourceCaptions={"Left stick, left/right","Left stick, up/down","Right stick, left/right","Right stick, up/down","Not used"};
  // FSO's SDL3 gamepad axes: left X/Y, right X/Y (the right stick reads as Z and RX).
- static readonly Dictionary<string,string> FsoAxis=new Dictionary<string,string>{{"left_x","X_AXIS"},{"left_y","Y_AXIS"},{"right_x","Z_AXIS"},{"right_y","RX_AXIS"}};
+ static readonly Dictionary<string,string> Sdl3Axes=new Dictionary<string,string>{{"left_x","X_AXIS"},{"left_y","Y_AXIS"},{"right_x","Z_AXIS"},{"right_y","RX_AXIS"}};
+ // Install.ps1 records the engine's stick numbering in engine-axes.txt as "sdl2 X_AXIS,Y_AXIS,RX_AXIS,RY_AXIS"
+ // (left X, left Y, right X, right Y). An SDL2 engine reads raw joystick axes, so its right stick differs.
+ static Dictionary<string,string> StickAxes(string modFolder){
+  try{
+   string record=Path.Combine(modFolder,"engine-axes.txt");
+   if(File.Exists(record)){
+    var m=Regex.Match(File.ReadAllText(record).Trim(),@"^(sdl2|sdl3) (?<map>[A-Z_]+,[A-Z_]+,[A-Z_]+,[A-Z_]+)$");
+    if(m.Success){var a=m.Groups["map"].Value.Split(',');return new Dictionary<string,string>{{"left_x",a[0]},{"left_y",a[1]},{"right_x",a[2]},{"right_y",a[3]}};}
+   }
+  }catch(IOException){}
+  return Sdl3Axes;
+ }
  static readonly string[] FsoAxisActions={"JOY_HEADING_AXIS","JOY_PITCH_AXIS","JOY_BANK_AXIS","JOY_REL_THROTTLE_AXIS"};
  // Classic direct: right stick yaw/pitch, left stick roll/throttle.
  static readonly string[] DefaultCustomAxes={"right_x","right_y","left_x","left_y"};
@@ -91,7 +103,8 @@ partial class ControllerSetup {
  }
  // One $Bind block per flight axis. "Invert" is relative to the natural direction: for
  // throttle on an up/down axis, pushing up already needs FSO's INVERTED flag.
- static string CustomAxisBinds(string[] axes,bool[] invert){
+ static string CustomAxisBinds(string[] axes,bool[] invert,Dictionary<string,string> stick=null){
+  stick=stick??Sdl3Axes;
   ValidateAxes(axes,invert);
   var b=new StringBuilder();
   for(int i=0;i<4;i++){
@@ -100,7 +113,7 @@ partial class ControllerSetup {
    else{
     bool flag=invert[i]^(AxisFunctions[i]=="throttle"&&axes[i].EndsWith("_y"));
     // FSO treats these four as relative analog items and warns at startup unless RELATIVE is listed.
-    b.Append("            $Controller: CID_JOY0\r\n            $Flags: AXIS").Append(", RELATIVE").Append(flag?", INVERTED":"").Append("\r\n            $Input: ").Append(FsoAxis[axes[i]]).Append("\r\n");
+    b.Append("            $Controller: CID_JOY0\r\n            $Flags: AXIS").Append(", RELATIVE").Append(flag?", INVERTED":"").Append("\r\n            $Input: ").Append(stick[axes[i]]).Append("\r\n");
    }
    b.Append("        $Secondary:\r\n            $Controller: CID_NONE\r\n");
   }
@@ -114,13 +127,13 @@ partial class ControllerSetup {
  }
  // Copies the generated Classic Native preset (its buttons and options), swaps in the
  // custom axis bindings, and replaces any earlier FotG Custom preset in the table.
- static string WithCustomPreset(string table,string[] axes,bool[] invert){
+ static string WithCustomPreset(string table,string[] axes,bool[] invert,Dictionary<string,string> stick=null){
   string classic=PresetSection(table,"FotG Classic Native");
   if(classic==null)throw new Exception("The wheel's control table has no FotG Classic Native preset. Run Install / Repair in Setup first.");
   string custom=Regex.Replace(classic,@"(?m)^\$Name:\s*FotG Classic Native\b[^\r\n]*","$$Name: "+CustomPresetName,RegexOptions.None);
   foreach(string axis in AllAxisActions)
    custom=Regex.Replace(custom,@"(?ms)^[ \t]*\$Bind:\s*"+axis+@"\b.*?(?=^\s*\$Bind:|^#End)","");
-  custom=Regex.Replace(custom,@"(?m)^#End\b",CustomAxisBinds(axes,invert).Replace("$","$$")+"#End");
+  custom=Regex.Replace(custom,@"(?m)^#End\b",CustomAxisBinds(axes,invert,stick).Replace("$","$$")+"#End");
   string existing=PresetSection(table,CustomPresetName);
   if(existing!=null)table=table.Replace(existing,"");
   return table.TrimEnd()+"\r\n\r\n"+custom.TrimEnd()+"\r\n";
@@ -142,7 +155,7 @@ partial class ControllerSetup {
  static void WriteCustomPreset(string modFolder,string[] axes,bool[] invert){
   string path=ControlTablePath(modFolder);
   if(!File.Exists(path))throw new Exception("The wheel's control table was not found. Run Install / Repair in Setup first.");
-  string updated=WithCustomPreset(File.ReadAllText(path),axes,invert);
+  string updated=WithCustomPreset(File.ReadAllText(path),axes,invert,StickAxes(modFolder));
   string folder=Path.Combine(modFolder,"ConfigBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-controls");
   Directory.CreateDirectory(folder);File.Copy(path,Path.Combine(folder,"Controlconfigdefaults.tbl"));
   Atomic(path,updated);
@@ -314,6 +327,10 @@ partial class ControllerSetup {
   if(PresetSection(twice,"FotG Classic Native")!=PresetSection(table,"FotG Classic Native"))return false;
   try{ValidateAxes(new[]{"left_x","left_x","none","none"},new bool[4]);return false;}catch(Exception){}
   // Classic through the custom editor gives the same axis bindings as Classic direct.
+  // On an SDL2 engine the right stick is raw axes 3 and 4 (RX, RY).
+  var sdl2=new Dictionary<string,string>{{"left_x","X_AXIS"},{"left_y","Y_AXIS"},{"right_x","RX_AXIS"},{"right_y","RY_AXIS"}};
+  string onSdl2=CustomAxisBinds(DefaultCustomAxes,new bool[4],sdl2);
+  if(!Regex.IsMatch(onSdl2,@"JOY_HEADING_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE\s+\$Input: RX_AXIS")||!Regex.IsMatch(onSdl2,@"JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE\s+\$Input: RY_AXIS"))return false;
   string classic=CustomAxisBinds(DefaultCustomAxes,new bool[4]);
   if(!classic.Contains("JOY_REL_THROTTLE_AXIS\r\n        $Primary:\r\n            $Controller: CID_JOY0\r\n            $Flags: AXIS, RELATIVE, INVERTED\r\n            $Input: Y_AXIS"))return false;
   var taps=new string[8];ParseTapBindings("  tap_bindings = { A=\"countermeasure\", Y=\"bogus\" },",taps);

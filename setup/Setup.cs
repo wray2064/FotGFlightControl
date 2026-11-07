@@ -213,7 +213,7 @@ internal sealed class WheelSetup : Form {
         return button;
     }
     // Game releases this build supports, newest first. Each installs to kn_portable\Library\FotG_R\FotG_R-<version>
-    // and runs on the same FSO 26.0.1 SDL3 engine. Keep this list in step with Install.ps1, BuildFlightPreset.ps1
+    // and runs on FSO 26.0.1 (GameInstall.cs picks the engine build). Keep this list in step with Install.ps1, BuildFlightPreset.ps1
     // and WheelBridge.cs, and add a release only after BuildFlightPreset.ps1 accepts its control defaults.
     static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
     static string SupportedText() { return String.Join(", ", SupportedVersions.Reverse()); }
@@ -252,13 +252,12 @@ internal sealed class WheelSetup : Form {
     }
     static string GameLibrary(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R"); }
     static string GameManifest(string root, string version) { return Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json"); }
-    static string GameEngine(string root) { return Path.Combine(root, "kn_portable", "Library", "bin", "FSO_2601SDL3-1.0.0", "windows-x64", "fs2_open_26_0_1_sdl3_x64_SSE2.exe"); }
     // The newest supported release present, or null.
     static string GameVersion(string root) {
         foreach (string version in SupportedVersions) if (File.Exists(GameManifest(root, version))) return version;
         return null;
     }
-    static bool LooksLikeGame(string root) { return Directory.Exists(root) && GameVersion(root) != null && File.Exists(GameEngine(root)); }
+    static bool LooksLikeGame(string root) { string v = Directory.Exists(root) ? GameVersion(root) : null; return v != null && GameInstall.FindEngine(root, v) != null; }
     // Every installed FotG_R release folder, to tell the player which version they have.
     static string[] InstalledVersions(string root) {
         try { return Directory.GetDirectories(GameLibrary(root), "FotG_R-*").Select(d => Path.GetFileName(d).Substring("FotG_R-".Length)).OrderBy(v => v).ToArray(); }
@@ -314,7 +313,8 @@ internal sealed class WheelSetup : Form {
             SetOverride(false);
         }
         checkedVersion = version;
-        if (!File.Exists(GameEngine(root))) { verdict.Text = "SDL3 ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO 26.0.1 SDL3 engine. Launch the game once from Knossos so it installs the engine, then click Check again."; return; }
+        EngineInfo engine = GameInstall.FindEngine(root, version);
+        if (engine == null) { verdict.Text = "GAME ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO engine in kn_portable\\Library\\bin. Launch the game once from Knossos (or use Modify > Verify there) so it installs the engine, then click Check again."; return; }
         try {
             var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<System.Collections.Generic.Dictionary<string, object>>(File.ReadAllText(GameManifest(root, version)));
             if (!manifest.ContainsKey("version") || Convert.ToString(manifest["version"]) != version) { verdict.Text = "UNSUPPORTED GAME VERSION"; details.Text = "The FotG_R-" + version + " folder's manifest reports a different version. Repair the game in Knossos, then click Check again."; return; }
@@ -346,7 +346,7 @@ internal sealed class WheelSetup : Form {
                 : usingOverride
                 ? "WARNING: VERSION CHECK OVERRIDDEN. Fate of the Galaxy " + version + " is not on this build's supported list (" + SupportedText() + "). Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version.\r\n\r\n"
                 : "")
-            + "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + " / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
+            + "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + "\r\nEngine: " + engine.Label + "\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
     }
     void Install() {
         Check();
@@ -390,7 +390,7 @@ internal sealed class WheelSetup : Form {
         if (!File.Exists(path)) throw new FileNotFoundException(name + " is missing. Extract the complete ZIP.");
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
     [STAThread] static void Main(string[] args) {
-        if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() ? 0 : 1); }
+        if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() && GameInstall.SelfTest() ? 0 : 1); }
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new WheelSetup());
