@@ -22,7 +22,7 @@ An independent, additive controller mod for **Fate of the Galaxy 1.1.0, 1.1.1 or
 
 ![Setup detects the installed game](docs/screenshots/setup-final.png)
 
-The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/screenshots/macro-deck.jpg), and [Advanced Layouts](docs/screenshots/advanced-layouts.jpg) screenshots show the controller preview and configuration pages.
+The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/screenshots/macro-deck.jpg), [Advanced Layouts](docs/screenshots/advanced-layouts.jpg), [Button actions](docs/screenshots/button-actions.png) and [Custom axes](docs/screenshots/custom-axes.png) screenshots show the controller preview and configuration pages.
 
 ## Install
 
