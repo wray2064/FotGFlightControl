@@ -9,7 +9,7 @@ The game and engine are separate downloads and are not in either archive.
 1. Hero: Flight Control emblem, title **Flight Control for Fate of the Galaxy**,
    one-line promise, Download button, and an **Unofficial fan tool** label.
 2. Requirements and setup: Windows x64, Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2 with its FSO
-   26.0.1 SDL3 engine, a native pilot created on first run, XInput gamepad.
+   26.0.1 engine (SDL2 build, or the SDL3 package), a native pilot created on first run, XInput gamepad.
    Show the five steps in `PAGE-COPY.md`.
 3. Features: flight axes and pitch direction, D-pad command wheels and held
    cockpit look, Menu camera cycle, menu pointer, four macros, visual controller

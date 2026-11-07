@@ -327,7 +327,7 @@ partial class ControllerSetup {
   if(PresetSection(twice,"FotG Classic Native")!=PresetSection(table,"FotG Classic Native"))return false;
   try{ValidateAxes(new[]{"left_x","left_x","none","none"},new bool[4]);return false;}catch(Exception){}
   // Classic through the custom editor gives the same axis bindings as Classic direct.
-  // On an SDL2 engine the right stick is raw axes 3 and 4 (RX, RY).
+  // A recorded stick map other than the SDL3 numbering (here a pad whose right stick is raw axes 3 and 4) is honoured.
   var sdl2=new Dictionary<string,string>{{"left_x","X_AXIS"},{"left_y","Y_AXIS"},{"right_x","RX_AXIS"},{"right_y","RY_AXIS"}};
   string onSdl2=CustomAxisBinds(DefaultCustomAxes,new bool[4],sdl2);
   if(!Regex.IsMatch(onSdl2,@"JOY_HEADING_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE\s+\$Input: RX_AXIS")||!Regex.IsMatch(onSdl2,@"JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE\s+\$Input: RY_AXIS"))return false;

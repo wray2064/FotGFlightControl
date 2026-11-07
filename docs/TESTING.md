@@ -34,6 +34,9 @@ launcher available for comparison.
 9. Custom axes: swap yaw and roll between the sticks, invert one axis, save,
    restart, and confirm each axis in flight. Run Install / Repair and confirm the
    custom axes survive. Check the main menu shows no startup warnings popup.
+11. Clean install: on a FotG 1.1.2 folder with only the standard FSO 26.0.1
+   (SDL2) engine, confirm Setup names it, Install detects the pad and its stick
+   order, and flight, buttons and Custom axes behave as on the SDL3 engine.
 10. Updates: with a test manifest (FLIGHTCONTROL_UPDATE_URL=file:///...), confirm
    Setup offers the update, refuses a wrong SHA-256, and opens the new Setup.
 

@@ -56,9 +56,10 @@ try {
         continue
       }
       $sticks = @(0..($count - 1) | Where-Object { -not $low[$_] })
-      # Two triggers and four stick axes is a gamepad; anything else keeps the common
-      # SDL2 XInput order (left X/Y, left trigger, right X/Y, right trigger).
-      $map = if ($count -ge 6 -and $low.Count -eq 2 -and $sticks.Count -eq 4) { @($sticks | ForEach-Object { $names[$_] }) } else { @('X_AXIS', 'Y_AXIS', 'RX_AXIS', 'RY_AXIS') }
+      # Two triggers and four stick axes is a gamepad; anything else keeps the order FSO 26.0.1's
+      # SDL 2.26.5 reports for an Xbox controller (left X/Y, right X/Y, then the triggers),
+      # measured on an Xbox 360 controller and matching the SDL3 build's numbering.
+      $map = if ($count -ge 6 -and $low.Count -eq 2 -and $sticks.Count -eq 4) { @($sticks | ForEach-Object { $names[$_] }) } else { @('X_AXIS', 'Y_AXIS', 'Z_AXIS', 'RX_AXIS') }
       [pscustomobject]@{ Id = $i; Guid = $text.ToString(); Name = $name; AxisMap = ($map -join ','); Detected = ($low.Count -eq 2 -and $sticks.Count -eq 4) }
     } finally { [Sdl2Probe]::SDL_JoystickClose($joystick) }
   }

@@ -132,7 +132,7 @@ if ($engineSdl -eq 'sdl3') {
     $probe = Join-Path $PSScriptRoot 'tools\ProbeSdl2Guid.ps1'
     if (-not (Test-Path -LiteralPath $probe)) { throw 'SDL2 joystick probe is missing from the package.' }
     $devices = @(& $probe -DllDir (Split-Path -Parent $engine))
-    $axisMap = if ($recordedAxes -match '^sdl2 (?<map>[A-Z_,]+)$') { $Matches['map'] } else { 'X_AXIS,Y_AXIS,RX_AXIS,RY_AXIS' }
+    $axisMap = if ($recordedAxes -match '^sdl2 (?<map>[A-Z_,]+)$') { $Matches['map'] } else { 'X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS' }
 }
 $selection = $null
 if ($devices.Count -gt 0) {

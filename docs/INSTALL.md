@@ -1,7 +1,8 @@
 # Install the gamepad wheel
 
 Flight Control works with the Windows portable **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** release
-and its **FSO 26.0.1 SDL3** engine. The game is a separate download. The add-on
+and its **FSO 26.0.1** engine (the standard SDL2 build, or the SDL3 package on
+installs that still have it). The game is a separate download. The add-on
 does not include the game or engine.
 
 1. Install Fate of the Galaxy. Launch it normally, create a pilot, and exit.
@@ -10,8 +11,8 @@ does not include the game or engine.
 3. Double-click **Setup.exe**. It finds common game locations; use **Browse game**
    if it does not find yours. Select the folder containing `kn_portable`.
 4. Click **Install / Repair**. Setup backs up existing pilot controls and any
-   earlier gamepad wheel files, detects your controller through the bundled
-   SDL3 library and selects it in the wheel launch profile, then creates **Play with Gamepad Wheel.exe** and
+   earlier gamepad wheel files, detects your controller through the engine's own
+   SDL library (SDL2 or SDL3) and selects it in the wheel launch profile, then creates **Play with Gamepad Wheel.exe** and
    **Configure Gamepad Wheel.exe** in the game folder.
 5. Click **Play with Wheel** in Setup, or use the new launcher in the game folder.
 
