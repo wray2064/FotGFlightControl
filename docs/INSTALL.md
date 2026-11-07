@@ -34,8 +34,10 @@ four macros, pitch direction, and wheel text. **Classic direct** keeps the teste
 right-stick pitch; **Classic inverted pitch** reverses its vertical direction.
 The **D-pad hold to look** slider changes when a held direction starts its view;
 **Disable look around** makes the D-pad open wheels without view controls.
-**Hold Menu cycles camera** is on by default. **Custom holds** is off by default;
-turn it on to reveal **Edit...** for A, B, X, LB, RB, L3 and R3 hold actions.
+**Hold Menu cycles camera** is on by default. **Buttons...** sets a quick-press action for A, B, X, Y, LB, RB, L3 and R3
+and, with **Use long presses** on, a long-press action for all but Y.
+**Custom axes** under Flight Axes, then **Edit axes...**, picks the stick axis
+for yaw, pitch, roll and throttle.
 **Save Wheel** saves those settings. Restart the game
 after saving wheel settings.
 

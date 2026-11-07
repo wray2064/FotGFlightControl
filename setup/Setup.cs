@@ -24,6 +24,10 @@ internal sealed class WheelSetup : Form {
     bool usingOverride;         // that release is not on SupportedVersions
     bool suppressOverrideEvent;
     string overrideRoot;        // the folder the override was confirmed for
+    bool verifiedOnline;        // the release is not built in, but update.json lists it as checked
+    readonly Button updateButton = new Button();
+    readonly CheckBox checkUpdates = new CheckBox();
+    UpdateInfo pendingUpdate;
 
     WheelSetup() {
         Text = "FotG Gamepad Wheel Setup";
@@ -55,7 +59,27 @@ internal sealed class WheelSetup : Form {
         brand.Controls.Add(emblem, 0, 0);
         brand.Controls.Add(TextLabel("FLIGHT CONTROL  /  GAMEPAD WHEEL", 18, Cyan), 1, 0);
         page.Controls.Add(brand, 0, 0);
-        page.Controls.Add(TextLabel("By Manic Trash Panda · Coded with ChatGPT · Independent add-on", 10, Ink), 0, 1);
+        // Byline, with the update button (shown when a newer release exists) and the update setting.
+        var byline = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = new Padding(0) };
+        byline.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        byline.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        byline.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200));
+        byline.Controls.Add(TextLabel("By Manic Trash Panda · Coded with ChatGPT · v" + BuildInfo.Version, 9, Ink), 0, 0);
+        StyleButton(updateButton, true);
+        updateButton.Font = new Font("Consolas", 9);
+        updateButton.Visible = false;
+        updateButton.Click += delegate { InstallUpdate(); };
+        byline.Controls.Add(updateButton, 1, 0);
+        checkUpdates.Text = "Check for updates";
+        checkUpdates.Checked = Updater.CheckEnabled;
+        checkUpdates.Dock = DockStyle.Fill;
+        checkUpdates.ForeColor = Ink;
+        checkUpdates.FlatStyle = FlatStyle.Flat;
+        checkUpdates.Padding = new Padding(14, 0, 0, 0);
+        checkUpdates.Font = new Font("Consolas", 9);
+        checkUpdates.CheckedChanged += delegate { Updater.CheckEnabled = checkUpdates.Checked; if (checkUpdates.Checked) StartUpdateCheck(); else { updateButton.Visible = false; } };
+        byline.Controls.Add(checkUpdates, 2, 0);
+        page.Controls.Add(byline, 0, 1);
 
         var picker = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
         picker.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -127,6 +151,46 @@ internal sealed class WheelSetup : Form {
 
         gamePath.Text = FindGame();
         Check();
+        if (Updater.CheckEnabled) StartUpdateCheck();
+    }
+
+    // Background check against update.json; quiet when offline.
+    void StartUpdateCheck() {
+        System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+            UpdateInfo info = null;
+            try { info = Updater.Check(6000); } catch { return; }
+            try {
+                BeginInvoke((Action)delegate {
+                    pendingUpdate = info;
+                    updateButton.Text = info != null ? "UPDATE TO " + info.Version : "";
+                    updateButton.Visible = info != null && checkUpdates.Checked;
+                    Check();
+                });
+            } catch (InvalidOperationException) { }
+        });
+    }
+    void InstallUpdate() {
+        var info = pendingUpdate;
+        if (info == null) return;
+        var answer = MessageBox.Show(this,
+            "Flight Control " + info.Version + " is available (you have " + BuildInfo.Version + ").\r\n\r\n" +
+            "Setup will download it from " + (new Uri(info.Url).IsFile ? "a local test file" : new Uri(info.Url).Host) + ", check it against its published SHA-256, and open the new Setup. Then choose Install / Repair there; your settings are kept and your pilot is backed up.\r\n\r\n" +
+            "Windows may warn that the new Setup is from an unknown publisher; it is not code-signed yet.\r\n\r\n" +
+            "Release notes: " + info.Notes + "\r\n\r\nDownload and open it now?",
+            "Update Flight Control", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (answer != DialogResult.Yes) return;
+        updateButton.Enabled = false;
+        install.Enabled = false;
+        System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+            string setup = null; string error = null;
+            try { setup = Updater.DownloadAndExtract(info, delegate(string step) { BeginInvoke((Action)delegate { verdict.Text = step.ToUpperInvariant(); }); }); }
+            catch (Exception e) { error = e.Message; }
+            BeginInvoke((Action)delegate {
+                if (error != null) { updateButton.Enabled = true; Check(); MessageBox.Show(this, "The update was not installed.\r\n\r\n" + error, "Update Flight Control"); return; }
+                Process.Start(new ProcessStartInfo(setup) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(setup) });
+                Close();
+            });
+        });
     }
 
     static Label TextLabel(string value, float size, Color color) {
@@ -228,17 +292,20 @@ internal sealed class WheelSetup : Form {
         if (!Directory.Exists(Path.Combine(root, "kn_portable"))) { verdict.Text = "GAME FOLDER NOT FOUND"; details.Text = "This folder has no kn_portable folder. Choose the Fate of the Galaxy folder that contains kn_portable."; return; }
         string version = GameVersion(root);
         usingOverride = false;
+        verifiedOnline = false;
         checkedVersion = null;
         if (version == null) {
             string newest = NewestInstalledVersion(root);
             ShowOverride(newest != null);
-            if (newest != null && overrideCheck.Checked && String.Equals(overrideRoot, root, StringComparison.OrdinalIgnoreCase)) { version = newest; usingOverride = true; }
+            verifiedOnline = newest != null && Updater.LastVerifiedGameVersions.Contains(newest);
+            if (verifiedOnline) { version = newest; usingOverride = true; ShowOverride(false); }
+            else if (newest != null && overrideCheck.Checked && String.Equals(overrideRoot, root, StringComparison.OrdinalIgnoreCase)) { version = newest; usingOverride = true; }
             else {
                 SetOverride(false);
                 string[] found = InstalledVersions(root);
                 verdict.Text = "UNSUPPORTED GAME VERSION";
                 details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in kn_portable\\Library\\FotG_R.\r\n")
-                    + "This build supports Fate of the Galaxy " + SupportedText() + ". Check for a newer Flight Control release at manictrashpanda.dev/games/FotGFlightControl."
+                    + "This build supports Fate of the Galaxy " + SupportedText() + "." + (pendingUpdate != null ? " Flight Control " + pendingUpdate.Version + " is available: click UPDATE above." : " Check for a newer Flight Control release at manictrashpanda.dev/games/FotGFlightControl.")
                     + (newest != null ? "\r\n\r\nIf you know " + newest + " works, tick OVERRIDE VERSION CHECK to install anyway. Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version." : "");
                 return;
             }
@@ -273,8 +340,10 @@ internal sealed class WheelSetup : Form {
         bool running = Process.GetProcesses().Any(p => p.ProcessName.StartsWith("fs2_open", StringComparison.OrdinalIgnoreCase));
         if (running) { verdict.Text = "CLOSE THE GAME BEFORE INSTALLING"; details.Text = "The game is running. Close it, then click Check again."; return; }
         install.Enabled = true;
-        verdict.Text = (installed ? "READY TO REPAIR OR UPDATE" : "READY TO INSTALL") + (usingOverride ? " · OVERRIDDEN" : "");
-        details.Text = (usingOverride
+        verdict.Text = (installed ? "READY TO REPAIR OR UPDATE" : "READY TO INSTALL") + (verifiedOnline ? " · VERIFIED ONLINE" : usingOverride ? " · OVERRIDDEN" : "");
+        details.Text = (verifiedOnline
+                ? "Fate of the Galaxy " + version + " is newer than this build's built-in list (" + SupportedText() + "), and has been checked with Flight Control " + BuildInfo.Version + " (listed online at manictrashpanda.dev).\r\n\r\n"
+                : usingOverride
                 ? "WARNING: VERSION CHECK OVERRIDDEN. Fate of the Galaxy " + version + " is not on this build's supported list (" + SupportedText() + "). Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version.\r\n\r\n"
                 : "")
             + "Game: " + root + "\r\nPilot and settings: found\r\nVersion: Fate of the Galaxy " + version + " / FSO 26.0.1 SDL3\r\n\r\nInstall backs up native pilot controls and any earlier add-on files. It then creates Play and Configure launchers in the game folder.";
@@ -321,6 +390,7 @@ internal sealed class WheelSetup : Form {
         if (!File.Exists(path)) throw new FileNotFoundException(name + " is missing. Extract the complete ZIP.");
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
     [STAThread] static void Main(string[] args) {
+        if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() ? 0 : 1); }
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new WheelSetup());

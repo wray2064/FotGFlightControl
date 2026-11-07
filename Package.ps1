@@ -11,7 +11,9 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.0.1'
+$version = '1.1.0'
+$buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
+if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-' + $version
 $dist = Join-Path $workspace 'dist'
 $stage = Join-Path $dist $name
@@ -67,3 +69,19 @@ Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Package: $archive"
 Write-Host "SHA256: $hash"
+# update.json for the product site. Publish it only after the ZIP is live at the URL below.
+# verifiedGameVersions lists, per Flight Control version, game versions checked after release.
+$manifest = [ordered]@{
+    schema = 1
+    latest = [ordered]@{
+        version = $version
+        date = (Get-Date -Format 'yyyy-MM-dd')
+        url = "https://manictrashpanda.dev/games/FotGFlightControl/download/$name.zip"
+        size = (Get-Item -LiteralPath $archive).Length
+        sha256 = $hash
+        notes = "https://github.com/wray2064/FotGFlightControl/releases/tag/v$version"
+    }
+    verifiedGameVersions = [ordered]@{ $version = @() }
+}
+[IO.File]::WriteAllText((Join-Path $dist 'update.json'), ($manifest | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+Write-Host "Update manifest: $(Join-Path $dist 'update.json')"

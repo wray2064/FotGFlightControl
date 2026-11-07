@@ -31,6 +31,9 @@ local D_UP, D_DOWN, D_LEFT, D_RIGHT = 1, 2, 4, 8
 local B_L3, B_R3 = 64, 128
 local B_LB, B_RB, B_A, B_B, B_X, B_Y = 256, 512, 4096, 8192, 16384, 32768
 local HOLD_FLAGS = { A=B_A, B=B_B, X=B_X, LB=B_LB, RB=B_RB, L3=B_L3, R3=B_R3 }
+-- Buttons with a configurable quick-press action, in a fixed order.
+local TAP_BUTTONS = { { "A", B_A }, { "B", B_B }, { "X", B_X }, { "Y", B_Y },
+    { "LB", B_LB }, { "RB", B_RB }, { "L3", B_L3 }, { "R3", B_R3 } }
 local PI = math.pi
 local SECTORS = 8
 local BUTTON_MODE_NORMAL = BUTTON_CONTROL_NORMAL
@@ -40,12 +43,60 @@ local TARGET_ACTIONS = {
     enemy = "TARGET_NEXT_CLOSEST_HOSTILE",
     friend = "TARGET_NEXT_CLOSEST_FRIENDLY"
 }
-local HOLD_ACTIONS = {
-    target_reticle=true, target_attacker=true, target_next=true,
-    target_nearest_enemy=true, target_clear=true, target_subsystem_toggle=true,
-    match_speed=true, cycle_secondary=true, cycle_ship_mode=true,
-    shields_max=true, balance_energy=true, target_live_turret=true,
-    boarding_task=true
+-- Every action a face button, bumper or stick click can run on a quick press or
+-- a long press. native: a game control sent through the control system.
+-- script: handled by W:execute. run: a function. held: repeats every frame while
+-- the button is down (such actions take no long press). The Flight Control
+-- Console offers the same ids; anything else in the config is ignored.
+local BUTTON_ACTIONS = {
+    none = {},
+    target_reticle = { native = "TARGET_SHIP_IN_RETICLE" },
+    target_attacker = { native = "TARGET_CLOSEST_SHIP_ATTACKING_SELF" },
+    target_next = { run = function(self) self:queue_action(TARGET_ACTIONS[self.target_mode] or TARGET_ACTIONS.enemy) end },
+    target_nearest_enemy = { script = true },
+    target_nearest_friendly = { native = "TARGET_NEXT_CLOSEST_FRIENDLY" },
+    target_targets_target = { native = "TARGET_TARGETS_TARGET" },
+    target_newest = { native = "TARGET_NEWEST_SHIP" },
+    target_next_bomb = { native = "TARGET_NEXT_BOMB" },
+    target_clear = { script = true },
+    target_subsystem_toggle = { script = true },
+    target_subsystem_reticle = { script = true },
+    target_next_subsystem = { native = "TARGET_NEXT_SUBOBJECT" },
+    target_live_turret = { script = true },
+    match_speed = { script = true },
+    cycle_secondary = { native = "CYCLE_SECONDARY" },
+    cycle_primary = { native = "CYCLE_NEXT_PRIMARY" },
+    cycle_ship_mode = { run = function(self) self:cycle_ship_mode() end },
+    third_gun = { held = true, run = function(self) self:fire_third_bank() end },
+    afterburner = { held = true, native = "AFTERBURNER" },
+    countermeasure = { native = "LAUNCH_COUNTERMEASURE" },
+    shields_max = { script = true },
+    weapons_max = { script = true },
+    engines_max = { script = true },
+    balance_energy = { script = true },
+    shield_equalize = { script = true },
+    transfer_shields = { script = true },
+    transfer_weapons = { script = true },
+    increase_weapons = { native = "INCREASE_WEAPON" },
+    decrease_weapons = { native = "DECREASE_WEAPON" },
+    increase_shields = { native = "INCREASE_SHIELD" },
+    decrease_shields = { native = "DECREASE_SHIELD" },
+    increase_engines = { native = "INCREASE_ENGINE" },
+    decrease_engines = { native = "DECREASE_ENGINE" },
+    max_throttle = { native = "MAX_THROTTLE" },
+    zero_throttle = { native = "ZERO_THROTTLE" },
+    view_chase = { native = "VIEW_CHASE" },
+    view_external = { native = "VIEW_EXTERNAL" },
+    toggle_hud = { native = "TOGGLE_HUD" },
+    radar_range = { native = "RADAR_RANGE_CYCLE" },
+    nav_cycle = { native = "NAV_CYCLE" },
+    auto_pilot = { native = "AUTO_PILOT_TOGGLE" },
+    boarding_task = { script = true }
+}
+-- Quick-press actions when the config names none: the 1.0 layout.
+local TAP_DEFAULTS = {
+    A = "target_reticle", B = "target_attacker", X = "target_next", Y = "third_gun",
+    LB = "cycle_secondary", RB = "cycle_ship_mode", L3 = "match_speed", R3 = "target_next_subsystem"
 }
 
 local function down(buttons, flag)
@@ -105,10 +156,13 @@ end
 
 function W:ensure_flight_axes()
     local config = FotGWheelConfig or {}
-    local preset = config.flight_axes == "classic_inverted"
-        and "FotG Classic Inverted" or "FotG Classic Native"
-    if config.flight_axes ~= "classic" and config.flight_axes ~= "classic_inverted" then return end
+    local presets = { classic = "FotG Classic Native", classic_inverted = "FotG Classic Inverted", custom = "FotG Custom" }
+    local preset = presets[config.flight_axes]
+    if not preset then return end
     if not ui or not ui.ControlConfig then return end
+    -- A Custom preset missing from the control table (for example after a repair that
+    -- predates it) falls back to Classic once instead of retrying every frame.
+    if preset == "FotG Custom" and self.custom_axes_missing then preset = "FotG Classic Native" end
     -- A saved pilot can still report this preset name while retaining axis
     -- bindings from an earlier build. Apply once on each menu/flight entry.
     if self.axes_applied_state ~= self.state
@@ -116,6 +170,11 @@ function W:ensure_flight_axes()
         if ui.ControlConfig.usePreset(preset) then
             self.axes_applied_state = self.state
             self:publish_state()
+        elseif preset == "FotG Custom" and is_flight_state(self.state) then
+            -- usePreset also fails before a pilot is loaded (pilot selection), so only a
+            -- failure in flight means the preset is missing from the control table.
+            self.custom_axes_missing = true
+            self:notice("Custom axes not found: using Classic. Save Wheel in Configure.")
         end
     end
 end
@@ -196,27 +255,37 @@ function W:queue_action(action)
     self.pending_actions[#self.pending_actions + 1] = action
 end
 
-function W:execute_hold_action(action)
-    if not HOLD_ACTIONS[action] then return end
-    if action == "target_reticle" then self:queue_action("TARGET_SHIP_IN_RETICLE")
-    elseif action == "target_attacker" then self:queue_action("TARGET_CLOSEST_SHIP_ATTACKING_SELF")
-    elseif action == "target_next" then self:queue_action(TARGET_ACTIONS[self.target_mode] or TARGET_ACTIONS.enemy)
-    elseif action == "cycle_secondary" then self:queue_action("CYCLE_SECONDARY")
-    elseif action == "boarding_task" then
-        local ok, message = self:execute("boarding_task")
-        if not ok then self:notice(message or "Boarding parties unavailable") end
-    elseif action == "cycle_ship_mode" then self:cycle_ship_mode()
-    else
+function W:run_action(action)
+    local spec = BUTTON_ACTIONS[action]
+    if not spec or action == "none" then return end
+    if spec.run then spec.run(self)
+    elseif spec.native then self:queue_action(spec.native)
+    elseif spec.script then
         local ok, message = self:execute(action)
-        if not ok then self:notice(message or "Hold action unavailable") end
+        if not ok then self:notice(message or "Action unavailable") end
     end
+end
+
+-- The quick-press action configured for a button, or its 1.0 default.
+function W:tap_action(name)
+    local config = FotGWheelConfig or {}
+    local taps = type(config.tap_bindings) == "table" and config.tap_bindings or {}
+    local action = taps[name]
+    if action == nil or not BUTTON_ACTIONS[action] then action = TAP_DEFAULTS[name] end
+    return action
+end
+
+-- A long press can run any one-shot action; held actions have no long press.
+local function is_hold_action(action)
+    local spec = action and BUTTON_ACTIONS[action]
+    return spec ~= nil and action ~= "none" and not spec.held
 end
 
 function W:hold_button(name, flag, buttons, previous, dt, base)
     local config = FotGWheelConfig or {}
     local bindings = type(config.hold_bindings) == "table" and config.hold_bindings or {}
     local action = config.hold_enabled and bindings[name] or nil
-    if not HOLD_ACTIONS[action] then
+    if not is_hold_action(action) then
         self.hold_elapsed[name], self.hold_fired[name] = nil, nil
         if down(buttons, flag) and not down(previous, flag) and base then base() end
         return
@@ -228,7 +297,7 @@ function W:hold_button(name, flag, buttons, previous, dt, base)
         local threshold = clipped(tonumber(config.hold_ms) or 450, 250, 1000) / 1000
         if self.hold_elapsed[name] >= threshold and not self.hold_fired[name] then
             self.hold_fired[name] = true
-            self:execute_hold_action(action)
+            self:run_action(action)
         end
     elseif was_down then
         if not self.hold_fired[name] and base then base() end
@@ -777,14 +846,18 @@ function W:frame()
         end
     end
     if not self.mode and not wheel_was_open then
-        self:hold_button("A", B_A, buttons, previous, dt, function() self:queue_action("TARGET_SHIP_IN_RETICLE") end)
-        self:hold_button("B", B_B, buttons, previous, dt, function() self:queue_action("TARGET_CLOSEST_SHIP_ATTACKING_SELF") end)
-        self:hold_button("X", B_X, buttons, previous, dt, function() self:queue_action(TARGET_ACTIONS[self.target_mode] or TARGET_ACTIONS.enemy) end)
-        self:hold_button("LB", B_LB, buttons, previous, dt, function() self:queue_action("CYCLE_SECONDARY") end)
-        self:hold_button("RB", B_RB, buttons, previous, dt, function() self:cycle_ship_mode() end)
-        self:hold_button("L3", B_L3, buttons, previous, dt, function() self:queue_action("MATCH_TARGET_SPEED") end)
-        self:hold_button("R3", B_R3, buttons, previous, dt, function() self:queue_action("TARGET_NEXT_SUBOBJECT") end)
-        if down(buttons, B_Y) then self:fire_third_bank() end
+        for _, entry in ipairs(TAP_BUTTONS) do
+            local name, flag = entry[1], entry[2]
+            local action = self:tap_action(name)
+            if BUTTON_ACTIONS[action].held then
+                -- Held actions repeat every frame and never wait for a long press.
+                self.hold_elapsed[name], self.hold_fired[name] = nil, nil
+                if down(buttons, flag) then self:run_action(action) end
+            else
+                self:hold_button(name, flag, buttons, previous, dt,
+                    action ~= "none" and function() self:run_action(action) end or nil)
+            end
+        end
     else
         self.hold_elapsed, self.hold_fired = {}, {}
         -- A wheel confirmation or cancel must not become a delayed short

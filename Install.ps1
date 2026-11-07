@@ -193,6 +193,15 @@ if ($null -ne $savedConfig) {
         [IO.File]::WriteAllText($existingConfig, $configText, [Text.UTF8Encoding]::new($false))
     }
 }
+# The control table was just regenerated; put back a saved Custom axis layout.
+if ($null -ne $savedConfig -and [Text.Encoding]::UTF8.GetString($savedConfig) -match '\bflight_axes\s*=\s*"custom"') {
+    $apply = Start-Process -FilePath (Join-Path $destination 'ControllerSetup\ControllerSetup.exe') -ArgumentList @('--apply-custom-axes', '--game', ('"' + $root + '"')) -WindowStyle Hidden -Wait -PassThru
+    if ($apply.ExitCode -ne 0) {
+        Write-Warning 'Your Custom flight axes could not be restored; the game will use Classic until you open Configure and save them again.'
+    } else {
+        Write-Host 'Custom flight axes restored.'
+    }
+}
 if (-not $SkipPilotReservation) {
     $reserve = Start-Process -FilePath (Join-Path $destination 'ControllerSetup\ControllerSetup.exe') -ArgumentList @('--reserve-wheel', '--game', ('"' + $root + '"')) -WindowStyle Hidden -Wait -PassThru
     if ($reserve.ExitCode -ne 0) {

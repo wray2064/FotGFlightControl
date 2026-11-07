@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -25,8 +26,8 @@ partial class ControllerSetup {
  TrackBar lookHoldSlider;
  Label lookHoldValue;
  CheckBox disableLook;
- CheckBox cameraHold,enableHoldLayer;
- Button editHoldLayer;
+ CheckBox cameraHold;
+ Button editAxes;
  int holdLayerMs=450;
  static readonly string[] HoldButtons={"A","B","X","LB","RB","L3","R3"};
  readonly string[] holdActions={"none","none","none","none","none","none","none"};
@@ -45,22 +46,6 @@ partial class ControllerSetup {
   new MacroAction("target_nearest_enemy","Target nearest enemy"),
   new MacroAction("target_enemy_subsystem","Target enemy subsystem"),
   new MacroAction("match_speed","Match target speed"),
-  new MacroAction("balance_energy","Balance energy"),
-  new MacroAction("boarding_task","Cycle boarding party task")
- };
- static readonly MacroAction[] AvailableHoldActions = {
-  new MacroAction("none","None"),
-  new MacroAction("target_reticle","Target under reticle"),
-  new MacroAction("target_attacker","Target current attacker"),
-  new MacroAction("target_next","Next target in selected class"),
-  new MacroAction("target_nearest_enemy","Nearest enemy"),
-  new MacroAction("target_clear","Clear target"),
-  new MacroAction("target_subsystem_toggle","Subsystem / hull"),
-  new MacroAction("target_live_turret","Next live turret"),
-  new MacroAction("match_speed","Match target speed"),
-  new MacroAction("cycle_secondary","Cycle secondary bank"),
-  new MacroAction("cycle_ship_mode","Cycle ship mode"),
-  new MacroAction("shields_max","Maximum shields"),
   new MacroAction("balance_energy","Balance energy"),
   new MacroAction("boarding_task","Cycle boarding party task")
  };
@@ -108,14 +93,22 @@ partial class ControllerSetup {
   wheelFontBold=new CheckBox{Dock=DockStyle.Fill,Text="Bold",Checked=true,ForeColor=Ink,BackColor=Surface,TextAlign=ContentAlignment.MiddleLeft};typeRow.Controls.Add(wheelFontBold,2,0);
   var typeHint=LabelText("Dark labels and high contrast are always on. Restart game after saving.",9,Ink);typeHint.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeHint,3,0);
   deck.Controls.Add(typeRow,0,3);
-  var flightRow=Grid(3,1);flightRow.Padding=new Padding(4,3,4,3);
+  var flightRow=Grid(4,1);flightRow.Padding=new Padding(4,3,4,3);
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));
-  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,56));
+  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,14));
+  flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,42));
   var flightLabel=LabelText("FLIGHT AXES",10,Cyan);flightLabel.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightLabel,0,0);
   flightAxes=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
-  flightAxes.Items.AddRange(new object[]{"Classic direct (tested)","Classic inverted pitch","Game's saved setup"});flightAxes.SelectedIndex=0;flightRow.Controls.Add(flightAxes,1,0);
-  var flightHint=LabelText("Classic: right stick steers; left stick rolls and changes throttle. Inverted reverses pitch only.",9,Ink);flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,2,0);
+  flightAxes.Items.AddRange(new object[]{"Classic direct (tested)","Classic inverted pitch","Game's saved setup","Custom axes"});flightAxes.SelectedIndex=0;flightRow.Controls.Add(flightAxes,1,0);
+  editAxes=ActionButton("Edit axes...",delegate{EditCustomAxes();});editAxes.Visible=false;flightRow.Controls.Add(editAxes,2,0);
+  var flightHint=LabelText(AxesHint(0),9,Ink);flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,3,0);
+  bool axesLoading=true;
+  flightAxes.SelectedIndexChanged+=delegate{
+   editAxes.Visible=flightAxes.SelectedIndex==3;flightHint.Text=AxesHint(flightAxes.SelectedIndex);
+   if(flightAxes.SelectedIndex==3&&!axesLoading&&flightAxes.Focused)EditCustomAxes();
+  };
+  axesLoading=false;
   deck.Controls.Add(flightRow,0,4);
   var lookRow=Grid(4,1);lookRow.Padding=new Padding(4,0,4,0);
   lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
@@ -144,9 +137,7 @@ partial class ControllerSetup {
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
   macroStatus=LabelText("Find or select the installed wheel mod.",9,Ink);macroStatus.TextAlign=ContentAlignment.MiddleLeft;options.Controls.Add(macroStatus,0,0);
   cameraHold=new CheckBox{Text="Hold Menu cycles camera",Checked=true,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(cameraHold,1,0);
-  enableHoldLayer=new CheckBox{Text="Custom holds",Checked=false,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(enableHoldLayer,2,0);
-  editHoldLayer=ActionButton("Edit...",delegate{EditHoldMappings();});editHoldLayer.Visible=false;options.Controls.Add(editHoldLayer,3,0);
-  enableHoldLayer.CheckedChanged+=delegate{editHoldLayer.Visible=enableHoldLayer.Checked;};
+  var buttonsEditor=ActionButton("Buttons...",delegate{EditButtonActions();});options.Controls.Add(buttonsEditor,2,0);options.SetColumnSpan(buttonsEditor,2);
   foot.Controls.Add(options,0,0);
   foot.Controls.Add(ActionButton("Browse mod",delegate{BrowseWheelMod();}),1,0);
   foot.Controls.Add(ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();}),2,0);
@@ -160,36 +151,6 @@ partial class ControllerSetup {
   if(lookHoldSlider==null||lookHoldValue==null||disableLook==null)return;
   lookHoldSlider.Enabled=!disableLook.Checked;
   lookHoldValue.Text=disableLook.Checked?"OFF":(lookHoldSlider.Value*25)+" ms";
- }
- void EditHoldMappings(){
-  using(var dialog=new Form{Text="Custom hold mappings",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(620,430),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
-   var layout=Grid(2,10);layout.Padding=new Padding(16);
-   layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,150));
-   layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-   Rows(layout,42,34,34,34,34,34,34,34,46,54);
-   var intro=LabelText("HOLD ACTIONS  /  Short presses keep their usual action. Triggers and Y keep their direct-fire behavior.",9,Cyan);layout.Controls.Add(intro,0,0);layout.SetColumnSpan(intro,2);
-   var selectors=new ComboBox[HoldButtons.Length];
-   for(int i=0;i<HoldButtons.Length;i++){
-    layout.Controls.Add(LabelText(HoldButtons[i],10,Ink),0,i+1);
-    var pick=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Surface,ForeColor=Ink};
-    foreach(var action in AvailableHoldActions)pick.Items.Add(action);
-    int selected=Array.FindIndex(AvailableHoldActions,a=>a.Id==holdActions[i]);
-    pick.SelectedIndex=selected<0?0:selected;
-    selectors[i]=pick;layout.Controls.Add(pick,1,i+1);
-   }
-   layout.Controls.Add(LabelText("Hold delay",10,Cyan),0,8);
-   var duration=new NumericUpDown{Dock=DockStyle.Left,Minimum=250,Maximum=1000,Increment=50,Value=holdLayerMs,Width=145,BackColor=Surface,ForeColor=Ink};
-   layout.Controls.Add(duration,1,8);
-   var controls=Grid(2,1);controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-   var cancel=ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;});
-   var save=ActionButton("Use these mappings",delegate{dialog.DialogResult=DialogResult.OK;});save.BackColor=Color.FromArgb(82,66,5);
-   controls.Controls.Add(cancel,0,0);controls.Controls.Add(save,1,0);layout.Controls.Add(controls,0,9);layout.SetColumnSpan(controls,2);
-   dialog.Controls.Add(layout);
-   if(dialog.ShowDialog(this)==DialogResult.OK){
-    holdLayerMs=(int)duration.Value;
-    for(int i=0;i<HoldButtons.Length;i++)holdActions[i]=((MacroAction)selectors[i].SelectedItem).Id;
-   }
-  }
  }
  Control BuildMacroCard(int i){
   var card=Grid(2,4);card.BackColor=Color.FromArgb(15,14,5);TargetingFrame.Apply(card);card.Margin=new Padding(4,0,4,0);card.Padding=new Padding(4);
@@ -267,14 +228,16 @@ partial class ControllerSetup {
   wheelFontSize.SelectedIndex=sizeMatch.Success&&sizeMatch.Groups[1].Value=="large"?1:0;
   var boldMatch=Regex.Match(source,@"\bfont_bold\s*=\s*(true|false)\b");
   wheelFontBold.Checked=!boldMatch.Success||boldMatch.Groups[1].Value=="true";
-  var axesMatch=Regex.Match(source,@"\bflight_axes\s*=\s*""(classic|classic_inverted|official)""");
-  flightAxes.SelectedIndex=axesMatch.Success?(axesMatch.Groups[1].Value=="official"?2:axesMatch.Groups[1].Value=="classic_inverted"?1:0):0;
+  ParseCustomAxes(source,customAxes,customInvert);
+  var axesMatch=Regex.Match(source,@"\bflight_axes\s*=\s*""(classic|classic_inverted|official|custom)""");
+  flightAxes.SelectedIndex=axesMatch.Success?AxesIndex(axesMatch.Groups[1].Value):0;
+  ParseTapBindings(source,tapActions);
   var holdMatch=Regex.Match(source,@"\blook_hold_ms\s*=\s*(\d+)");
   int holdMs;
   lookHoldSlider.Value=holdMatch.Success&&Int32.TryParse(holdMatch.Groups[1].Value,out holdMs)?Math.Max(6,Math.Min(24,(int)Math.Round(holdMs/25.0))):10;
   disableLook.Checked=Regex.IsMatch(source,@"\blook_enabled\s*=\s*false\b");
   cameraHold.Checked=!Regex.IsMatch(source,@"\bcamera_hold_enabled\s*=\s*false\b");
-  enableHoldLayer.Checked=Regex.IsMatch(source,@"\bhold_enabled\s*=\s*true\b");
+  holdEnabled=Regex.IsMatch(source,@"\bhold_enabled\s*=\s*true\b");
   var holdDuration=Regex.Match(source,@"\bhold_ms\s*=\s*(\d+)");
   int parsedHold;
   holdLayerMs=holdDuration.Success&&Int32.TryParse(holdDuration.Groups[1].Value,out parsedHold)?Math.Max(250,Math.Min(1000,parsedHold)):450;
@@ -282,7 +245,7 @@ partial class ControllerSetup {
   for(int i=0;i<HoldButtons.Length;i++){
    var binding=Regex.Match(bindings.Groups["body"].Value,@"\b"+HoldButtons[i]+@"\s*=\s*""(?<id>[a-z_]+)""");
    string id=binding.Success?binding.Groups["id"].Value:"none";
-   holdActions[i]=Array.Exists(AvailableHoldActions,a=>a.Id==id)?id:"none";
+   holdActions[i]=IsHoldAction(id)?id:"none";
   }
   LoadLayouts(source);
   UpdateLookTiming();
@@ -290,11 +253,13 @@ partial class ControllerSetup {
  }
  static string EscapeLua(string input){return input.Replace("\\","\\\\").Replace("\"","\\\"").Replace("\r","\\r").Replace("\n","\\n");}
  static string UnescapeLua(string input){return Regex.Replace(input,@"\\([\\""rn])",delegate(Match m){string v=m.Groups[1].Value;return v=="r"?"\r":v=="n"?"\n":v;});}
- static string RenderMacroConfig(MacroSpec[] specs,string fontSize="medium",bool bold=true,string axes="classic",int lookHoldMs=250,bool lookEnabled=true,bool cameraEnabled=true,bool holdEnabled=false,int holdMs=450,string[] holdBindings=null,int[][] layouts=null){
+ static string RenderMacroConfig(MacroSpec[] specs,string fontSize="medium",bool bold=true,string axes="classic",int lookHoldMs=250,bool lookEnabled=true,bool cameraEnabled=true,bool holdEnabled=false,int holdMs=450,string[] holdBindings=null,int[][] layouts=null,string[] tapBindings=null,string[] axesMap=null,bool[] invert=null){
   var b=new StringBuilder();
   b.AppendLine("-- Generated by Flight Control Console. Edit through the Macro Deck tab.");
   b.AppendLine("FotGWheelConfig = {");
-  b.AppendLine("  flight_axes = \""+(axes=="official"?"official":axes=="classic_inverted"?"classic_inverted":"classic")+"\",");
+  b.AppendLine("  flight_axes = \""+AxesMode(AxesIndex(axes))+"\",");
+  b.AppendLine(RenderCustomAxes(customAxesOrDefault(axesMap),invertOrDefault(invert)));
+  b.AppendLine(RenderTapBindings(tapBindings));
   b.AppendLine("  look_hold_ms = "+Math.Max(150,Math.Min(600,lookHoldMs))+ ",");
   b.AppendLine("  look_enabled = "+(lookEnabled?"true":"false")+",");
   b.AppendLine("  camera_hold_enabled = "+(cameraEnabled?"true":"false")+",");
@@ -302,7 +267,7 @@ partial class ControllerSetup {
   b.AppendLine("  hold_ms = "+Math.Max(250,Math.Min(1000,holdMs)) + ",");
   b.Append("  hold_bindings = { ");
   for(int i=0;i<HoldButtons.Length;i++){
-   string id=holdBindings!=null&&i<holdBindings.Length&&Array.Exists(AvailableHoldActions,a=>a.Id==holdBindings[i])?holdBindings[i]:"none";
+   string id=holdBindings!=null&&i<holdBindings.Length&&IsHoldAction(holdBindings[i])?holdBindings[i]:"none";
    b.Append(HoldButtons[i]+"=\""+id+"\"");if(i<HoldButtons.Length-1)b.Append(", ");
   }
   b.AppendLine(" },");
@@ -334,7 +299,10 @@ partial class ControllerSetup {
  void SaveMacroConfig(){
   EnsureClosed();
   string path=MacroConfigPath();
-  string text=RenderMacroConfig(ReadMacroCards(),wheelFontSize.SelectedIndex==1?"large":"medium",wheelFontBold.Checked,flightAxes.SelectedIndex==2?"official":flightAxes.SelectedIndex==1?"classic_inverted":"classic",lookHoldSlider.Value*25,!disableLook.Checked,cameraHold.Checked,enableHoldLayer.Checked,holdLayerMs,holdActions,layoutOrders);
+  string mode=AxesMode(flightAxes.SelectedIndex);
+  string text=RenderMacroConfig(ReadMacroCards(),wheelFontSize.SelectedIndex==1?"large":"medium",wheelFontBold.Checked,mode,lookHoldSlider.Value*25,!disableLook.Checked,cameraHold.Checked,holdEnabled,holdLayerMs,holdActions,layoutOrders,tapActions,customAxes,customInvert);
+  // The Custom preset goes into the wheel's control table first, so a failure leaves the config unchanged.
+  if(mode=="custom")WriteCustomPreset(wheelModFolder,customAxes,customInvert);
   if(File.Exists(path)){
    string folder=Path.Combine(wheelModFolder,"ConfigBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
    Directory.CreateDirectory(folder);
@@ -447,6 +415,8 @@ partial class ControllerSetup {
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",375,false).Contains("look_enabled = false")&&
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("camera_hold_enabled = false")&&
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("A=\"shields_max\"")&&
-   LayoutSelfTest();
+   LayoutSelfTest()&&ButtonsAndAxesSelfTest()&&
+   RenderMacroConfig(DefaultMacros,"medium",true,"custom").Contains("flight_axes = \"custom\"")&&
+   RenderMacroConfig(DefaultMacros,tapBindings:new[]{"countermeasure","none","x","third_gun","afterburner","cycle_ship_mode","match_speed","target_next_subsystem"}).Contains("tap_bindings = { A=\"countermeasure\", B=\"none\", X=\"target_next\"");
  }
 }

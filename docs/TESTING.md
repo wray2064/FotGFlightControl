@@ -27,6 +27,15 @@ launcher available for comparison.
 6. Save each macro type in the console, restart the game, and verify its action.
    Test wheel text size and weight against bright combat effects.
 7. Restore a pilot backup and confirm its native controls return.
+8. Buttons...: give A countermeasures and LB the afterburner (while held), save,
+   restart, and confirm A fires one countermeasure per press and the afterburner
+   runs only while LB is held. Confirm A still confirms and B still cancels in an
+   open wheel. Reset to defaults and confirm the 1.0 actions return.
+9. Custom axes: swap yaw and roll between the sticks, invert one axis, save,
+   restart, and confirm each axis in flight. Run Install / Repair and confirm the
+   custom axes survive. Check the main menu shows no startup warnings popup.
+10. Updates: with a test manifest (FLIGHTCONTROL_UPDATE_URL=file:///...), confirm
+   Setup offers the update, refuses a wrong SHA-256, and opens the new Setup.
 
 Record game version, ship, mission, controller, Windows version, and the exact
 steps for any failure. Avoid sharing pilot files or logs that contain personal

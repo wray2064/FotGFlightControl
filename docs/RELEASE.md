@@ -23,6 +23,14 @@ Run the real-controller checklist in TESTING.md before each release and say
 which campaigns and missions it covered. Do not commit game files, pilot data, backups, logs,
 downloaded engine binaries or experimental audio files.
 
+Package.ps1 also writes `dist/update.json`. Publish the ZIP first, check its
+download, then publish `update.json` to `/games/FotGFlightControl/update.json`;
+Setup and the console offer updates from it. To approve a newer game version for
+an existing build without shipping a new one, add it under
+`verifiedGameVersions` for that build (for example `"1.1.0": ["1.1.3"]`) after
+checking it with BuildFlightPreset.ps1. Keep `setup/BuildInfo.cs` and
+`$version` in Package.ps1 equal; packaging refuses otherwise.
+
 The player ZIP has graphical Setup and two game-folder EXE launchers. The
 PowerShell script remains in the package for Setup and advanced manual repair;
 players do not need to open a command window or use a batch launcher.

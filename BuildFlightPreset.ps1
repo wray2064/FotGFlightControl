@@ -103,32 +103,34 @@ $classic = Set-ClassicBind $classic 'TARGET_NEXT_CLOSEST_HOSTILE' {
 # not SDL_GetJoystickAxis. Its canonical order is left X/Y, right X/Y,
 # left/right trigger. Raw joystick axis 2 is a trigger on the Legion, but
 # gamepad axis 2 is right X. This is the mapping used by the working v1 preset.
+# FSO treats all four as relative analog items and warns at startup (adding the
+# flag itself) unless RELATIVE is listed, so it is listed.
 $axes = @'
     $Bind: JOY_HEADING_AXIS
         $Primary:
             $Controller: CID_JOY0
-            $Flags: AXIS
+            $Flags: AXIS, RELATIVE
             $Input: Z_AXIS
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_PITCH_AXIS
         $Primary:
             $Controller: CID_JOY0
-            $Flags: AXIS
+            $Flags: AXIS, RELATIVE
             $Input: RX_AXIS
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_BANK_AXIS
         $Primary:
             $Controller: CID_JOY0
-            $Flags: AXIS
+            $Flags: AXIS, RELATIVE
             $Input: X_AXIS
         $Secondary:
             $Controller: CID_NONE
     $Bind: JOY_REL_THROTTLE_AXIS
         $Primary:
             $Controller: CID_JOY0
-            $Flags: AXIS, INVERTED
+            $Flags: AXIS, RELATIVE, INVERTED
             $Input: Y_AXIS
         $Secondary:
             $Controller: CID_NONE
