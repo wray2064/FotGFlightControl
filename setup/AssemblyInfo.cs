@@ -1,7 +1,7 @@
 using System.Reflection;
 
 // Publisher and version details shown in each program's file properties. Compiled into
-// Setup, both launchers, the controller bridge and the Flight Control Console; each adds
+// Setup, both launchers, the controller bridge, Hangar Bay and its Console; each adds
 // its own AssemblyTitle and AssemblyDescription.
 [assembly: AssemblyCompany("Manic Trash Panda")]
 [assembly: AssemblyProduct("Flight Control for Fate of the Galaxy")]
