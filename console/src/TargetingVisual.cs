@@ -16,7 +16,8 @@ sealed class TargetingTitle : Control {
             ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         BackColor = Color.Black;
         string path=ConsoleAsset.File(Path.Combine("Assets","FlightControl.png"));
-        if(File.Exists(path)) logo=Image.FromFile(path);
+        // Load into memory: Image.FromFile keeps the file locked, which would block Repair and Remove.
+        if(File.Exists(path)) using(var stream=new MemoryStream(File.ReadAllBytes(path))) using(var image=Image.FromStream(stream)) logo=new Bitmap(image);
     }
     protected override void Dispose(bool disposing) {if(disposing&&logo!=null)logo.Dispose();base.Dispose(disposing);}
     protected override void OnPaint(PaintEventArgs e) {

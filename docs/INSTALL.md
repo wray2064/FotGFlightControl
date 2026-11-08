@@ -66,8 +66,9 @@ after saving wheel settings.
 To undo reserved pilot bindings, close the game and use **Restore latest backup**
 in the console for each affected pilot. This restores the full pilot and matching
 settings INI as they were at backup time, including other settings saved then.
-Afterward, use **Service → Remove Tool** in Hangar Bay. The original game
-launcher remains available throughout.
+Afterward, use **Service → Remove Tool** in Hangar Bay. It removes the add-on,
+the launchers and the Setup copy, and keeps pilots and backups. Hangar Bay can't delete its own file while it is open, so it then shows `Hangar Bay.exe` in File Explorer; delete it after Hangar Bay closes to finish.
+The original game launcher remains available throughout.
 
 To switch pads, close the game and choose **Service → Choose Controller**.
 Select the XInput slot whose live preview responds, then press **Apply with

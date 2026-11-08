@@ -101,14 +101,14 @@ static class Installer {
         string axisRecord = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "engine-axes.txt");
         string recordedAxes = File.Exists(axisRecord) ? File.ReadAllText(axisRecord).Trim() : "";
         string axisMap = "X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS";
-        List<Pad> devices;
+        List<SdlPad> devices;
         if (engine.Sdl3) devices = SdlProbe.Sdl3(Path.GetDirectoryName(engine.Exe));
         else {
             devices = SdlProbe.Sdl2(Path.GetDirectoryName(engine.Exe));
             var m = Regex.Match(recordedAxes, "^sdl2 (?<map>[A-Z_,]+)$", RegexOptions.IgnoreCase);
             axisMap = m.Success ? m.Groups["map"].Value : "X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS";
         }
-        string selection = null; Pad chosen = null;
+        string selection = null; SdlPad chosen = null;
         if (devices.Count > 0) {
             chosen = preferredSlot >= 0 ? devices.FirstOrDefault(d => d.PlayerIndex == preferredSlot)
                 : devices.Count == 1 ? devices[0] : devices.FirstOrDefault(d => Regex.IsMatch(d.Name ?? "", "XInput|Controller|Gamepad", RegexOptions.IgnoreCase));
@@ -372,7 +372,7 @@ static class Presets {
     }
 }
 
-sealed class Pad { public int Id, PlayerIndex = -1; public string Guid, Name, AxisMap = Presets.Sdl3Axes; public bool Detected = true; }
+sealed class SdlPad { public int Id, PlayerIndex = -1; public string Guid, Name, AxisMap = Presets.Sdl3Axes; public bool Detected = true; }
 
 // Reads the connected pads through the engine's own SDL library, as the engine sees them.
 static class SdlProbe {
@@ -400,10 +400,10 @@ static class SdlProbe {
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_Quit")] static extern void S2_Quit();
     static readonly string[] AxisNames = { "X_AXIS", "Y_AXIS", "Z_AXIS", "RX_AXIS", "RY_AXIS", "RZ_AXIS" };
 
-    public static List<Pad> Sdl3(string dllDir) {
+    public static List<SdlPad> Sdl3(string dllDir) {
         if (!File.Exists(Path.Combine(dllDir, "SDL3.dll"))) throw new InstallException("The engine's SDL3.dll was not found.");
         SetDllDirectory(dllDir);
-        var pads = new List<Pad>();
+        var pads = new List<SdlPad>();
         if (!S3_Init(0x200)) throw new InstallException("SDL joystick initialization failed.");
         try {
             int count; IntPtr ids = S3_GetJoysticks(out count);
@@ -411,7 +411,7 @@ static class SdlProbe {
                 for (int i = 0; i < count; i++) {
                     uint id = (uint)Marshal.ReadInt32(ids, 4 * i);
                     var text = new StringBuilder(64); S3_GuidToString(S3_Guid(id), text, text.Capacity);
-                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = Marshal.PtrToStringAnsi(S3_Name(id)), PlayerIndex = S3_Player(id) });
+                    pads.Add(new SdlPad { Id = i, Guid = text.ToString(), Name = Marshal.PtrToStringAnsi(S3_Name(id)), PlayerIndex = S3_Player(id) });
                 }
             } finally { S3_Free(ids); }
         } finally { S3_Quit(); }
@@ -419,10 +419,10 @@ static class SdlProbe {
     }
 
     // Triggers rest at the minimum, so the other axes in order are left X, left Y, right X, right Y.
-    public static List<Pad> Sdl2(string dllDir) {
+    public static List<SdlPad> Sdl2(string dllDir) {
         if (!File.Exists(Path.Combine(dllDir, "SDL2.dll"))) throw new InstallException("The engine's SDL2.dll was not found.");
         SetDllDirectory(dllDir);
-        var pads = new List<Pad>();
+        var pads = new List<SdlPad>();
         if (S2_Init(0x200) != 0) throw new InstallException("SDL2 joystick initialization failed.");
         try {
             for (int i = 0; i < S2_Count(); i++) {
@@ -440,7 +440,7 @@ static class SdlProbe {
                     var sticks = Enumerable.Range(0, count).Where(a => !low.Contains(a)).ToArray();
                     bool detected = count >= 6 && low.Count == 2 && sticks.Length == 4;
                     // Otherwise keep the order FSO 26.0.1's SDL 2.26.5 reports for an Xbox pad.
-                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = name, Detected = detected, PlayerIndex = S2_Player(i),
+                    pads.Add(new SdlPad { Id = i, Guid = text.ToString(), Name = name, Detected = detected, PlayerIndex = S2_Player(i),
                         AxisMap = detected ? String.Join(",", sticks.Select(a => AxisNames[a])) : Presets.Sdl3Axes });
                 } finally { S2_Close(j); }
             }

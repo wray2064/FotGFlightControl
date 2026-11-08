@@ -101,7 +101,7 @@ Setup and the console check `https://manictrashpanda.dev/games/FotGFlightControl
 
 ## Restore and remove
 
-The console's **Restore latest backup** restores the selected pilot and matching FotG settings INI from a timestamped copy under `kn_portable/HardLightProductions/FreeSpaceOpen/ControllerSetupBackups`. Restore any pilots whose reserved controls you want back before removing the addon. Delete `GamepadMods/FotG_Gamepad_Wheel` and the two wheel launchers to remove it. The original game's launcher remains available.
+The console's **Restore latest backup** restores the selected pilot and matching FotG settings INI from a timestamped copy under `kn_portable/HardLightProductions/FreeSpaceOpen/ControllerSetupBackups`. Restore any pilots whose reserved controls you want back before removing the addon. Then use **Service → Remove Tool** in Hangar Bay: it removes `GamepadMods/FotG_Gamepad_Wheel`, the launchers and the Setup copy, and keeps pilots and backups. Hangar Bay can't delete its own file while it is open, so it then shows `Hangar Bay.exe` in File Explorer; delete it after Hangar Bay closes to finish. The original game's launcher remains available.
 
 ## Test status
 
