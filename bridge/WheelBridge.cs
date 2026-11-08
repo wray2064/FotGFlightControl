@@ -148,6 +148,7 @@ sealed class Bridge : ApplicationContext {
     readonly DateTime startedUtc = DateTime.UtcNow;
     Process game;
     long lastTick, lastStateRead, lastWrite;
+    readonly int preferredSlot;
     int slot = -1, sequence, previousButtons;
     int lookKey, tapSequence, tapDirection;
     long pendingWheelUntil;
@@ -176,6 +177,8 @@ sealed class Bridge : ApplicationContext {
         lookHoldMs = ParseLookHoldMs(config);
         lookEnabled = !Regex.IsMatch(config, @"\blook_enabled\s*=\s*false\b");
         cameraHoldEnabled = !Regex.IsMatch(config, @"\bcamera_hold_enabled\s*=\s*false\b");
+        preferredSlot = ReadPreferredSlot(Path.Combine(preferences, "data", "GamepadMods_settings.ini"));
+        slot = preferredSlot;
         Directory.CreateDirectory(Path.GetDirectoryName(inputPath));
         tray.Icon = SystemIcons.Application;
         tray.Visible = true;
@@ -267,6 +270,14 @@ sealed class Bridge : ApplicationContext {
         return match.Success && Int32.TryParse(match.Groups[1].Value, out value)
             ? Math.Max(150, Math.Min(600, value)) : 250;
     }
+    static int ReadPreferredSlot(string settings) {
+        try {
+            if (!File.Exists(settings)) return -1;
+            Match match = Regex.Match(File.ReadAllText(settings), @"(?im)^XInputSlot\s*=\s*([0-3])\s*$");
+            int value;
+            return match.Success && Int32.TryParse(match.Groups[1].Value, out value) ? value : -1;
+        } catch (IOException) { return -1; }
+    }
     void ReleaseLook() {
         if (lookKey != 0) WinInput.Key((ushort)lookKey, false);
         lookKey = 0;
@@ -351,7 +362,7 @@ sealed class Bridge : ApplicationContext {
             bool focused = game != null ? pid == (uint)game.Id : IsFotGProcess(pid);
             XState state = new XState(); bool connected = false;
             if (slot >= 0) connected = WinInput.XInputGetState((uint)slot, out state) == 0;
-            if (!connected) {
+            if (!connected && preferredSlot < 0) {
                 slot = -1;
                 for (uint i=0; i<4; i++) if (WinInput.XInputGetState(i, out state) == 0) { slot=(int)i; connected=true; break; }
             }
@@ -362,7 +373,7 @@ sealed class Bridge : ApplicationContext {
             // The game can have the state file open at the same instant we replace
             // it. Keep the bridge alive and retry on the next timer tick.
             try { Publish(state.Pad, active, now); } catch (IOException) { }
-            string status = !connected ? "Wheel: controller disconnected" : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / XInput " + slot;
+            string status = !connected ? (preferredSlot >= 0 ? "Wheel: XInput " + preferredSlot + " disconnected" : "Wheel: controller disconnected") : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / XInput " + slot;
             if (status != latestStatus) { tray.Text = status; latestStatus = status; }
         } catch (Exception ex) {
             try { Release(); Publish(new XPad(), false, clock.ElapsedMilliseconds+100); } catch { }

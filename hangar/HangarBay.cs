@@ -132,7 +132,7 @@ internal sealed class HangarBay : Form {
  }
  void RefreshBackups(){backups.Items.Clear();string[] sources={Path.Combine(root,"GamepadMods","_WheelInstallBackups"),Path.Combine(root,"kn_portable","HardLightProductions","FreeSpaceOpen","ControllerSetupBackups")};foreach(string folder in sources)if(Directory.Exists(folder))foreach(string path in Directory.GetDirectories(folder).OrderByDescending(x=>x)){var row=new ListViewItem(Path.GetFileName(path));row.SubItems.Add(folder.Contains("_Wheel")?"Installer snapshot":"Pilot and settings");row.SubItems.Add(path);row.Tag=path;backups.Items.Add(row);}}
  void OpenBackup(){if(backups.SelectedItems.Count==0)throw new Exception("Select a backup first.");Process.Start("explorer.exe","\""+(string)backups.SelectedItems[0].Tag+"\"");}
- void SelectController(){MessageBox.Show("Connect only the controller you want to use. Hangar Bay will back up the settings and ask FSO's SDL library to identify it.","Select controller");Repair();}
+ void SelectController(){SetSection(1);ShowConsole();console.FocusControllerSlot();status.Text="  SELECT THE ACTIVE XINPUT SLOT, THEN APPLY WITH BACKUP. RESTART THE GAME TO SWITCH CONTROLLERS.";}
  void Repair(){
   if(Process.GetProcesses().Any(x=>x.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close the game before repairing Flight Control.");
   string addon=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"), setup=Path.Combine(root,"Flight Control Setup.exe");

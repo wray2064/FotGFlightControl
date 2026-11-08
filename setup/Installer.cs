@@ -94,6 +94,9 @@ static class Installer {
         // FSO axis names for left X, left Y, right X, right Y (engine-axes.txt).
         string activeSettings = Path.Combine(prefsData, "GamepadMods_settings.ini");
         string existingActive = File.Exists(activeSettings) ? File.ReadAllText(activeSettings) : null;
+        Match preferredMatch = Regex.Match(existingActive ?? "", @"(?im)^XInputSlot\s*=\s*([0-3])\s*$");
+        int preferredSlot = preferredMatch.Success ? Int32.Parse(preferredMatch.Groups[1].Value) : -1;
+        string oldSelection = existingActive != null ? Regex.Match(existingActive, @"(?im)^Joystick\s*=\s*([^\r\n]+)").Groups[1].Value.Trim() : "";
         string axisRecord = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "engine-axes.txt");
         string recordedAxes = File.Exists(axisRecord) ? File.ReadAllText(axisRecord).Trim() : "";
         string axisMap = "X_AXIS,Y_AXIS,Z_AXIS,RX_AXIS";
@@ -106,19 +109,25 @@ static class Installer {
         }
         string selection = null; Pad chosen = null;
         if (devices.Count > 0) {
-            chosen = devices.Count == 1 ? devices[0] : devices.FirstOrDefault(d => Regex.IsMatch(d.Name ?? "", "XInput|Controller|Gamepad", RegexOptions.IgnoreCase));
-            if (chosen == null) throw new InstallException("Multiple joysticks were found. Connect only the gamepad you want to use, then install again.");
-            selection = "{\"guid\":\"" + chosen.Guid + "\",\"id\":" + chosen.Id + "}";
-            if (!engine.Sdl3) {
-                axisMap = chosen.AxisMap;
-                if (!chosen.Detected) warn("The sticks of " + chosen.Name + " could not be told apart from its triggers; the common Xbox layout was assumed. Check the axes in flight.");
+            chosen = preferredSlot >= 0 ? devices.FirstOrDefault(d => d.PlayerIndex == preferredSlot)
+                : devices.Count == 1 ? devices[0] : devices.FirstOrDefault(d => Regex.IsMatch(d.Name ?? "", "XInput|Controller|Gamepad", RegexOptions.IgnoreCase));
+            if (chosen == null) {
+                if (preferredSlot < 0 || String.IsNullOrEmpty(oldSelection))
+                    throw new InstallException("Multiple joysticks were found. Select the active gamepad in the Flight Control Console.");
+                warn("The saved controller for XInput slot " + preferredSlot + " is unavailable; its FSO joystick selection was preserved.");
+                selection = oldSelection;
+            } else {
+                selection = "{\"guid\":\"" + chosen.Guid + "\",\"id\":" + chosen.Id + "}";
+                if (!engine.Sdl3) {
+                    axisMap = chosen.AxisMap;
+                    if (!chosen.Detected) warn("The sticks of " + chosen.Name + " could not be told apart from its triggers; the common Xbox layout was assumed. Check the axes in flight.");
+                }
             }
         } else if (existingActive == null || !Regex.IsMatch(existingActive, @"(?im)^Joystick\s*=")) {
             throw new InstallException("Connect the gamepad and run Install / Repair again so the engine can identify its flight axes.");
         } else {
             warn("No connected gamepad was found. Existing joystick selection was kept; run Install / Repair with the gamepad connected before testing flight.");
         }
-        string oldSelection = existingActive != null ? Regex.Match(existingActive, @"(?im)^Joystick\s*=\s*([^\r\n]+)").Groups[1].Value.Trim() : "";
         if (selection != null && selection != oldSelection) {
             string profileBackup = Path.Combine(prefsData, "..", "ControllerSetupBackups", Stamp() + "-before-wheel-profile");
             Directory.CreateDirectory(profileBackup);
@@ -298,7 +307,7 @@ static class Presets {
     }
 }
 
-sealed class Pad { public int Id; public string Guid, Name, AxisMap = Presets.Sdl3Axes; public bool Detected = true; }
+sealed class Pad { public int Id, PlayerIndex = -1; public string Guid, Name, AxisMap = Presets.Sdl3Axes; public bool Detected = true; }
 
 // Reads the connected pads through the engine's own SDL library, as the engine sees them.
 static class SdlProbe {
@@ -309,6 +318,7 @@ static class SdlProbe {
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_GetJoystickGUIDForID")] static extern SdlGuid S3_Guid(uint id);
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_GUIDToString")] static extern void S3_GuidToString(SdlGuid guid, StringBuilder text, int length);
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_GetJoystickNameForID")] static extern IntPtr S3_Name(uint id);
+    [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_GetJoystickPlayerIndexForID")] static extern int S3_Player(uint id);
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_free")] static extern void S3_Free(IntPtr p);
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_Quit")] static extern void S3_Quit();
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_Init")] static extern int S2_Init(uint flags);
@@ -316,6 +326,7 @@ static class SdlProbe {
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickGetDeviceGUID")] static extern SdlGuid S2_Guid(int index);
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickGetGUIDString")] static extern void S2_GuidToString(SdlGuid guid, StringBuilder text, int length);
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickNameForIndex")] static extern IntPtr S2_Name(int index);
+    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickGetDevicePlayerIndex")] static extern int S2_Player(int index);
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickOpen")] static extern IntPtr S2_Open(int index);
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickNumAxes")] static extern int S2_Axes(IntPtr j);
     [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_JoystickUpdate")] static extern void S2_Update();
@@ -335,7 +346,7 @@ static class SdlProbe {
                 for (int i = 0; i < count; i++) {
                     uint id = (uint)Marshal.ReadInt32(ids, 4 * i);
                     var text = new StringBuilder(64); S3_GuidToString(S3_Guid(id), text, text.Capacity);
-                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = Marshal.PtrToStringAnsi(S3_Name(id)) });
+                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = Marshal.PtrToStringAnsi(S3_Name(id)), PlayerIndex = S3_Player(id) });
                 }
             } finally { S3_Free(ids); }
         } finally { S3_Quit(); }
@@ -364,7 +375,7 @@ static class SdlProbe {
                     var sticks = Enumerable.Range(0, count).Where(a => !low.Contains(a)).ToArray();
                     bool detected = count >= 6 && low.Count == 2 && sticks.Length == 4;
                     // Otherwise keep the order FSO 26.0.1's SDL 2.26.5 reports for an Xbox pad.
-                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = name, Detected = detected,
+                    pads.Add(new Pad { Id = i, Guid = text.ToString(), Name = name, Detected = detected, PlayerIndex = S2_Player(i),
                         AxisMap = detected ? String.Join(",", sticks.Select(a => AxisNames[a])) : Presets.Sdl3Axes });
                 } finally { S2_Close(j); }
             }
