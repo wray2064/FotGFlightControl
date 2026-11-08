@@ -1,15 +1,17 @@
 # VR preview preparation
 
-This branch prepares OpenXR support for headset testing. It has not been
-validated in a headset and is not part of the published 1.1.2 release.
+This branch prepares OpenXR support for headset testing. Stereo and head
+tracking work with Meta Quest 3S over Quest Link. Wheel appearance is still
+being refined and is not part of the published 1.1.2 release.
 
 ## Launch and drawing
 
 - `Play with Gamepad Wheel VR.exe` starts the same controller bridge and game
   with FreeSpace Open's `-vr -stretch_menu` flags. FSO's VR mode itself forces
   windowed rendering, mouse capture, a square mirror window and no VSync.
-- The wheel uses a scripted HUD gauge in VR. This makes FSO draw it in stereo
-  rather than repeating the flat 2D overlay at fixed pixels for each eye.
+- The wheel uses scripted HUD gauges in VR. FSO draws them in stereo. A set of
+  precolored PNG textures supplies the dark backdrop, cyan rings, and label
+  plates because gauge drawing primitives do not retain Lua color settings.
 - Wheel input, timers, and held actions run from `On Simulation` in VR, because
   `On Frame` runs once per eye. Flat-screen flight keeps its existing hook.
 - The wheel stays upright in the HUD for this preview. A tilted wheel would

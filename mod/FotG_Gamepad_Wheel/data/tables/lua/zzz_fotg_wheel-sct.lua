@@ -24,7 +24,12 @@ FotGWheel = {
     state = "GS_STATE_MAIN_MENU",
     axes_applied_state = nil,
     telemetry_sequence = 0,
-    vr_gauge = nil
+    vr_gauge = nil,
+    vr_art = nil,
+    vr_image_ok = 0,
+    vr_image_fail = 0,
+    vr_draws = 0,
+    vr_debug_elapsed = 0
 }
 
 local W = FotGWheel
@@ -199,6 +204,11 @@ function W:publish_state()
         .. "|axes=" .. (self.axes_applied_state == self.state and "applied" or "pending")
         .. "|binds=" .. table.concat(axis_names, ",")
         .. "|control=" .. tostring(ba.setControlMode())
+        .. "|vr=" .. (gr.isVR() and "1" or "0")
+        .. "|gauge=" .. (self.vr_gauge and "1" or "0")
+        .. "|draws=" .. tostring(self.vr_draws)
+        .. "|art=" .. (self.vr_art and tostring(self.vr_art.wheel:getFilename()) or "none")
+        .. "|images=" .. tostring(self.vr_image_ok) .. "/" .. tostring(self.vr_image_fail)
     local file = cf.openFile("fotg-wheel-state.txt", "w", "data/players")
     if file and file:isValid() then
         file:write(body)
@@ -799,6 +809,13 @@ end
 
 function W:frame()
     local dt = clipped(ba.getRealFrametime() or 0.016, 0, 0.2)
+    if gr.isVR() then
+        self.vr_debug_elapsed = self.vr_debug_elapsed + dt
+        if self.vr_debug_elapsed >= 1 then
+            self.vr_debug_elapsed = 0
+            self:publish_state()
+        end
+    end
     if self.message_age > 0 then self.message_age = self.message_age - dt end
     if not is_flight_state(self.state) then
         self:close_panel(true)
@@ -964,80 +981,100 @@ end
 
 -- A scripted HUD gauge is rendered by FSO in each eye's HUD space. Direct gr
 -- drawing at fixed screen pixels produces doubled, blurry text in OpenXR.
-function W:draw_vr(draw)
+function W:draw_vr(draw, layer)
     if not gr.isVR() or not self.vr_gauge then return end
+    if layer == "text" then self.vr_draws = self.vr_draws + 1 end
     local previous_font = gr.CurrentFont
-    local config = FotGWheelConfig or {}
-    local font_name = (config.font_bold == false and "font_" or "font_bold_")
-        .. (config.font_size == "medium" and "medium" or "large")
-    gr.CurrentFont = gr.Fonts[font_name]
-    local function color(r, g, b, a) gr.setColor(r, g, b, a) end
+    gr.CurrentFont = gr.Fonts["font_bold_medium"]
+    -- HUD draw primitives ignore Lua color state. Precolored textures keep
+    -- the backdrop and selection plates legible in both OpenXR eyes.
     if not self.mode then
         if self.message and self.message_age > 0 then
             local width = gr.getStringWidth(self.message)
             local height = gr.CurrentFont.Height
-            color(2, 9, 17, 249)
-            draw:drawRectangle(-width / 2 - 12, 190, width / 2 + 12, 190 + height + 12, true)
-            color(255, 219, 123, 255)
-            draw:drawString(self.message, -width / 2, 196)
+            if layer == "back" and self.vr_art then
+                local plate_width = self:vr_plate_width(width + 24)
+                draw:drawImage(self.vr_art.labels[plate_width], -plate_width / 2, 190)
+            elseif layer == "text" then
+                draw:drawString(self.message, -width / 2, 196)
+            end
         end
         gr.CurrentFont = previous_font
         return
     end
     local title, entries, page, pages = self:view()
-    local radius = config.font_size == "medium" and 138 or 154
+    local radius = 220
     local function centered(message, y)
         draw:drawString(message, -math.floor(gr.getStringWidth(message) * 0.5), y)
     end
-    color(2, 10, 19, 244)
-    draw:drawCircle(math.floor(radius * 1.24), 0, 0, true)
-    color(4, 18, 30, 250)
-    draw:drawCircle(math.floor(radius * 0.72), 0, 0, true)
-    color(58, 221, 255, 255)
-    draw:drawCircle(radius, 0, 0, false)
-    draw:drawCircle(math.floor(radius * 0.72), 0, 0, false)
-    for sector = 1, SECTORS do
-        local theta = -PI / 2 + (sector - 1) * PI / 4
-        color(87, 172, 207, 245)
-        draw:drawLine(math.cos(theta) * radius * 0.72,
-            math.sin(theta) * radius * 0.72,
-            math.cos(theta) * radius, math.sin(theta) * radius)
+    if layer == "back" and self.vr_art then
+        if draw:drawImage(self.vr_art.wheel, -224, -224) then
+            self.vr_image_ok = self.vr_image_ok + 1
+        else
+            self.vr_image_fail = self.vr_image_fail + 1
+        end
     end
     for _, entry in ipairs(entries) do
         local theta = -PI / 2 + (entry.sector - 1) * PI / 4
-        local x = math.cos(theta) * radius * 1.10
-        local y = math.sin(theta) * radius * 1.10
+        local x = math.cos(theta) * radius * 1.25
+        local y = math.sin(theta) * radius * 1.25
         local label = short_label(entry.name)
         local width, height = gr.getStringWidth(label), gr.CurrentFont.Height
         local offset = math.cos(theta) > 0.3 and 8 or
             (math.cos(theta) < -0.3 and -width - 8 or -width * 0.5)
         local tx, ty = math.floor(x + offset), math.floor(y - height * 0.5)
-        color(2, 9, 17, 250)
-        draw:drawRectangle(tx - 9, ty - 5, tx + width + 9, ty + height + 5, true)
-        if self.selected == entry.sector then
-            color(255, 203, 82, 255)
-            draw:drawRectangle(tx - 9, ty - 5, tx + width + 9, ty + height + 5, false)
+        if layer == "back" and self.vr_art then
+            local plate_width = self:vr_plate_width(width + 24)
+            local plates = self.selected == entry.sector and self.vr_art.selected or self.vr_art.labels
+            draw:drawImage(plates[plate_width],
+                tx + math.floor((width - plate_width) * 0.5),
+                ty + math.floor((height - 48) * 0.5))
+        elseif layer == "text" then
+            draw:drawString(label, tx, ty)
         end
-        if entry.active == false then color(139, 158, 168, 255)
-        elseif self.selected == entry.sector then color(255, 225, 145, 255)
-        else color(242, 249, 252, 255) end
-        draw:drawString(label, tx, ty)
     end
-    color(255, 196, 89, 255)
-    centered(title, -28)
-    color(223, 243, 250, 255)
-    centered(self.comm_open_requested and "Opening communications..."
-        or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"), 4)
-    centered("A  Confirm    B  Cancel", 32)
+    if layer == "text" then
+        centered(title, -28)
+        centered(self.comm_open_requested and "Opening communications..."
+            or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"), 4)
+        centered("A  Confirm    B  Cancel", 32)
+    end
     gr.CurrentFont = previous_font
+end
+
+function W:vr_plate_width(width)
+    for _, candidate in ipairs({ 128, 192, 256, 320, 384, 448, 512, 640 }) do
+        if width <= candidate then return candidate end
+    end
+    return 640
+end
+
+function W:ensure_vr_art()
+    if self.vr_art then return end
+    local art = { labels = {}, selected = {} }
+    art.wheel = gr.loadTexture("fotg_vr_wheel")
+    for _, width in ipairs({ 128, 192, 256, 320, 384, 448, 512, 640 }) do
+        art.labels[width] = gr.loadTexture("fotg_vr_label_" .. width)
+        art.selected[width] = gr.loadTexture("fotg_vr_selected_" .. width)
+    end
+    self.vr_art = art
 end
 
 function W:ensure_vr_gauge()
     if not gr.isVR() or self.vr_gauge then return end
-    local gauge = hu.getHUDGaugeHandle("FotG Wheel VR")
-    if gauge then
-        self.vr_gauge = gauge
-        gauge.RenderFunction = function(draw) W:draw_vr(draw) end
+    -- This gauge is attached to the active ship HUD; FSO can look it up by
+    -- Name: there. A default scripted gauge would not render for FotG ships.
+    local gauges = {}
+    for _, layer in ipairs({ "back", "lines", "text" }) do
+        local gauge = hu.getHUDGaugeHandle("FotG VR " .. layer)
+        if not gauge then return end
+        gauges[layer] = gauge
+    end
+    self.vr_gauge = gauges
+    self:ensure_vr_art()
+    for layer, gauge in pairs(gauges) do
+        local this_layer = layer
+        gauge.RenderFunction = function(draw) W:draw_vr(draw, this_layer) end
     end
 end
 

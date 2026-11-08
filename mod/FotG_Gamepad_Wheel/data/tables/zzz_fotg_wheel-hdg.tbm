@@ -1,13 +1,65 @@
-; FSO renders scripted gauges in stereo HUD space in OpenXR. The callback is
-; inactive on a flat screen; the existing 2D On HUD Draw path remains in use.
+; FSO renders only a ship-specific HUD list when FotG supplies one.
+; These two configs cover all 92 FotG 1.1.2 HUD assignments.
 #Gauge Config
+    $Name: HUD_Chase_Common_Base
+    $Show in HUD Config: NO
     $Base: (1600, 900)
     $Gauges:
         +Scripted Gauge:
             Origin: (0.5, 0.5)
             Offset: (0, 0)
+            Color: (2, 10, 19)
+            Font: font_bold_medium
             Slew: YES
-            Name: FotG Wheel VR
+            Name: FotG VR back
+            Active by default: YES
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Color: (58, 221, 255)
+            Font: font_bold_medium
+            Slew: YES
+            Name: FotG VR lines
+            Active by default: YES
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Color: (242, 249, 252)
+            Font: font_bold_medium
+            Slew: YES
+            Name: FotG VR text
+            Active by default: YES
+    $End Gauges
+#End
+
+#Gauge Config
+    $Name: HUD_ShipController
+    $Show in HUD Config: NO
+    $Base: (1600, 900)
+    $Gauges:
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Color: (2, 10, 19)
+            Font: font_bold_medium
+            Slew: YES
+            Name: FotG VR back
+            Active by default: YES
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Color: (58, 221, 255)
+            Font: font_bold_medium
+            Slew: YES
+            Name: FotG VR lines
+            Active by default: YES
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Color: (242, 249, 252)
+            Font: font_bold_medium
+            Slew: YES
+            Name: FotG VR text
             Active by default: YES
     $End Gauges
 #End
