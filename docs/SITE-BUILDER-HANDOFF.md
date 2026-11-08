@@ -1,8 +1,10 @@
 # Flight Control page handoff
 
-Use the neighboring `player-download` ZIP as the sole player download. The
-`source-upload` ZIP is for a public source repository, not for installation.
-The game and engine are separate downloads and are not in either archive.
+The Hangar Bay page assets in `updated/site-builder` describe the next Flight
+Control build. **Do not switch the public Download button to these features yet:**
+the existing 1.1.2 candidate ZIP does not contain `Hangar Bay.exe`. Pair this
+handoff with a newly packaged and verified player ZIP before publishing the
+Hangar Bay copy. The game and engine remain separate downloads.
 
 ## Page structure
 
@@ -22,18 +24,19 @@ The game and engine are separate downloads and are not in either archive.
 
 ## Files
 
-- `player-download/FotG-Flight-Control-*.zip`: player archive. Preserve
-  its exact name and publish its SHA-256 from `SHA256SUMS.txt` in this handoff.
-- `source-upload/FotG-Gamepad-Wheel-source-*.zip`: repository source snapshot.
+- `player-download/FotG-Flight-Control-*.zip`: use only the new archive that
+  contains `Hangar Bay.exe`; preserve its exact name and publish its SHA-256.
+- `source-upload/*.zip`: use a source archive from the same commit as that player
+  archive. It is for the public repository, not installation.
 - `screenshots/setup-final.png`: actual graphical installer, ready to repair.
-- `docs/screenshots/hangar-deploy.png`, `hangar-console.png`,
-  `hangar-macros.png`, `hangar-service.png`, `hangar-guide.png`: current Hangar Bay flow. Prefer
-  these over older standalone-console images for the primary gallery. Captions
-  and alt text are in `docs/PAGE-COPY.md`.
+- `screenshots/hangar-deploy.png`, `hangar-console.png`, `hangar-macros.png`,
+  `hangar-service.png`, `hangar-guide.png`: current Hangar Bay flow in the
+  site-builder folder. Prefer these over older standalone-console images for
+  the primary gallery. Captions and alt text are in `docs/PAGE-COPY.md`.
 - `screenshots/flight-response.jpg`: controller preview and calibration.
 - `screenshots/macro-deck.jpg`: wheel, macros, and hold controls.
 - `screenshots/advanced-layouts.jpg`: wheel reordering and profile sharing.
-- `docs/screenshots/vr/`: nine cropped images from a live OpenXR VR test,
+- `screenshots/vr/`: nine cropped images from a live OpenXR VR test,
   including three wheel details. See its `README.md` for filenames, recommended
   gallery order, captions, alt text, and the desktop-mirror disclosure. Use
   `vr-cockpit-engagement.png` as the lead VR image. Label the section **VR
@@ -43,15 +46,14 @@ The game and engine are separate downloads and are not in either archive.
 
 ## Publishing checks
 
-- Download the player ZIP from the final URL and compare its SHA-256 with the
-  value in `SHA256SUMS.txt`.
+- Confirm the new player ZIP contains `Hangar Bay.exe`, then download it from
+  the final URL and compare its SHA-256 with the release manifest.
 - Extract the ZIP before running `Setup.exe`; keep its folder structure intact.
 - Check the page at 1280×800, 1920×1080, and portrait tablet width. Keep the
   download button and requirements visible without a wide-screen layout.
 - Link the matching source commit or repository when it has been published.
   Do not show the source ZIP as the primary download.
 
-Flight Control 1.0.0 has been tested extensively in practice missions on a
-Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads. The campaign and
-multiplayer have not been tested. Keep that note on the page, with
-dev@manictrashpanda.dev for bugs, awkward interactions and ideas.
+Practice-mission testing includes handheld and external XInput controllers.
+The campaign and multiplayer have not been fully validated. Keep that note on
+the page, with dev@manictrashpanda.dev for bugs and ideas.

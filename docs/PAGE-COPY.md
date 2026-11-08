@@ -1,5 +1,9 @@
 # Suggested web page copy
 
+**Publishing status:** This copy describes the Hangar Bay build. Keep it in
+draft until the player download contains `Hangar Bay.exe` and the matching
+source and checksum have been published.
+
 ## Hero
 
 **Flight Control for Fate of the Galaxy**
