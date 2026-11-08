@@ -31,11 +31,12 @@ internal static class HangarProgram {
 }
 
 internal sealed class HangarBay : Form {
- readonly Color ink=Color.FromArgb(245,246,239), muted=Color.FromArgb(157,184,192), cyan=Color.FromArgb(103,222,239), ground=Color.FromArgb(3,9,15);
+ readonly Color ink=Color.FromArgb(240,246,248), muted=Color.FromArgb(170,196,206), cyan=Color.FromArgb(246,201,69), ground=Color.FromArgb(3,9,15);
  readonly Panel host=new Panel { Dock=DockStyle.Fill };
- readonly Label status=new Label { Dock=DockStyle.Bottom,Height=32,TextAlign=ContentAlignment.MiddleLeft };
- readonly ComboBox packs=new ComboBox { Dock=DockStyle.Top,DropDownStyle=ComboBoxStyle.DropDownList,Height=34 };
- readonly ListView backups=new ListView { Dock=DockStyle.Fill,View=View.Details,FullRowSelect=true };
+ readonly Label status=new Label { Dock=DockStyle.Bottom,Height=36,TextAlign=ContentAlignment.MiddleLeft };
+ readonly ComboBox packs=new ComboBox { Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=30,FlatStyle=FlatStyle.Flat };
+ readonly ListView backups=new ListView { Dock=DockStyle.Fill,View=View.Details,FullRowSelect=true,OwnerDraw=true,HideSelection=false,BorderStyle=BorderStyle.None };
+ readonly List<VectorButton> navButtons=new List<VectorButton>();
  string root;
  ControllerSetup console;
  sealed class Pack { public string Name, Path; public override string ToString(){return Name;} }
@@ -46,31 +47,50 @@ internal sealed class HangarBay : Form {
   BackColor=ground; ForeColor=ink; Font=new Font("Consolas",10);
   string icon=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"GamepadMods","FotG_Gamepad_Wheel","ControllerSetup","Assets","FlightControl.ico");
   if(File.Exists(icon)) Icon=new Icon(icon);
-  var navigation=new Panel {Dock=DockStyle.Left,Width=198,BackColor=Color.FromArgb(8,20,30)};
+  var navigation=new Panel {Dock=DockStyle.Left,Width=216,BackColor=Color.FromArgb(6,16,24)};
+  navigation.Paint+=delegate(object s,PaintEventArgs e){using(var pen=new Pen(Color.FromArgb(70,104,120),1))e.Graphics.DrawLine(pen,navigation.Width-1,0,navigation.Width-1,navigation.Height);};
   Controls.Add(host); Controls.Add(navigation); Controls.Add(status);
-  status.Padding=new Padding(16,0,0,0);status.ForeColor=cyan;status.BackColor=Color.FromArgb(9,25,34);
-  var heading=new Label {Dock=DockStyle.Top,Height=112,Text="MTP   /   FLIGHT\nCONTROL\n━━━━━━━━━━━━",ForeColor=ink,Font=new Font("Consolas",14,FontStyle.Bold),Padding=new Padding(15,20,0,0)};
+  status.Padding=new Padding(16,0,0,0);status.ForeColor=muted;status.BackColor=Color.FromArgb(6,16,24);status.Font=new Font("Consolas",10);
+  packs.BackColor=Color.FromArgb(10,26,36);packs.ForeColor=ink;packs.Font=new Font("Consolas",11,FontStyle.Bold);
+  packs.DrawItem+=delegate(object s,DrawItemEventArgs e){if(e.Index<0)return;bool sel=(e.State&DrawItemState.Selected)!=0;using(var b=new SolidBrush(sel?Color.FromArgb(62,48,10):Color.FromArgb(10,26,36)))e.Graphics.FillRectangle(b,e.Bounds);TextRenderer.DrawText(e.Graphics,Convert.ToString(packs.Items[e.Index]),packs.Font,new Rectangle(e.Bounds.X+8,e.Bounds.Y,e.Bounds.Width-10,e.Bounds.Height),ink,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);};
+  StyleBackups();
+  var heading=new Label {Dock=DockStyle.Top,Height=118,Text="FLIGHT\nCONTROL\nHANGAR BAY",ForeColor=ink,Font=new Font("Consolas",15,FontStyle.Bold),Padding=new Padding(16,18,0,0)};
   navigation.Controls.Add(heading);
-  var menu=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new Padding(9,128,9,0)};
+  var menu=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new Padding(8,10,8,0)};
   navigation.Controls.Add(menu);navigation.Controls.SetChildIndex(heading,0);
   Nav(menu,"01  DEPLOY",Home);Nav(menu,"02  CONSOLE",ShowConsole);Nav(menu,"03  SERVICE",Maintenance);Nav(menu,"04  GUIDE",Help);
+  SetSection(0);
   Home();
  }
+ void SetSection(int index){for(int i=0;i<navButtons.Count;i++){navButtons[i].Selected=i==index;navButtons[i].Invalidate();}}
+ void StyleBackups(){
+  backups.BackColor=Color.FromArgb(8,20,29);backups.ForeColor=ink;backups.Font=new Font("Consolas",10);backups.HeaderStyle=ColumnHeaderStyle.Nonclickable;
+  var rowHeight=new ImageList{ImageSize=new Size(1,38)};backups.SmallImageList=rowHeight;
+  backups.DrawColumnHeader+=delegate(object s,DrawListViewColumnHeaderEventArgs e){using(var b=new SolidBrush(Color.FromArgb(14,34,46)))e.Graphics.FillRectangle(b,e.Bounds);using(var pen=new Pen(Color.FromArgb(70,104,120)))e.Graphics.DrawLine(pen,e.Bounds.Left,e.Bounds.Bottom-1,e.Bounds.Right,e.Bounds.Bottom-1);TextRenderer.DrawText(e.Graphics,e.Header.Text.ToUpperInvariant(),backups.Font,new Rectangle(e.Bounds.X+10,e.Bounds.Y,e.Bounds.Width-12,e.Bounds.Height),muted,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);};
+  backups.DrawItem+=delegate(object s,DrawListViewItemEventArgs e){};
+  backups.DrawSubItem+=delegate(object s,DrawListViewSubItemEventArgs e){bool sel=e.Item.Selected;Color back=sel?Color.FromArgb(62,48,10):(e.ItemIndex%2==0?Color.FromArgb(8,20,29):Color.FromArgb(11,26,37));using(var b=new SolidBrush(back))e.Graphics.FillRectangle(b,e.Bounds);if(sel){using(var pen=new Pen(Color.FromArgb(246,201,69),3))e.Graphics.DrawLine(pen,e.Bounds.Left+1,e.Bounds.Top,e.Bounds.Left+1,e.Bounds.Bottom);}
+   TextRenderer.DrawText(e.Graphics,e.SubItem.Text,backups.Font,new Rectangle(e.Bounds.X+10,e.Bounds.Y,e.Bounds.Width-12,e.Bounds.Height),e.ColumnIndex==2&&!sel?muted:ink,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);};
+  backups.Resize+=delegate{FitBackupColumns();};
+ }
+ void FitBackupColumns(){if(backups.Columns.Count<3)return;int w=Math.Max(300,backups.ClientSize.Width-4);int a=Math.Max(190,(int)(w*0.24)),b=Math.Max(190,(int)(w*0.25));backups.Columns[0].Width=a;backups.Columns[1].Width=b;backups.Columns[2].Width=Math.Max(80,w-a-b);}
  static string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');while(p!=null){if(Directory.Exists(Path.Combine(p,"kn_portable")))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
- void Nav(FlowLayoutPanel bar,string name,Action action){var b=Button(name,action);b.Width=170;b.Height=51;bar.Controls.Add(b);}
- Button Button(string name,Action action){var b=new VectorButton{Text=name,Height=44,BackColor=Color.FromArgb(10,29,40),ForeColor=ink,Font=new Font("Consolas",10,FontStyle.Bold),Cursor=Cursors.Hand};b.Click+=delegate{try{action();}catch(Exception e){MessageBox.Show(e.Message,"Hangar Bay",MessageBoxButtons.OK,MessageBoxIcon.Error);}};return b;}
+ void Nav(FlowLayoutPanel bar,string name,Action action){int index=navButtons.Count;var b=Button(name,delegate{SetSection(index);action();});b.Kind=ButtonKind.Nav;b.Width=198;b.Height=56;b.Margin=new Padding(0,0,0,6);navButtons.Add(b);bar.Controls.Add(b);}
+ VectorButton Button(string name,Action action){var b=new VectorButton{Text=name,Height=48,BackColor=Color.FromArgb(10,29,40),ForeColor=ink,Font=new Font("Consolas",11,FontStyle.Bold),Cursor=Cursors.Hand,AccessibleName=name};b.Click+=delegate{try{action();}catch(Exception e){MessageBox.Show(e.Message,"Hangar Bay",MessageBoxButtons.OK,MessageBoxIcon.Error);}};return b;}
  Label Label(string text,int height,int size=11){return new Label{Text=text,Dock=DockStyle.Top,Height=height,ForeColor=ink,Font=new Font("Consolas",size,FontStyle.Bold),Padding=new Padding(0,8,0,0)};}
  void Clear(){host.Controls.Clear();status.Text="  HANGAR BAY  //  "+(String.IsNullOrEmpty(root)?"GAME NOT FOUND":root);}
- Panel Page(string title){Clear();var p=new Panel{Dock=DockStyle.Fill,Padding=new Padding(26),BackColor=ground,AutoScroll=true};host.Controls.Add(p);p.Controls.Add(Label(title,54,17));return p;}
+ Panel Page(string title){Clear();var p=new Panel{Dock=DockStyle.Fill,Padding=new Padding(26),BackColor=ground,AutoScroll=true};host.Controls.Add(p);var t=Label(title,54,17);t.ForeColor=ink;p.Controls.Add(t);return p;}
+ Label Note(string text,int height,Color color){return new Label{Text=text,Dock=DockStyle.Fill,Height=height,ForeColor=color,Font=new Font("Consolas",10),TextAlign=ContentAlignment.MiddleLeft,AutoEllipsis=false};}
  void Home(){var p=Page("01   /   DEPLOYMENT BAY");
-  p.AutoScrollMinSize=new Size(0,550);
-  var art=new TacticalPanel {Dock=DockStyle.Top,Height=160,BackColor=ground};p.Controls.Add(art);p.Controls.SetChildIndex(art,0);
-  var content=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=7,Padding=new Padding(0,16,0,0)};
-  content.RowStyles.Add(new RowStyle(SizeType.Absolute,32));content.RowStyles.Add(new RowStyle(SizeType.Absolute,38));content.RowStyles.Add(new RowStyle(SizeType.Absolute,12));content.RowStyles.Add(new RowStyle(SizeType.Absolute,60));content.RowStyles.Add(new RowStyle(SizeType.Absolute,60));content.RowStyles.Add(new RowStyle(SizeType.Absolute,66));
-  content.Controls.Add(Label("SELECT MISSION PROFILE   /   MOD LOADOUT",34,10),0,0);packs.BackColor=Color.FromArgb(12,31,40);packs.ForeColor=ink;packs.Font=new Font("Consolas",11,FontStyle.Bold);content.Controls.Add(packs,0,1);
-  var normal=Button("▶    STANDARD FLIGHT  /  GAMEPAD",delegate{Launch(false);});normal.Dock=DockStyle.Fill;normal.Font=new Font("Consolas",11,FontStyle.Bold);content.Controls.Add(normal,0,3);
-  var vr=Button("◇    OPENXR FLIGHT  /  HEADSET",delegate{Launch(true);});vr.Dock=DockStyle.Fill;vr.Font=new Font("Consolas",11,FontStyle.Bold);content.Controls.Add(vr,0,4);
-  content.Controls.Add(Label("LOAD ORDER  »  FLIGHT CONTROL  /  SELECTED PACK  /  FOTG\nCommand wheels stay active in both launch modes.",60,9),0,5);
+  p.AutoScrollMinSize=new Size(0,640);
+  var art=new TacticalPanel {Dock=DockStyle.Top,Height=170,BackColor=ground};p.Controls.Add(art);p.Controls.SetChildIndex(art,0);
+  var content=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=7,Padding=new Padding(0,18,0,0)};
+  content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+  content.RowStyles.Add(new RowStyle(SizeType.Absolute,30));content.RowStyles.Add(new RowStyle(SizeType.Absolute,44));content.RowStyles.Add(new RowStyle(SizeType.Absolute,18));content.RowStyles.Add(new RowStyle(SizeType.Absolute,80));content.RowStyles.Add(new RowStyle(SizeType.Absolute,12));content.RowStyles.Add(new RowStyle(SizeType.Absolute,80));content.RowStyles.Add(new RowStyle(SizeType.Absolute,74));
+  var pick=Label("MISSION PROFILE   /   MOD LOADOUT",30,10);pick.Dock=DockStyle.Fill;pick.ForeColor=muted;pick.Padding=Padding.Empty;pick.TextAlign=ContentAlignment.BottomLeft;content.Controls.Add(pick,0,0);
+  packs.Dock=DockStyle.Fill;packs.AccessibleName="Mission pack";content.Controls.Add(packs,0,1);
+  var normal=Button("LAUNCH  ·  STANDARD FLIGHT",delegate{Launch(false);});normal.Kind=ButtonKind.Primary;normal.Subtitle="Gamepad flight with command wheels";normal.Dock=DockStyle.Fill;normal.Font=new Font("Consolas",13,FontStyle.Bold);normal.Margin=Padding.Empty;content.Controls.Add(normal,0,3);
+  var vr=Button("LAUNCH  ·  OPENXR VR",delegate{Launch(true);});vr.Subtitle="Headset flight, same load order and wheels";vr.Dock=DockStyle.Fill;vr.Font=new Font("Consolas",13,FontStyle.Bold);vr.Margin=Padding.Empty;content.Controls.Add(vr,0,5);
+  var order=Note("LOAD ORDER   FLIGHT CONTROL  >  SELECTED PACK  >  FOTG\nCommand wheels stay active in both launch modes.",74,muted);order.Padding=new Padding(0,10,0,0);order.TextAlign=ContentAlignment.TopLeft;content.Controls.Add(order,0,6);
   p.Controls.Add(content);p.Controls.SetChildIndex(content,0);RefreshPacks();
  }
  void RefreshPacks(){packs.Items.Clear();packs.Items.Add(new Pack{Name="Fate of the Galaxy / base game",Path=null});
@@ -90,13 +110,25 @@ internal sealed class HangarBay : Form {
  }
  void ShowConsole(){Clear();if(console==null||console.IsDisposed){console=new ControllerSetup();console.SetEmbedded();console.TopLevel=false;console.FormBorderStyle=FormBorderStyle.None;console.Dock=DockStyle.Fill;}host.Controls.Add(console);console.Show();console.BringToFront();}
  void Maintenance(){var p=Page("03   /   SERVICE DECK");
-  var buttons=new TableLayoutPanel{Dock=DockStyle.Top,Height=156,ColumnCount=2,RowCount=3};
-  for(int i=0;i<2;i++)buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-  for(int i=0;i<3;i++)buttons.RowStyles.Add(new RowStyle(SizeType.Percent,100f/3));
+  p.AutoScrollMinSize=new Size(0,640);
+  var buttons=new TableLayoutPanel{Dock=DockStyle.Top,Height=210,ColumnCount=2,RowCount=4,Margin=Padding.Empty};
   p.Controls.Add(buttons);p.Controls.SetChildIndex(buttons,0);
   var actions=new[]{"REFRESH BACKUPS","OPEN BACKUP","REPAIR SETUP","CHOOSE CONTROLLER","REMOVE TOOL"};
-  for(int i=0;i<actions.Length;i++){int choice=i;var b=Button(actions[i],delegate{if(choice==0)RefreshBackups();else if(choice==1)OpenBackup();else if(choice==2)Repair();else if(choice==3)SelectController();else Remove();});b.Dock=DockStyle.Fill;buttons.Controls.Add(b,i%2,i/2);}
-  backups.Columns.Clear();backups.Columns.Add("Date / snapshot",220);backups.Columns.Add("Category",190);backups.Columns.Add("Folder",570);backups.BackColor=Color.FromArgb(10,25,34);backups.ForeColor=ink;p.Controls.Add(backups);p.Controls.SetChildIndex(backups,0);RefreshBackups();
+  var notes=new[]{"Rescan snapshot folders","Show selected row in Explorer","Reinstall launchers, keep pilots","Pick the active gamepad","Keeps pilots and backups"};
+  var serviceButtons=new List<VectorButton>();
+  for(int i=0;i<actions.Length;i++){int choice=i;var b=Button(actions[i],delegate{if(choice==0)RefreshBackups();else if(choice==1)OpenBackup();else if(choice==2)Repair();else if(choice==3)SelectController();else Remove();});b.Dock=DockStyle.Fill;b.Subtitle=notes[i];b.Margin=new Padding(0,0,8,8);if(i==4)b.Kind=ButtonKind.Danger;serviceButtons.Add(b);}
+  Action layoutButtons=delegate{
+   bool narrow=p.ClientSize.Width<700;buttons.SuspendLayout();buttons.Controls.Clear();buttons.ColumnStyles.Clear();buttons.RowStyles.Clear();
+   buttons.ColumnCount=narrow?1:2;buttons.RowCount=narrow?5:3;
+   for(int c=0;c<buttons.ColumnCount;c++)buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100f/buttons.ColumnCount));
+   for(int r=0;r<buttons.RowCount;r++)buttons.RowStyles.Add(new RowStyle(SizeType.Absolute,66));
+   for(int i=0;i<4;i++)buttons.Controls.Add(serviceButtons[i],narrow?0:i%2,narrow?i:i/2);
+   buttons.Controls.Add(serviceButtons[4],0,narrow?4:2);if(!narrow)buttons.SetColumnSpan(serviceButtons[4],2);
+   buttons.Height=buttons.RowCount*66+4;buttons.ResumeLayout(true);
+  };
+  layoutButtons();p.Resize+=delegate{bool narrow=p.ClientSize.Width<700;if((buttons.ColumnCount==1)!=narrow)layoutButtons();};
+  var listLabel=Label("BACKUPS   /   SELECT A ROW, THEN OPEN BACKUP",40,10);listLabel.ForeColor=muted;listLabel.Padding=new Padding(0,16,0,0);p.Controls.Add(listLabel);p.Controls.SetChildIndex(listLabel,0);
+  backups.Columns.Clear();backups.Columns.Add("Date / snapshot",220);backups.Columns.Add("Category",190);backups.Columns.Add("Folder",570);FitBackupColumns();backups.Dock=DockStyle.Fill;p.Controls.Add(backups);p.Controls.SetChildIndex(backups,0);RefreshBackups();
  }
  void RefreshBackups(){backups.Items.Clear();string[] sources={Path.Combine(root,"GamepadMods","_WheelInstallBackups"),Path.Combine(root,"kn_portable","HardLightProductions","FreeSpaceOpen","ControllerSetupBackups")};foreach(string folder in sources)if(Directory.Exists(folder))foreach(string path in Directory.GetDirectories(folder).OrderByDescending(x=>x)){var row=new ListViewItem(Path.GetFileName(path));row.SubItems.Add(folder.Contains("_Wheel")?"Installer snapshot":"Pilot and settings");row.SubItems.Add(path);row.Tag=path;backups.Items.Add(row);}}
  void OpenBackup(){if(backups.SelectedItems.Count==0)throw new Exception("Select a backup first.");Process.Start("explorer.exe","\""+(string)backups.SelectedItems[0].Tag+"\"");}
@@ -122,38 +154,72 @@ internal sealed class HangarBay : Form {
   string helper=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Remove-"+Guid.NewGuid().ToString("N")+".exe");File.Copy(Application.ExecutablePath,helper);
   Process.Start(new ProcessStartInfo(helper){Arguments="--remove \""+root+"\"",WorkingDirectory=Path.GetTempPath(),UseShellExecute=false,CreateNoWindow=true});Close();
  }
- void Help(){var p=Page("04   /   FIELD GUIDE");string file=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","Help.html");if(!File.Exists(file))return;var web=new WebBrowser{Dock=DockStyle.Fill,ScriptErrorsSuppressed=true};p.Controls.Add(web);p.Controls.SetChildIndex(web,0);web.Navigate(file);}
+ void Help(){var p=Page("04   /   FIELD GUIDE");string file=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","Help.html");if(!File.Exists(file)){var missing=Note("The guide (Help.html) was not found in the installed Flight Control folder.\nChoose SERVICE > REPAIR SETUP to restore it.",80,muted);missing.Dock=DockStyle.Top;p.Controls.Add(missing);p.Controls.SetChildIndex(missing,0);return;}var web=new WebBrowser{Dock=DockStyle.Fill,ScriptErrorsSuppressed=true};p.Controls.Add(web);p.Controls.SetChildIndex(web,0);web.Navigate(file);}
 }
 
 internal sealed class TacticalPanel:Panel {
- public TacticalPanel(){DoubleBuffered=true;ResizeRedraw=true;}
+ public TacticalPanel(){DoubleBuffered=true;ResizeRedraw=true;SetStyle(ControlStyles.Selectable,false);AccessibleName="Decorative tactical flight grid";AccessibleRole=AccessibleRole.Graphic;}
  protected override void OnPaint(PaintEventArgs e){base.OnPaint(e);var g=e.Graphics;g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;int w=Width,h=Height,cx=w/2,cy=h/2;
-  using(var line=new Pen(Color.FromArgb(224,236,237),2))using(var dim=new Pen(Color.FromArgb(51,89,104),1))using(var accent=new Pen(Color.FromArgb(92,215,231),2)){
-   g.DrawRectangle(line,10,8,w-20,h-16);g.DrawLine(dim,10,cy,w-10,cy);g.DrawLine(dim,cx,8,cx,h-8);
+  using(var line=new Pen(Color.FromArgb(232,240,244),2.5f))using(var thin=new Pen(Color.FromArgb(150,176,188),1.2f))using(var dim=new Pen(Color.FromArgb(40,70,84),1))using(var accent=new Pen(Color.FromArgb(246,201,69),2.5f)){
+   g.DrawRectangle(line,10,8,w-20,h-16);
    for(int i=1;i<8;i++){int x=10+i*(w-20)/8;g.DrawLine(dim,x,8,x,h-8);}
    for(int i=1;i<4;i++){int y=8+i*(h-16)/4;g.DrawLine(dim,10,y,w-10,y);}
-   for(int i=1;i<8;i++){int x=10+i*(w-20)/8;g.DrawLine(line,x,8,x,17);g.DrawLine(line,x,h-17,x,h-8);}
-   g.DrawEllipse(accent,cx-46,cy-46,92,92);g.DrawArc(line,cx-66,cy-66,132,132,205,56);g.DrawArc(line,cx-66,cy-66,132,132,25,56);
-   g.DrawLine(line,cx-8,cy,cx+8,cy);g.DrawLine(line,cx,cy-8,cx,cy+8);
-   var ship=new[]{new Point(cx,cy-34),new Point(cx+10,cy-4),new Point(cx+78,cy+18),new Point(cx+78,cy+31),new Point(cx+13,cy+13),new Point(cx+7,cy+35),new Point(cx-7,cy+35),new Point(cx-13,cy+13),new Point(cx-78,cy+31),new Point(cx-78,cy+18),new Point(cx-10,cy-4)};
-   g.DrawPolygon(line,ship);g.DrawLine(accent,cx-78,cy+18,cx-78,cy+31);g.DrawLine(accent,cx+78,cy+18,cx+78,cy+31);
-   g.DrawLine(accent,cx-110,cy-51,cx-83,cy-51);g.DrawLine(accent,cx+83,cy-51,cx+110,cy-51);
-   using(var font=new Font("Consolas",8,FontStyle.Bold))using(var brush=new SolidBrush(Color.FromArgb(215,233,236))){g.DrawString("TACTICAL FLIGHT GRID",font,brush,22,16);g.DrawString("VECTOR  /  01",font,brush,w-125,h-29);g.DrawString("LOCK  READY",font,brush,22,h-29);}
+   g.DrawLine(thin,10,cy,w-10,cy);g.DrawLine(thin,cx,8,cx,h-8);
+   for(int i=1;i<8;i++){int x=10+i*(w-20)/8;g.DrawLine(line,x,8,x,18);g.DrawLine(line,x,h-18,x,h-8);}
+   // range rings and bracket reticle (original artwork)
+   g.DrawEllipse(thin,cx-70,cy-70,140,140);
+   g.DrawEllipse(accent,cx-46,cy-46,92,92);
+   g.DrawArc(line,cx-66,cy-66,132,132,205,56);g.DrawArc(line,cx-66,cy-66,132,132,25,56);
+   g.DrawLine(line,cx-12,cy,cx+12,cy);g.DrawLine(line,cx,cy-12,cx,cy+12);
+   // generic wing-pair glyph made of straight strokes
+   g.DrawLine(line,cx-96,cy+26,cx-30,cy+4);g.DrawLine(line,cx+96,cy+26,cx+30,cy+4);
+   g.DrawLine(line,cx-96,cy+14,cx-96,cy+38);g.DrawLine(line,cx+96,cy+14,cx+96,cy+38);
+   g.DrawLine(accent,cx-132,cy-52,cx-96,cy-52);g.DrawLine(accent,cx+96,cy-52,cx+132,cy-52);
+   using(var font=new Font("Consolas",10,FontStyle.Bold))using(var brush=new SolidBrush(Color.FromArgb(232,240,244)))using(var gold=new SolidBrush(Color.FromArgb(246,201,69))){if(w>=560)g.DrawString("TACTICAL FLIGHT GRID",font,brush,24,16);g.DrawString("VECTOR 01",font,brush,w-110,h-30);g.DrawString("LOCK READY",font,gold,24,h-30);}
   }
  }
 }
 
+internal enum ButtonKind { Normal, Primary, Nav, Danger }
+
 internal sealed class VectorButton:Button {
- bool hot;
- public VectorButton(){FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;DoubleBuffered=true;Margin=new Padding(3);}
+ bool hot,down;Font subFont;
+ public ButtonKind Kind;public bool Selected;public string Subtitle;
+ public VectorButton(){FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;DoubleBuffered=true;Margin=new Padding(3);SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);TabStop=true;}
+ protected override void Dispose(bool disposing){if(disposing&&subFont!=null)subFont.Dispose();base.Dispose(disposing);}
  protected override void OnMouseEnter(EventArgs e){hot=true;Invalidate();base.OnMouseEnter(e);}
- protected override void OnMouseLeave(EventArgs e){hot=false;Invalidate();base.OnMouseLeave(e);}
+ protected override void OnMouseLeave(EventArgs e){hot=false;down=false;Invalidate();base.OnMouseLeave(e);}
+ protected override void OnMouseDown(MouseEventArgs e){down=true;Invalidate();base.OnMouseDown(e);}
+ protected override void OnMouseUp(MouseEventArgs e){down=false;Invalidate();base.OnMouseUp(e);}
+ protected override void OnGotFocus(EventArgs e){Invalidate();base.OnGotFocus(e);}
+ protected override void OnLostFocus(EventArgs e){Invalidate();base.OnLostFocus(e);}
+ protected override void OnEnabledChanged(EventArgs e){Invalidate();base.OnEnabledChanged(e);}
+ protected override bool ShowFocusCues{get{return true;}}
  protected override void OnPaint(PaintEventArgs e){var g=e.Graphics;g.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-  using(var fill=new SolidBrush(hot?Color.FromArgb(22,53,66):BackColor))g.FillRectangle(fill,ClientRectangle);
-  using(var pen=new Pen(hot?Color.FromArgb(248,245,222):Color.FromArgb(113,207,222),hot?2:1)){
-   g.DrawRectangle(pen,1,1,Width-3,Height-3);g.DrawLine(pen,1,1,22,1);g.DrawLine(pen,1,1,1,20);g.DrawLine(pen,Width-23,Height-2,Width-2,Height-2);g.DrawLine(pen,Width-2,Height-22,Width-2,Height-2);
-   int x=Width-23,y=Height/2;g.DrawLines(pen,new[]{new Point(x-5,y-5),new Point(x,y),new Point(x-5,y+5)});
+  Color amber=Color.FromArgb(246,201,69),white=Color.FromArgb(240,246,248),ice=Color.FromArgb(120,200,216),red=Color.FromArgb(226,88,66);
+  Color back=Color.FromArgb(10,26,36),edge=ice,text=ForeColor,sub=Color.FromArgb(170,196,206);int edgeW=1;
+  if(Kind==ButtonKind.Primary){back=Color.FromArgb(64,48,8);edge=amber;edgeW=2;text=white;}
+  else if(Kind==ButtonKind.Danger){back=Color.FromArgb(28,14,14);edge=Color.FromArgb(170,70,56);text=Color.FromArgb(255,160,140);sub=Color.FromArgb(214,150,138);}
+  else if(Kind==ButtonKind.Nav){back=Color.FromArgb(6,16,24);edge=Color.FromArgb(62,92,106);}
+  if(Selected){back=Kind==ButtonKind.Nav?Color.FromArgb(40,34,12):Color.FromArgb(46,40,16);edge=amber;edgeW=2;text=white;}
+  if(hot&&Enabled){back=Kind==ButtonKind.Danger?Color.FromArgb(70,24,20):Kind==ButtonKind.Primary?Color.FromArgb(94,72,12):Color.FromArgb(24,56,70);edge=Kind==ButtonKind.Danger?red:white;edgeW=2;text=white;}
+  if(down&&Enabled){back=Color.FromArgb(Math.Min(255,back.R+22),Math.Min(255,back.G+22),Math.Min(255,back.B+22));}
+  if(!Enabled){back=Color.FromArgb(9,16,22);edge=Color.FromArgb(48,66,76);text=Color.FromArgb(104,124,132);sub=text;edgeW=1;}
+  using(var fill=new SolidBrush(back))g.FillRectangle(fill,ClientRectangle);
+  using(var pen=new Pen(edge,edgeW)){
+   int o=edgeW/2;g.DrawRectangle(pen,o,o,Width-1-edgeW,Height-1-edgeW);
+   if(Kind!=ButtonKind.Nav){using(var tick=new Pen(Enabled?amber:edge,3)){g.DrawLine(tick,1,1,22,1);g.DrawLine(tick,1,1,1,20);g.DrawLine(tick,Width-23,Height-2,Width-2,Height-2);g.DrawLine(tick,Width-2,Height-22,Width-2,Height-2);}}
   }
-  TextRenderer.DrawText(g,Text,Font,new Rectangle(13,0,Width-39,Height),ForeColor,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);
+  if(Kind==ButtonKind.Nav&&Selected)using(var bar=new SolidBrush(amber))g.FillRectangle(bar,0,0,6,Height);
+  if(Kind!=ButtonKind.Nav){using(var arrow=new Pen(Enabled?text:edge,2)){int x=Width-24,y=Height/2;g.DrawLines(arrow,new[]{new Point(x-5,y-6),new Point(x+1,y),new Point(x-5,y+6)});}}
+  int left=Kind==ButtonKind.Nav?18:16,right=Kind==ButtonKind.Nav?8:40;
+  if(String.IsNullOrEmpty(Subtitle)){TextRenderer.DrawText(g,Text,Font,new Rectangle(left,0,Width-left-right,Height),text,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);}
+  else{
+   if(subFont==null)subFont=new Font("Consolas",9.5f);
+   int th=TextRenderer.MeasureText(g,Text,Font).Height,sh=TextRenderer.MeasureText(g,Subtitle,subFont).Height,top=(Height-(th+sh+2))/2;
+   TextRenderer.DrawText(g,Text,Font,new Rectangle(left,top,Width-left-right,th),text,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
+   TextRenderer.DrawText(g,Subtitle,subFont,new Rectangle(left,top+th+2,Width-left-right,sh),sub,TextFormatFlags.Left|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
+  }
+  if(Focused){using(var f=new Pen(white,2){DashStyle=System.Drawing.Drawing2D.DashStyle.Dash})g.DrawRectangle(f,5,5,Width-11,Height-11);}
  }
 }

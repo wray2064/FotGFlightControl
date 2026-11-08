@@ -71,11 +71,11 @@ partial class ControllerSetup {
   flightPage.Visible=!deck;macroPage.Visible=deck;
   if(deck)macroPage.BringToFront();else flightPage.BringToFront();
   if(embeddedCockpit)FitCockpit();
-  if(flightTabButton!=null)flightTabButton.BackColor=deck?Color.FromArgb(16,14,3):Color.FromArgb(82,66,5);
-  if(deckTabButton!=null)deckTabButton.BackColor=deck?Color.FromArgb(82,66,5):Color.FromArgb(16,14,3);
+  TabLook(flightTabButton,!deck);TabLook(deckTabButton,deck);
  }
+ void TabLook(Button b,bool on){if(b==null)return;b.BackColor=on?Color.FromArgb(110,88,8):Color.FromArgb(16,14,3);b.ForeColor=on?Color.White:Color.FromArgb(214,190,70);b.FlatAppearance.BorderSize=on?3:1;b.FlatAppearance.BorderColor=on?Color.FromArgb(255,236,120):Color.FromArgb(120,104,26);b.AccessibleDescription=on?"Selected tab":"Tab";}
  Control BuildMacroDeck(){
-  var deck=Grid(1,7);macroDeckLayout=deck;deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,32,34,-1,40,32,40,73);
+  var deck=Grid(1,7);macroDeckLayout=deck;deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,34,40,-1,46,46,46,118);
   macroHeading=LabelText("04 / COMMAND WHEEL  ·  RIGHT = FOUR CONFIGURABLE MACROS",12,Cyan);
   deck.Controls.Add(macroHeading,0,0);
   var compass=Grid(4,1);
@@ -99,7 +99,7 @@ partial class ControllerSetup {
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,18));
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,38));
   var typeLabel=LabelText("WHEEL TEXT",10,Cyan);macroTypeLabel=typeLabel;typeLabel.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeLabel,0,0);
-  wheelFontSize=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  wheelFontSize=new ComboBox{Font=new Font("Segoe UI",12),Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   wheelFontSize.Items.AddRange(new object[]{"Medium (20 px)","Large (30 px)"});wheelFontSize.SelectedIndex=0;typeRow.Controls.Add(wheelFontSize,1,0);
   wheelFontBold=new CheckBox{Dock=DockStyle.Fill,Text="Bold",Checked=true,ForeColor=Ink,BackColor=Surface,TextAlign=ContentAlignment.MiddleLeft};typeRow.Controls.Add(wheelFontBold,2,0);
   var typeHint=LabelText("Dark labels and high contrast are always on. Restart game after saving.",9,Ink);macroTypeHint=typeHint;typeHint.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeHint,3,0);
@@ -110,7 +110,7 @@ partial class ControllerSetup {
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,14));
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,42));
   var flightLabel=LabelText("FLIGHT AXES",10,Cyan);macroFlightLabel=flightLabel;flightLabel.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightLabel,0,0);
-  flightAxes=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  flightAxes=new ComboBox{Font=new Font("Segoe UI",12),Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   flightAxes.Items.AddRange(new object[]{"Classic direct (tested)","Classic inverted pitch","Game's saved setup","Custom axes"});flightAxes.SelectedIndex=0;flightRow.Controls.Add(flightAxes,1,0);
   editAxes=ActionButton("Edit axes...",delegate{EditCustomAxes();});editAxes.Visible=false;flightRow.Controls.Add(editAxes,2,0);
   var flightHint=LabelText(AxesHint(0),9,Ink);macroFlightHint=flightHint;flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,3,0);
@@ -150,7 +150,7 @@ partial class ControllerSetup {
   cameraHold=new CheckBox{Text="Hold Menu cycles camera",Checked=true,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(cameraHold,1,0);
   var buttonsEditor=ActionButton("Buttons...",delegate{EditButtonActions();});macroButtonsEditor=buttonsEditor;options.Controls.Add(buttonsEditor,2,0);options.SetColumnSpan(buttonsEditor,2);
   macroFootChildren[0]=options;macroFootChildren[1]=ActionButton("Browse mod",delegate{BrowseWheelMod();});macroFootChildren[2]=ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();});macroFootChildren[3]=ActionButton("ADVANCED",delegate{EditLayouts();});
-  var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(82,66,5);macroFootChildren[4]=save;
+  var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(110,88,8);save.FlatAppearance.BorderColor=Color.FromArgb(255,236,120);save.Font=new Font("Consolas",11,FontStyle.Bold);macroFootChildren[4]=save;
   for(int i=0;i<5;i++)foot.Controls.Add(macroFootChildren[i],i,0);
   deck.Controls.Add(foot,0,6);
   for(int i=0;i<4;i++)SetMacro(i,DefaultMacros[i]);
@@ -183,7 +183,7 @@ partial class ControllerSetup {
    macroLookRow.ColumnCount=4;macroLookRow.RowCount=1;foreach(float width in new float[]{20,40,12,28})macroLookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
    macroLookRow.Controls.Add(macroLookLabel,0,0);macroLookRow.Controls.Add(lookHoldSlider,1,0);macroLookRow.Controls.Add(lookHoldValue,2,0);macroLookRow.Controls.Add(disableLook,3,0);
   }
-  int[] original={40,32,40};int[] narrow={76,76,86};
+  int[] original={46,46,46};int[] narrow={90,90,100};
   for(int i=0;i<3;i++)macroDeckLayout.RowStyles[3+i]=new RowStyle(SizeType.Absolute,(int)Math.Ceiling((compact?narrow[i]:original[i])*scale));
   macroTypeRow.ResumeLayout(true);macroFlightRow.ResumeLayout(true);macroLookRow.ResumeLayout(true);
  }
@@ -206,7 +206,7 @@ partial class ControllerSetup {
    cameraHold.Text="Hold Menu cycles camera";macroFoot.Controls.Add(cameraHold,2,0);macroFoot.Controls.Add(macroButtonsEditor,3,0);macroFoot.SetColumnSpan(macroButtonsEditor,1);
    for(int i=1;i<5;i++)macroFoot.Controls.Add(macroFootChildren[i],i-1,1);
   }
-  macroDeckLayout.RowStyles[6]=new RowStyle(SizeType.Absolute,(int)Math.Ceiling((compact?185:110)*scale));macroFoot.ResumeLayout(true);
+  macroDeckLayout.RowStyles[6]=new RowStyle(SizeType.Absolute,(int)Math.Ceiling((compact?204:118)*scale));macroFoot.ResumeLayout(true);
  }
  void UpdateLookTiming(){
   if(lookHoldSlider==null||lookHoldValue==null||disableLook==null)return;
@@ -215,19 +215,19 @@ partial class ControllerSetup {
  }
  Control BuildMacroCard(int i){
   var card=Grid(2,5);card.BackColor=Color.FromArgb(15,14,5);TargetingFrame.Apply(card);card.Margin=new Padding(4,0,4,0);card.Padding=new Padding(4);
-  card.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,94));
+  card.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,112));
   card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-  Rows(card,22,26,26,26,-1);
+  Rows(card,28,42,42,42,-1);
   card.Controls.Add(LabelText("RIGHT / SLOT "+(i+1),11,Cyan),0,0);card.SetColumnSpan(card.GetControlFromPosition(0,0),2);
   card.Controls.Add(LabelText("HUD label",9,Ink),0,1);
-  macroLabels[i]=new TextBox{Dock=DockStyle.Fill,BackColor=Night,ForeColor=Ink,MaxLength=32};
+  macroLabels[i]=new TextBox{Dock=DockStyle.Fill,BackColor=Night,ForeColor=Ink,MaxLength=32,Font=new Font("Segoe UI",12)};
   card.Controls.Add(macroLabels[i],1,1);
   card.Controls.Add(LabelText("Action",9,Ink),0,2);
-  var action=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  var action=new ComboBox{Font=new Font("Segoe UI",12),Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   foreach(var choice in AvailableActions)action.Items.Add(choice);
   macroActions[i]=action;card.Controls.Add(action,1,2);
   card.Controls.Add(LabelText("Subsystem",9,Ink),0,3);
-  var argument=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
+  var argument=new ComboBox{Font=new Font("Segoe UI",12),Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   argument.Items.AddRange(SubsystemAliases);
   macroArguments[i]=argument;card.Controls.Add(argument,1,3);
   int slotIndex=i;action.SelectedIndexChanged+=delegate{UpdateArgumentState(slotIndex);};
