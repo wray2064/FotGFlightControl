@@ -187,6 +187,13 @@ static class Installer {
             }
         }
         foreach (string name in LauncherNames) File.Copy(Path.Combine(package, name), Path.Combine(root, name), true);
+        foreach (string name in new[] { "Hangar Bay.exe", "Setup.exe" }) {
+            string from = Path.Combine(package, name);
+            if (File.Exists(from)) {
+                try { File.Copy(from, Path.Combine(root, name == "Setup.exe" ? "Flight Control Setup.exe" : name), true); }
+                catch (IOException) { if (name != "Hangar Bay.exe") throw; warn("Hangar Bay is open; its executable will be refreshed the next time Setup runs while it is closed."); }
+            }
+        }
         foreach (string name in LegacyNames) { string old = Path.Combine(root, name); if (File.Exists(old)) File.Delete(old); }
         log("Installed addon at " + destination);
         log("Launch with: " + Path.Combine(root, LauncherNames[0]));

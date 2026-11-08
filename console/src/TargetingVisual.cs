@@ -15,7 +15,7 @@ sealed class TargetingTitle : Control {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
             ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         BackColor = Color.Black;
-        string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Assets","FlightControl.png");
+        string path=ConsoleAsset.File(Path.Combine("Assets","FlightControl.png"));
         if(File.Exists(path)) logo=Image.FromFile(path);
     }
     protected override void Dispose(bool disposing) {if(disposing&&logo!=null)logo.Dispose();base.Dispose(disposing);}

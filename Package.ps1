@@ -50,6 +50,7 @@ foreach ($item in @('README.md', 'Help.html', 'About.html', 'LICENSE', 'NOTICE.m
     Copy-Item -LiteralPath (Join-Path $workspace $item) -Destination (Join-Path $stage $item)
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.exe') -Destination (Join-Path $stage 'Setup.exe')
+Copy-Item -LiteralPath (Join-Path $workspace 'setup\Hangar Bay.exe') -Destination (Join-Path $stage 'Hangar Bay.exe')
 foreach ($launcherName in @('Play with Gamepad Wheel.exe', 'Play with Gamepad Wheel VR.exe', 'Configure Gamepad Wheel.exe')) {
     Copy-Item -LiteralPath (Join-Path (Join-Path $workspace 'setup') $launcherName) -Destination (Join-Path $stage $launcherName)
 }
@@ -59,6 +60,8 @@ Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.png')
 New-Item -ItemType Directory -Path (Join-Path $stage 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Join-Path $stage 'source\Setup.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
+Copy-Item -LiteralPath (Join-Path $workspace 'hangar\HangarBay.cs') -Destination (Join-Path $stage 'source\HangarBay.cs')
+Copy-Item -LiteralPath (Join-Path $workspace 'hangar\Build.ps1') -Destination (Join-Path $stage 'source\BuildHangar.ps1')
 foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer.cs', 'AssemblyInfo.cs')) {
     Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")
 }

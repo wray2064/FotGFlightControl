@@ -4,6 +4,7 @@ local-backups/
 *.exe
 self-test.txt
 console/SHA256SUMS.txt
+setup/Assets/
 
 # Local diagnostics and developer probes
 simulate-input.ps1

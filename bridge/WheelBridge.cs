@@ -136,7 +136,7 @@ sealed class Bridge : ApplicationContext {
     const int Up=1, Down=2, Left=4, Right=8, Start=16, Back=32,
         LB=256, RB=512, A=4096, B=8192, X=16384, Y=32768;
     static readonly double[] MainHallX = {.141,.283,.430,.575,.719,.815,.895};
-    readonly string root, preferences, inputPath, statePath;
+    readonly string root, preferences, inputPath, statePath, extraMod;
     readonly bool vrMode;
     readonly int lookHoldMs;
     readonly bool lookEnabled;
@@ -163,9 +163,10 @@ sealed class Bridge : ApplicationContext {
     bool leftMouse, shift, tab, escape, enter, backspace, wasFocused, modal;
     string mode = "WAIT", latestStatus = "", latestState = "";
 
-    public Bridge(string gameRoot, bool launch, bool vrMode) {
+    public Bridge(string gameRoot, bool launch, bool vrMode, string extraMod) {
         if (!launch) startedUtc = DateTime.MinValue;
         this.vrMode = vrMode;
+        this.extraMod = extraMod;
         root = Path.GetFullPath(gameRoot);
         preferences = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen");
         inputPath = Path.Combine(preferences, "data", "players", "fotg-wheel-input.txt");
@@ -201,6 +202,16 @@ sealed class Bridge : ApplicationContext {
         string exe = engine.Exe;
         string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version;
         StringBuilder paths = new StringBuilder(@"GamepadMods\FotG_Gamepad_Wheel");
+        if (!String.IsNullOrEmpty(extraMod)) {
+            string selected = Path.GetFullPath(Path.Combine(root, extraMod));
+            string library = Path.GetFullPath(Path.Combine(root, "kn_portable", "Library"));
+            if (!selected.StartsWith(library + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(Path.Combine(selected, "mod.json")))
+                throw new InvalidOperationException("The selected mission pack must be an installed Knossos mod in this game library.");
+            string relative = selected.Substring(root.TrimEnd('\\').Length + 1);
+            string[] folders = GameDataFolders(root, relative);
+            foreach (string folder in folders) paths.Append(',').Append(folder);
+        }
         foreach (string folder in GameDataFolders(root, basePath)) paths.Append(',').Append(folder);
         ProcessStartInfo info = new ProcessStartInfo(exe);
         info.WorkingDirectory = root;
@@ -239,6 +250,10 @@ sealed class Bridge : ApplicationContext {
         string[] packages = GamePackages.Where(p => Directory.Exists(Path.Combine(root, basePath, p))).Select(p => basePath + @"\" + p).ToArray();
         if (packages.Length > 0) return packages;
         if (Directory.Exists(Path.Combine(root, basePath, "data"))) return new[] { basePath };
+        string[] additional = Directory.GetDirectories(Path.Combine(root, basePath))
+            .Where(p => Directory.Exists(Path.Combine(p, "data")))
+            .Select(p => basePath + @"\" + Path.GetFileName(p)).ToArray();
+        if (additional.Length > 0) return additional;
         throw new DirectoryNotFoundException("The game data for " + basePath + " was not found. Repair the game in Knossos.");
     }
     static double Axis(short value) {
@@ -487,11 +502,12 @@ static class Program {
                 Console.Out.Flush();
                 return 0;
             }
-            string root = null; bool launch = true, vrMode = false;
+            string root = null, extraMod = null; bool launch = true, vrMode = false;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
                 else if (args[i] == "--attach") launch=false;
                 else if (args[i] == "--vr") vrMode=true;
+                else if (args[i] == "--extra-mod" && i+1<args.Length) extraMod=args[++i];
             }
             if (String.IsNullOrWhiteSpace(root)) throw new ArgumentException("Use --game <Fate of the Galaxy game folder>.");
             // Windows command-line parsing can leave a literal quote when a
@@ -501,7 +517,7 @@ static class Program {
             using (Mutex mutex = new Mutex(true, @"Local\FotGGamepadWheelBridge", out created)) {
                 if (!created) throw new InvalidOperationException("The controller bridge is already running.");
                 Application.EnableVisualStyles();
-                Application.Run(new Bridge(root, launch, vrMode));
+                Application.Run(new Bridge(root, launch, vrMode, extraMod));
             }
             return 0;
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }

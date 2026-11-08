@@ -12,3 +12,4 @@ foreach ($name in @('Play with Gamepad Wheel.exe', 'Play with Gamepad Wheel VR.e
     Remove-Item -LiteralPath $title -Force
     if ($LASTEXITCODE -ne 0) { throw "Launcher build failed: $name" }
 }
+& (Join-Path $workspace 'hangar\Build.ps1')

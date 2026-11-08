@@ -9,8 +9,8 @@ partial class ControllerSetup {
  [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h,int message,IntPtr w,IntPtr l);
  void DragHeader(object sender,MouseEventArgs e){if(e.Button==MouseButtons.Left){ReleaseCapture();SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);}}
  void ToggleMaximize(){WindowState=WindowState==FormWindowState.Maximized?FormWindowState.Normal:FormWindowState.Maximized;}
- void OpenHelp(){string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Help.html");if(!File.Exists(path))throw new FileNotFoundException("Help.html is missing. Extract the complete download folder.");Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
- void OpenAbout(){string path=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"About.html");if(!File.Exists(path))throw new FileNotFoundException("About.html is missing. Extract the complete download folder.");Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
+ void OpenHelp(){string path=ConsoleAsset.File("Help.html");if(!File.Exists(path))throw new FileNotFoundException("Help.html is missing. Extract the complete download folder.");Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
+ void OpenAbout(){string path=ConsoleAsset.File("About.html");if(!File.Exists(path))throw new FileNotFoundException("About.html is missing. Extract the complete download folder.");Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
  Button WindowButton(string text,string accessible,Action action){var b=ActionButton(text,action);b.AccessibleName=accessible;b.Font=new Font("Consolas",13,FontStyle.Bold);b.FlatAppearance.BorderSize=0;b.Margin=Padding.Empty;b.FlatAppearance.MouseOverBackColor=accessible=="Close"?Color.FromArgb(125,30,18):Color.FromArgb(57,46,5);return b;}
  protected override void OnHelpRequested(HelpEventArgs e){try{OpenHelp();e.Handled=true;}catch(Exception ex){MessageBox.Show(ex.Message,Text);}base.OnHelpRequested(e);}
  protected override void WndProc(ref Message m){

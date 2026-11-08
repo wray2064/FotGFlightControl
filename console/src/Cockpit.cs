@@ -5,7 +5,7 @@ partial class ControllerSetup {
  GamepadView padView=new GamepadView(); Label status=new Label(),selected=new Label();
  static readonly Color Night=Color.Black,Surface=Color.FromArgb(8,10,7),Ink=Color.FromArgb(247,220,82),Cyan=Color.FromArgb(249,223,54);
  void BuildCockpit(){
- SuspendLayout();FormBorderStyle=FormBorderStyle.None;MaximizedBounds=Screen.FromControl(this).WorkingArea;Icon=new Icon(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Assets","FlightControl.ico"));Text="FotG | Flight Control Console";Font=new Font("Segoe UI",10);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;BackColor=Night;ForeColor=Ink;ClientSize=new Size(1140,790);MinimumSize=new Size(640,440);StartPosition=FormStartPosition.CenterScreen;DoubleBuffered=true;
+ SuspendLayout();FormBorderStyle=FormBorderStyle.None;MaximizedBounds=Screen.FromControl(this).WorkingArea;Icon=new Icon(ConsoleAsset.File(System.IO.Path.Combine("Assets","FlightControl.ico")));Text="FotG | Flight Control Console";Font=new Font("Segoe UI",10);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;BackColor=Night;ForeColor=Ink;ClientSize=new Size(1140,790);MinimumSize=new Size(640,440);StartPosition=FormStartPosition.CenterScreen;DoubleBuffered=true;
  var viewport=new Panel{Dock=DockStyle.Fill,AutoScroll=true,BackColor=Night};Controls.Add(viewport);
  var shell=Grid(1,5);shell.Dock=DockStyle.None;shell.Padding=new Padding(22);shell.BackColor=Night;Rows(shell,86,148,42,-1,64);viewport.Controls.Add(shell);
  Action fit=delegate{float scale=DeviceScale();shell.Size=new Size(Math.Max(viewport.ClientSize.Width,(int)Math.Ceiling(1020*scale)),Math.Max(viewport.ClientSize.Height,(int)Math.Ceiling(790*scale)));};viewport.Resize+=delegate{fit();};fit();

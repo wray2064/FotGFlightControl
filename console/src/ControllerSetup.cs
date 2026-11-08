@@ -12,6 +12,7 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyDescription("Settings for Flight Control: flight response, command wheels, macros, button actions and axes.")]
 [StructLayout(LayoutKind.Sequential)] struct Pad { public ushort buttons; public byte lt,rt; public short lx,ly,rx,ry; }
 [StructLayout(LayoutKind.Sequential)] struct State { public uint packet; public Pad pad; }
+static class ConsoleAsset { public static string File(string name){string local=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,name);if(System.IO.File.Exists(local))return local;return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"GamepadMods","FotG_Gamepad_Wheel","ControllerSetup",name);} }
 partial class ControllerSetup : Form {
  [DllImport("xinput1_4.dll")] static extern uint XInputGetState(uint slot,out State state);
  TextBox root=new TextBox(), live=new TextBox(); ComboBox pilots=new ComboBox(), slot=new ComboBox();
