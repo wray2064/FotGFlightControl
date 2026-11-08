@@ -11,7 +11,7 @@ is unchanged.
   `parent: FotG_R`. The selected pack's data folders load after Flight Control
   and before the FotG base game. This preview does not yet resolve arbitrary
   extra dependencies of a pack; test a pack's content before publishing.
-- **Flight Console** hosts the existing targeting-computer configuration UI.
+- **Console** hosts the existing targeting-computer configuration UI.
   Its XInput slot is a live monitor. Selecting a different monitor slot alone
   does not change the FSO joystick.
 - **Maintenance** lists installer and pilot/settings backups, opens a selected
@@ -25,7 +25,7 @@ is unchanged.
 
 The Remove button removes only Flight Control's installed files and launchers.
 It leaves pilots, user settings, and all backups in place. Restore native pilot
-settings in Flight Console first if you want the original bindings back. It
+settings in the Console first if you want the original bindings back. It
 never deletes the game or other mission packs.
 
 ## Morning checks

@@ -33,7 +33,7 @@ being refined and is not part of the published 1.1.2 release.
 
 If the wheel is off center, too close to the reticle, or tiring to read, adjust
 the gauge's `Origin` and `Offset` in `zzz_fotg_wheel-hdg.tbm` after testing.
-The wheel's font size and bold option remain in the Flight Control Console.
+The wheel's font size and bold option remain in the Hangar Bay Console.
 
 The preview launcher is separate from `Play with Gamepad Wheel.exe`. The
 published 1.1.2 ZIP and website download are unchanged.
