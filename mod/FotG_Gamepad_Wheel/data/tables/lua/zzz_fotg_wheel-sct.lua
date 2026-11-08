@@ -23,7 +23,8 @@ FotGWheel = {
     message_age = 0,
     state = "GS_STATE_MAIN_MENU",
     axes_applied_state = nil,
-    telemetry_sequence = 0
+    telemetry_sequence = 0,
+    vr_gauge = nil
 }
 
 local W = FotGWheel
@@ -877,6 +878,7 @@ local function short_label(value)
 end
 
 function W:draw()
+    if gr.isVR() then return end
     local previous_font = gr.CurrentFont
     local config = FotGWheelConfig or {}
     local font_name = (config.font_bold == false and "font_" or "font_bold_")
@@ -960,6 +962,85 @@ function W:draw()
     gr.CurrentFont = previous_font
 end
 
+-- A scripted HUD gauge is rendered by FSO in each eye's HUD space. Direct gr
+-- drawing at fixed screen pixels produces doubled, blurry text in OpenXR.
+function W:draw_vr(draw)
+    if not gr.isVR() or not self.vr_gauge then return end
+    local previous_font = gr.CurrentFont
+    local config = FotGWheelConfig or {}
+    local font_name = (config.font_bold == false and "font_" or "font_bold_")
+        .. (config.font_size == "medium" and "medium" or "large")
+    gr.CurrentFont = gr.Fonts[font_name]
+    local function color(r, g, b, a) gr.setColor(r, g, b, a) end
+    if not self.mode then
+        if self.message and self.message_age > 0 then
+            local width = gr.getStringWidth(self.message)
+            local height = gr.CurrentFont.Height
+            color(2, 9, 17, 249)
+            draw:drawRectangle(-width / 2 - 12, 190, width / 2 + 12, 190 + height + 12, true)
+            color(255, 219, 123, 255)
+            draw:drawString(self.message, -width / 2, 196)
+        end
+        gr.CurrentFont = previous_font
+        return
+    end
+    local title, entries, page, pages = self:view()
+    local radius = config.font_size == "medium" and 138 or 154
+    local function centered(message, y)
+        draw:drawString(message, -math.floor(gr.getStringWidth(message) * 0.5), y)
+    end
+    color(2, 10, 19, 244)
+    draw:drawCircle(math.floor(radius * 1.24), 0, 0, true)
+    color(4, 18, 30, 250)
+    draw:drawCircle(math.floor(radius * 0.72), 0, 0, true)
+    color(58, 221, 255, 255)
+    draw:drawCircle(radius, 0, 0, false)
+    draw:drawCircle(math.floor(radius * 0.72), 0, 0, false)
+    for sector = 1, SECTORS do
+        local theta = -PI / 2 + (sector - 1) * PI / 4
+        color(87, 172, 207, 245)
+        draw:drawLine(math.cos(theta) * radius * 0.72,
+            math.sin(theta) * radius * 0.72,
+            math.cos(theta) * radius, math.sin(theta) * radius)
+    end
+    for _, entry in ipairs(entries) do
+        local theta = -PI / 2 + (entry.sector - 1) * PI / 4
+        local x = math.cos(theta) * radius * 1.10
+        local y = math.sin(theta) * radius * 1.10
+        local label = short_label(entry.name)
+        local width, height = gr.getStringWidth(label), gr.CurrentFont.Height
+        local offset = math.cos(theta) > 0.3 and 8 or
+            (math.cos(theta) < -0.3 and -width - 8 or -width * 0.5)
+        local tx, ty = math.floor(x + offset), math.floor(y - height * 0.5)
+        color(2, 9, 17, 250)
+        draw:drawRectangle(tx - 9, ty - 5, tx + width + 9, ty + height + 5, true)
+        if self.selected == entry.sector then
+            color(255, 203, 82, 255)
+            draw:drawRectangle(tx - 9, ty - 5, tx + width + 9, ty + height + 5, false)
+        end
+        if entry.active == false then color(139, 158, 168, 255)
+        elseif self.selected == entry.sector then color(255, 225, 145, 255)
+        else color(242, 249, 252, 255) end
+        draw:drawString(label, tx, ty)
+    end
+    color(255, 196, 89, 255)
+    centered(title, -28)
+    color(223, 243, 250, 255)
+    centered(self.comm_open_requested and "Opening communications..."
+        or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"), 4)
+    centered("A  Confirm    B  Cancel", 32)
+    gr.CurrentFont = previous_font
+end
+
+function W:ensure_vr_gauge()
+    if not gr.isVR() or self.vr_gauge then return end
+    local gauge = hu.getHUDGaugeHandle("FotG Wheel VR")
+    if gauge then
+        self.vr_gauge = gauge
+        gauge.RenderFunction = function(draw) W:draw_vr(draw) end
+    end
+end
+
 function W:mission_start()
     self.state = "GS_STATE_GAME_PLAY"
     ba.setButtonControlMode(BUTTON_MODE_ADDITIVE)
@@ -969,12 +1050,15 @@ function W:mission_start()
     self.last_tap_sequence = nil
     self.hold_elapsed, self.hold_fired = {}, {}
     self.input_age = 10
+    self.vr_gauge = nil
+    self:ensure_vr_gauge()
     self:publish_state()
 end
 
 function W:mission_end()
     self:close_panel(false)
     self.pending_actions = {}
+    self.vr_gauge = nil
     -- FotG's stock scripts do not set button-control mode; restore the engine
     -- default when a mission ends so the addon has no menu-side control state.
     ba.setButtonControlMode(BUTTON_MODE_NORMAL)
@@ -1005,7 +1089,15 @@ if not IS_STANDALONE then
         { State = "GS_STATE_MAIN_MENU" })
     engine.addHook("On Gameplay Start", function() W:mission_start() end)
     engine.addHook("On Mission About To End", function() W:mission_end() end)
-    engine.addHook("On Frame", function() W:ensure_flight_axes(); W:frame() end,
+    engine.addHook("On Frame", function()
+        if not gr.isVR() then W:ensure_flight_axes(); W:frame() end
+    end,
+        { State = "GS_STATE_GAME_PLAY" })
+    -- In OpenXR, On Frame runs once per eye. Input and timers must run once per
+    -- simulation step or held actions can fire twice.
+    engine.addHook("On Simulation", function()
+        if gr.isVR() then W:ensure_vr_gauge(); W:ensure_flight_axes(); W:frame() end
+    end,
         { State = "GS_STATE_GAME_PLAY" })
     engine.addHook("On HUD Draw", function() W:draw() end,
         { State = "GS_STATE_GAME_PLAY" })

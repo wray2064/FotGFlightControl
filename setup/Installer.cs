@@ -22,7 +22,7 @@ sealed class InstallException : Exception { public InstallException(string m) : 
 static class Installer {
     // Supported game releases, newest first; keep in step with Setup.cs and WheelBridge.cs.
     public static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
-    static readonly string[] LauncherNames = { "Play with Gamepad Wheel.exe", "Configure Gamepad Wheel.exe" };
+    static readonly string[] LauncherNames = { "Play with Gamepad Wheel.exe", "Configure Gamepad Wheel.exe", "Play with Gamepad Wheel VR.exe" };
     static readonly string[] LegacyNames = { "Play with Gamepad Wheel.cmd", "Configure Gamepad Wheel.cmd" };
     static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
 
@@ -84,7 +84,7 @@ static class Installer {
 
         string package = o.PackageRoot;
         string source = Path.Combine(package, "FotG_Gamepad_Wheel");
-        foreach (string name in new[] { "WheelBridge.exe", @"ControllerSetup\ControllerSetup.exe", @"data\tables\lua\zzz_fotg_wheel-sct.lua", @"data\tables\lua\zz_fotg_wheel_config-sct.lua" })
+        foreach (string name in new[] { "WheelBridge.exe", @"ControllerSetup\ControllerSetup.exe", @"data\tables\lua\zzz_fotg_wheel-sct.lua", @"data\tables\lua\zz_fotg_wheel_config-sct.lua", @"data\tables\zzz_fotg_wheel-hdg.tbm" })
             if (!File.Exists(Path.Combine(source, name))) throw new InstallException("Package is incomplete: " + name);
         foreach (string name in LauncherNames)
             if (!File.Exists(Path.Combine(package, name))) throw new InstallException("Package is incomplete: " + name);

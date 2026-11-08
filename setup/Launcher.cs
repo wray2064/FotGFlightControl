@@ -12,12 +12,14 @@ static class Launcher {
    string addon=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel");
    bool configure=Path.GetFileNameWithoutExtension(Application.ExecutablePath)
     .StartsWith("Configure",StringComparison.OrdinalIgnoreCase);
+   bool vr=Path.GetFileNameWithoutExtension(Application.ExecutablePath)
+    .EndsWith(" VR",StringComparison.OrdinalIgnoreCase);
    string target=configure
     ?Path.Combine(addon,"ControllerSetup","ControllerSetup.exe")
     :Path.Combine(addon,"WheelBridge.exe");
    if(!File.Exists(target))throw new FileNotFoundException("Gamepad Wheel is missing. Run Setup.exe to install or repair it.");
    var start=new ProcessStartInfo(target){WorkingDirectory=root,UseShellExecute=false};
-   if(!configure)start.Arguments="--game \""+root.TrimEnd('\\')+"\"";
+   if(!configure)start.Arguments="--game \""+root.TrimEnd('\\')+"\""+(vr?" --vr":"");
    Process.Start(start);
    return 0;
   } catch(Exception error) {

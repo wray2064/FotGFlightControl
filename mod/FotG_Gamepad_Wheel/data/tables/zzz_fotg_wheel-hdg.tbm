@@ -1,0 +1,13 @@
+; FSO renders scripted gauges in stereo HUD space in OpenXR. The callback is
+; inactive on a flat screen; the existing 2D On HUD Draw path remains in use.
+#Gauge Config
+    $Base: (1600, 900)
+    $Gauges:
+        +Scripted Gauge:
+            Origin: (0.5, 0.5)
+            Offset: (0, 0)
+            Slew: YES
+            Name: FotG Wheel VR
+            Active by default: YES
+    $End Gauges
+#End

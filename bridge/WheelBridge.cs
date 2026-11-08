@@ -137,6 +137,7 @@ sealed class Bridge : ApplicationContext {
         LB=256, RB=512, A=4096, B=8192, X=16384, Y=32768;
     static readonly double[] MainHallX = {.141,.283,.430,.575,.719,.815,.895};
     readonly string root, preferences, inputPath, statePath;
+    readonly bool vrMode;
     readonly int lookHoldMs;
     readonly bool lookEnabled;
     readonly bool cameraHoldEnabled;
@@ -162,8 +163,9 @@ sealed class Bridge : ApplicationContext {
     bool leftMouse, shift, tab, escape, enter, backspace, wasFocused, modal;
     string mode = "WAIT", latestStatus = "", latestState = "";
 
-    public Bridge(string gameRoot, bool launch) {
+    public Bridge(string gameRoot, bool launch, bool vrMode) {
         if (!launch) startedUtc = DateTime.MinValue;
+        this.vrMode = vrMode;
         root = Path.GetFullPath(gameRoot);
         preferences = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen");
         inputPath = Path.Combine(preferences, "data", "players", "fotg-wheel-input.txt");
@@ -204,8 +206,13 @@ sealed class Bridge : ApplicationContext {
         info.WorkingDirectory = root;
         info.UseShellExecute = false;
         info.EnvironmentVariables["FSO_PREFERENCES_PATH"] = preferences;
-        info.Arguments = "-mod \"" + paths + "\" -aa -soft_particles -deferred_cockpit";
+        info.Arguments = "-mod \"" + paths + "\"" + EngineFlags(vrMode);
         game = Process.Start(info);
+    }
+    internal static string EngineFlags(bool vr) {
+        // FSO's -vr flag enables OpenXR and forces the needed window, mouse
+        // capture and vsync settings. Stretching keeps its square menu usable.
+        return " -aa -soft_particles -deferred_cockpit" + (vr ? " -vr -stretch_menu" : "");
     }
     // Supported game releases, newest first; keep in step with setup\Installer.cs.
     static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
@@ -480,10 +487,11 @@ static class Program {
                 Console.Out.Flush();
                 return 0;
             }
-            string root = null; bool launch = true;
+            string root = null; bool launch = true, vrMode = false;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
                 else if (args[i] == "--attach") launch=false;
+                else if (args[i] == "--vr") vrMode=true;
             }
             if (String.IsNullOrWhiteSpace(root)) throw new ArgumentException("Use --game <Fate of the Galaxy game folder>.");
             // Windows command-line parsing can leave a literal quote when a
@@ -493,7 +501,7 @@ static class Program {
             using (Mutex mutex = new Mutex(true, @"Local\FotGGamepadWheelBridge", out created)) {
                 if (!created) throw new InvalidOperationException("The controller bridge is already running.");
                 Application.EnableVisualStyles();
-                Application.Run(new Bridge(root, launch));
+                Application.Run(new Bridge(root, launch, vrMode));
             }
             return 0;
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }
@@ -533,6 +541,7 @@ static class Program {
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;
         if (!SelfTestGameLayouts()) return 11;
         if (!GameInstall.SelfTest()) return 12;
+        if (!Bridge.EngineFlags(true).Contains(" -vr -stretch_menu") || Bridge.EngineFlags(false).Contains(" -vr")) return 13;
         if (NormalizeGameRoot("C:\\Games\\Fate of the Galaxy 1.1.0\\\"") != @"C:\Games\Fate of the Galaxy 1.1.0\") return 4;
         if (WinInput.ArrowScan(0x26)!=0x48 || WinInput.ArrowScan(0x25)!=0x4b ||
             WinInput.ArrowScan(0x27)!=0x4d || WinInput.ArrowScan(0x28)!=0x50 ||
