@@ -113,7 +113,7 @@ static class Installer {
                 : devices.Count == 1 ? devices[0] : devices.FirstOrDefault(d => Regex.IsMatch(d.Name ?? "", "XInput|Controller|Gamepad", RegexOptions.IgnoreCase));
             if (chosen == null) {
                 if (preferredSlot < 0 || String.IsNullOrEmpty(oldSelection))
-                    throw new InstallException("Multiple joysticks were found. Select the active gamepad in the Flight Control Console.");
+                    throw new InstallException("Multiple joysticks were found. Select the active gamepad in Hangar Bay (Service > Choose controller).");
                 warn("The saved controller for XInput slot " + preferredSlot + " is unavailable; its FSO joystick selection was preserved.");
                 selection = oldSelection;
             } else {
@@ -184,7 +184,7 @@ static class Installer {
             else log("Custom flight axes restored.");
         }
         if (!o.SkipPilotReservation && RunConsole(console, "--reserve-wheel", root) != 0)
-            throw new InstallException("Pilot control reservation failed. The add-on was copied, but launchers were not created. See Controller Setup for details.");
+            throw new InstallException("Pilot control reservation failed. The add-on was copied, but launchers were not created. Open the Hangar Bay Console for details.");
 
         foreach (string name in LauncherNames.Concat(LegacyNames)) {
             string file = Path.GetFullPath(Path.Combine(root, name));
@@ -207,7 +207,7 @@ static class Installer {
         log("Installed addon at " + destination);
         log("Launch with: " + Path.Combine(root, LauncherNames[0]));
         log("Configure with: " + Path.Combine(root, LauncherNames[1]));
-        log(o.SkipPilotReservation ? "Before flight, open Controller Setup and use Reserve wheel buttons for each pilot."
+        log(o.SkipPilotReservation ? "Before flight, open the Hangar Bay Console and use Reserve wheel buttons for each pilot."
             : "Native pilot A, B, X, Y, LB, RB, Start, L3, R3 and D-pad bindings were reserved with backups where needed.");
     }
 

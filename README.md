@@ -19,7 +19,7 @@ The original add-on code, companion programs and documentation are released unde
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). For source builds and release packaging, see [docs/RELEASE.md](docs/RELEASE.md).
 
-An independent, additive controller mod for **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** on Windows with its **FSO 26.0.1** engine (the standard SDL2 build, or the FSO 26.0.1-SDL3 package on older installs). The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. The external Flight Control Console configures wheel layouts and macros, and backs up native pilot settings.
+An independent, additive controller mod for **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** on Windows with its **FSO 26.0.1** engine (the standard SDL2 build, or the FSO 26.0.1-SDL3 package on older installs). The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. Hangar Bay, the Flight Control app, configures wheel layouts and macros, and backs up native pilot settings.
 
 ![Setup detects the installed game](docs/screenshots/setup-final.png)
 
@@ -37,7 +37,7 @@ To switch controllers, close the game, open Hangar Bay **Service → Choose cont
 
 See the [step-by-step installation guide](docs/INSTALL.md) and [test checklist](docs/TESTING.md). Setup installs by itself and runs no scripts. Advanced users can run the same install from a command prompt: `Setup.exe --install --game "C:\path\to\Fate of the Galaxy"`.
 
-The installer checks the game/engine version, copies only its own `GamepadMods/FotG_Gamepad_Wheel` directory, and creates two launchers. The wheel launcher uses a separate `GamepadMods_settings.ini` profile; installation identifies the connected controller through the engine's own SDL library (SDL2 or SDL3) and selects it in that profile, together with the order of its stick axes, backing up any prior profile. The Flight Control Console edits this active profile. The installer also backs up each existing native v4 pilot before reserving A, B, X, Y, LB, RB, Start, L3, R3 and D-pad joystick bindings; those inputs are delivered to the wheel instead. RT produces the normal mouse-primary-fire input in flight. Existing keyboard bindings, game scripts, engine, campaigns and saves remain in place. Add `--skip-pilot-reservation` to `Setup.exe --install` to install files without changing pilots, then press **Reserve wheel buttons** in the console for each pilot before testing.
+The installer checks the game/engine version, copies only its own `GamepadMods/FotG_Gamepad_Wheel` directory, and creates two launchers. The wheel launcher uses a separate `GamepadMods_settings.ini` profile; installation identifies the connected controller through the engine's own SDL library (SDL2 or SDL3) and selects it in that profile, together with the order of its stick axes, backing up any prior profile. The Hangar Bay Console edits this active profile. The installer also backs up each existing native v4 pilot before reserving A, B, X, Y, LB, RB, Start, L3, R3 and D-pad joystick bindings; those inputs are delivered to the wheel instead. RT produces the normal mouse-primary-fire input in flight. Existing keyboard bindings, game scripts, engine, campaigns and saves remain in place. Add `--skip-pilot-reservation` to `Setup.exe --install` to install files without changing pilots, then press **Reserve wheel buttons** in the console for each pilot before testing.
 
 ## Controls
 

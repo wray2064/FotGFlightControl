@@ -7,7 +7,7 @@ $workspace = [System.IO.Path]::GetFullPath($PSScriptRoot)
 $setupTest = Start-Process -FilePath (Join-Path $workspace 'setup\Setup.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
 if ($setupTest.ExitCode -ne 0) { throw "Setup self-test failed with exit code $($setupTest.ExitCode)" }
 $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSetup.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
-if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
+if ($selfTest.ExitCode -ne 0) { throw "Console self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
 $version = '1.1.3'
@@ -61,6 +61,7 @@ New-Item -ItemType Directory -Path (Join-Path $stage 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Join-Path $stage 'source\Setup.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'hangar\HangarBay.cs') -Destination (Join-Path $stage 'source\HangarBay.cs')
+Copy-Item -LiteralPath (Join-Path $workspace 'hangar\HangarAssembly.cs') -Destination (Join-Path $stage 'source\HangarAssembly.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'hangar\Build.ps1') -Destination (Join-Path $stage 'source\BuildHangar.ps1')
 foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer.cs', 'AssemblyInfo.cs')) {
     Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")

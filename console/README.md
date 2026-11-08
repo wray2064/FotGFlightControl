@@ -1,4 +1,4 @@
-# Flight Control Console
+# Hangar Bay Console
 
 By **Manic Trash Panda**, coded with ChatGPT. Questions: **dev@manictrashpanda.dev**. See [About.html](About.html) for project and platform attributions.
 
