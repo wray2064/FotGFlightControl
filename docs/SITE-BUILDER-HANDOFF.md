@@ -1,10 +1,10 @@
 # Flight Control page handoff
 
-The Hangar Bay page assets in `updated/site-builder` describe the next Flight
-Control build. **Do not switch the public Download button to these features yet:**
-the existing 1.1.2 candidate ZIP does not contain `Hangar Bay.exe`. Pair this
-handoff with a newly packaged and verified player ZIP before publishing the
-Hangar Bay copy. The game and engine remain separate downloads.
+The Hangar Bay page assets in `updated/site-builder` describe the 1.1.3
+candidate. Its player ZIP contains `Hangar Bay.exe`; the older 1.1.2 ZIP does
+not. **Keep the new page and download in draft until the 1.1.3 candidate has
+passed installation and gameplay testing.** The game and engine remain
+separate downloads.
 
 ## Page structure
 
@@ -24,10 +24,10 @@ Hangar Bay copy. The game and engine remain separate downloads.
 
 ## Files
 
-- `player-download/FotG-Flight-Control-*.zip`: use only the new archive that
-  contains `Hangar Bay.exe`; preserve its exact name and publish its SHA-256.
-- `source-upload/*.zip`: use a source archive from the same commit as that player
-  archive. It is for the public repository, not installation.
+- `player-download/FotG-Flight-Control-1.1.3.zip`: candidate player archive.
+  Preserve its exact name and publish its SHA-256 after testing.
+- `source-upload/FotG-Flight-Control-source-*.zip`: source from the same commit
+  as the player archive. It is for the public repository, not installation.
 - `screenshots/setup-final.png`: actual graphical installer, ready to repair.
 - `screenshots/hangar-deploy.png`, `hangar-console.png`, `hangar-macros.png`,
   `hangar-service.png`, `hangar-guide.png`: current Hangar Bay flow in the
@@ -46,8 +46,10 @@ Hangar Bay copy. The game and engine remain separate downloads.
 
 ## Publishing checks
 
-- Confirm the new player ZIP contains `Hangar Bay.exe`, then download it from
-  the final URL and compare its SHA-256 with the release manifest.
+- Confirm the player ZIP contains `Hangar Bay.exe`, install it in a clean game
+  folder, and perform the real-controller checklist before publication.
+- Download the ZIP from the final URL and compare its SHA-256 with the release
+  manifest before switching the site's primary Download button.
 - Extract the ZIP before running `Setup.exe`; keep its folder structure intact.
 - Check the page at 1280×800, 1920×1080, and portrait tablet width. Keep the
   download button and requirements visible without a wide-screen layout.

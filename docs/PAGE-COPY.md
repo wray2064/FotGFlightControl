@@ -1,8 +1,8 @@
 # Suggested web page copy
 
-**Publishing status:** This copy describes the Hangar Bay build. Keep it in
-draft until the player download contains `Hangar Bay.exe` and the matching
-source and checksum have been published.
+**Publishing status:** This copy describes the 1.1.3 Hangar Bay candidate.
+Keep it in draft until installation and gameplay checks pass and the matching
+player ZIP, source ZIP, and checksum are published.
 
 ## Hero
 

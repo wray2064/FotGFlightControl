@@ -31,7 +31,7 @@ an existing build without shipping a new one, add it under
 checking it with `Setup.exe --build-presets --game <folder> --game-version <version> --out <file>`. Keep `setup/BuildInfo.cs` and
 `$version` in Package.ps1 equal; packaging refuses otherwise.
 
-The player ZIP has graphical Setup and two game-folder EXE launchers. Setup
+The player ZIP has graphical Setup, Hangar Bay, and the legacy game-folder EXE launchers. Setup
 installs by itself (`setup/Installer.cs`) and runs no scripts (the build scripts
 in the source folders are only for rebuilding);
 `Setup.exe --install` is the command-line form for advanced repair. Every
