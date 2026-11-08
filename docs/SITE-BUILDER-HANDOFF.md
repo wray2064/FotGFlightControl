@@ -26,6 +26,10 @@ The game and engine are separate downloads and are not in either archive.
   its exact name and publish its SHA-256 from `SHA256SUMS.txt` in this handoff.
 - `source-upload/FotG-Gamepad-Wheel-source-*.zip`: repository source snapshot.
 - `screenshots/setup-final.png`: actual graphical installer, ready to repair.
+- `docs/screenshots/hangar-deploy.png`, `hangar-console.png`,
+  `hangar-macros.png`, `hangar-service.png`, `hangar-guide.png`: current Hangar Bay flow. Prefer
+  these over older standalone-console images for the primary gallery. Captions
+  and alt text are in `docs/PAGE-COPY.md`.
 - `screenshots/flight-response.jpg`: controller preview and calibration.
 - `screenshots/macro-deck.jpg`: wheel, macros, and hold controls.
 - `screenshots/advanced-layouts.jpg`: wheel reordering and profile sharing.

@@ -22,8 +22,9 @@ separately by its creators.
    containing `kn_portable`.
 4. Choose **Install / Repair**. Setup backs up existing pilot controls and any
    earlier Flight Control files.
-5. Choose **Play with Wheel**. The game folder also receives **Play with
-   Gamepad Wheel.exe** and **Configure Gamepad Wheel.exe** for later use.
+5. Open **Hangar Bay.exe** from the game folder. Choose the base game or a
+   mission pack, then launch Standard Flight or OpenXR VR. Console, Service,
+   and Guide are available from the same app.
 
 Close the game before installing, repairing, or changing pilot settings.
 
@@ -51,6 +52,23 @@ controller. The game and engine are not bundled. Multiplayer and every
 mission-specific menu have not yet been validated; see the test checklist.
 
 ## Gallery captions and alt text
+
+Use current Hangar Bay captures before older standalone-console images:
+
+- **Deploy** (`docs/screenshots/hangar-deploy.png`) — “Choose a mission pack and
+  launch standard flight or OpenXR VR.” Alt: “Hangar Bay Deploy screen with
+  mission profile selector and two launch options.”
+- **Console** (`docs/screenshots/hangar-console.png`) — “Preview the selected
+  controller and tune flight response.” Alt: “Hangar Bay Console showing pilot,
+  active gamepad slot, and live controller diagram.”
+- **Command Wheel** (`docs/screenshots/hangar-macros.png`) — “Configure four
+  macros and reach the advanced wheel controls.” Alt: “Hangar Bay Command Wheel
+  tab showing four editable macro slots.”
+- **Service** (`docs/screenshots/hangar-service.png`) — “Inspect backups,
+  repair setup, or choose a controller.” Alt: “Hangar Bay Service screen with
+  backup list and maintenance actions.”
+- **Guide** (`docs/screenshots/hangar-guide.png`) — “Read setup and control help
+  inside Hangar Bay.” Alt: “Hangar Bay Guide showing the built-in setup steps.”
 
 1. **Setup** — “Graphical installer recognizes the game and offers Install,
    Play, and Configure.” Alt: “Black and yellow Flight Control setup window

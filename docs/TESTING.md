@@ -28,7 +28,7 @@ launcher available for comparison.
    Test wheel text size and weight against bright combat effects.
 7. Restore a pilot backup and confirm its native controls return.
    With two pads connected, choose the non-default XInput slot in Hangar Bay
-   Service > Select controller, verify its preview responds, then Apply with
+   Service > Choose Controller, verify its preview responds, then Apply with
    backup. Restart and confirm that only the chosen pad controls flight, wheels,
    and menus. Check that Repair preserves the choice, and that unplugging the
    chosen pad does not silently hand control to the other one. Restore the
