@@ -56,8 +56,8 @@ internal sealed class HangarBay : Form {
   StyleBackups();
   var heading=new Label {Dock=DockStyle.Top,Height=118,Text="FLIGHT\nCONTROL\nHANGAR BAY",ForeColor=ink,Font=new Font("Consolas",15,FontStyle.Bold),Padding=new Padding(16,18,0,0)};
   navigation.Controls.Add(heading);
-  var menu=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,Padding=new Padding(8,10,8,0)};
-  navigation.Controls.Add(menu);navigation.Controls.SetChildIndex(heading,0);
+  var menu=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(8,8,8,0)};
+  navigation.Controls.Add(menu);navigation.Controls.SetChildIndex(menu,0);
   Nav(menu,"01  DEPLOY",Home);Nav(menu,"02  CONSOLE",ShowConsole);Nav(menu,"03  SERVICE",Maintenance);Nav(menu,"04  GUIDE",Help);
   SetSection(0);
   Home();
