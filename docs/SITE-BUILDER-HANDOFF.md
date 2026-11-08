@@ -29,6 +29,11 @@ The game and engine are separate downloads and are not in either archive.
 - `screenshots/flight-response.jpg`: controller preview and calibration.
 - `screenshots/macro-deck.jpg`: wheel, macros, and hold controls.
 - `screenshots/advanced-layouts.jpg`: wheel reordering and profile sharing.
+- `docs/screenshots/vr/`: nine cropped images from a live OpenXR VR test,
+  including three wheel details. See its `README.md` for filenames, recommended
+  gallery order, captions, alt text, and the desktop-mirror disclosure. Use
+  `vr-cockpit-engagement.png` as the lead VR image. Label the section **VR
+  preview** until the matching build is published.
 - `assets/FlightControl.png`: emblem; display only with this tool under
   `ARTWORK-LICENSE.md`. Do not offer as a standalone logo download.
 

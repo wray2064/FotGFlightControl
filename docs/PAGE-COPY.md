@@ -63,6 +63,15 @@ mission-specific menu have not yet been validated; see the test checklist.
 4. **Advanced Layouts** — “Reorder wheel slots and share a profile.” Alt:
    “Advanced layout editor showing reorderable wheel entries.”
 
+## VR preview gallery
+
+**Command wheels in the cockpit.** Flight Control's OpenXR preview draws its
+ship systems, squad, and targeting wheels in VR. These images are unaltered
+crops of the desktop VR mirror during a Quest 3S test, not headset lens photos.
+Use the image order, individual captions, and alt text in
+`docs/screenshots/vr/README.md`. Keep this section labeled **preview** until
+the matching VR build is part of the published download.
+
 ## About and footer
 
 By Manic Trash Panda. Coded with ChatGPT. Questions:
