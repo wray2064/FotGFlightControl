@@ -20,6 +20,12 @@ partial class ControllerSetup : Form {
  CheckBox useMouse=new CheckBox(); bool calibrating; double drift; string prefs;
  JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=16777216};
  public ControllerSetup() { BuildCockpit(); Shown+=delegate{StartConsoleUpdateCheck();}; }
+ public void SetEmbedded(){
+  if(embeddedCockpit)return;
+  embeddedCockpit=true;MinimumSize=Size.Empty;
+  cockpitShell.RowStyles[0]=new RowStyle(SizeType.Absolute,0);
+  FitCockpit();
+ }
  string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory;while(p!=null){if(Directory.Exists(Path.Combine(p,"kn_portable")))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
  void AddLabel(string text,int x,int y){Label l=new Label();l.Text=text;l.SetBounds(x,y,750,48);Controls.Add(l);l.SendToBack();}
  Button Button(string text,int x,int y,Action act){Button b=new Button();b.Text=text;b.SetBounds(x,y,200,35);b.Click+=delegate{try{act();}catch(Exception e){MessageBox.Show(e.Message,Text);}};Controls.Add(b);return b;}

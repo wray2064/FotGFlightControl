@@ -14,8 +14,17 @@ partial class ControllerSetup {
  Panel contentHost;
  TableLayoutPanel flightPage;
  Control macroPage;
+ TableLayoutPanel macroDeckLayout,macroFoot,macroOptions;
+ Control[] macroFootChildren=new Control[5];
+ Button macroButtonsEditor;
+ bool compactMacroFooter;
+ bool macroFooterInitialized;
  Button flightTabButton, deckTabButton;
  Label macroStatus;
+ Label macroHeading;
+ TableLayoutPanel macroTypeRow,macroFlightRow,macroLookRow;
+ Control macroTypeLabel,macroTypeHint,macroFlightLabel,macroFlightHint,macroLookLabel;
+ bool compactMacroSettings;
  string wheelModFolder = "";
  readonly TextBox[] macroLabels = new TextBox[4];
  readonly ComboBox[] macroActions = new ComboBox[4];
@@ -61,12 +70,14 @@ partial class ControllerSetup {
   if(flightPage==null||macroPage==null)return;
   flightPage.Visible=!deck;macroPage.Visible=deck;
   if(deck)macroPage.BringToFront();else flightPage.BringToFront();
+  if(embeddedCockpit)FitCockpit();
   if(flightTabButton!=null)flightTabButton.BackColor=deck?Color.FromArgb(16,14,3):Color.FromArgb(82,66,5);
   if(deckTabButton!=null)deckTabButton.BackColor=deck?Color.FromArgb(82,66,5):Color.FromArgb(16,14,3);
  }
  Control BuildMacroDeck(){
-  var deck=Grid(1,7);deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,32,34,-1,40,32,40,73);
-  deck.Controls.Add(LabelText("04 / COMMAND WHEEL  ·  RIGHT = FOUR CONFIGURABLE MACROS",12,Cyan),0,0);
+  var deck=Grid(1,7);macroDeckLayout=deck;deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,32,34,-1,40,32,40,73);
+  macroHeading=LabelText("04 / COMMAND WHEEL  ·  RIGHT = FOUR CONFIGURABLE MACROS",12,Cyan);
+  deck.Controls.Add(macroHeading,0,0);
   var compass=Grid(4,1);
   for(int i=0;i<4;i++)compass.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
   string[] directions={"↑  SHIP SYSTEMS","←  TARGET MODES","↓  SQUAD COMMANDS","→  MACRO DECK"};
@@ -78,31 +89,31 @@ partial class ControllerSetup {
    compass.Controls.Add(badge,i,0);
   }
   deck.Controls.Add(compass,0,1);
-  var cards=Grid(4,1);
+  var cards=Grid(4,1);macroCards=cards;
   for(int i=0;i<4;i++)cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
-  for(int i=0;i<4;i++)cards.Controls.Add(BuildMacroCard(i),i,0);
+  for(int i=0;i<4;i++){macroCardControls[i]=BuildMacroCard(i);cards.Controls.Add(macroCardControls[i],i,0);}
   deck.Controls.Add(cards,0,2);
-  var typeRow=Grid(4,1);typeRow.Padding=new Padding(4,7,4,4);
+  var typeRow=Grid(4,1);macroTypeRow=typeRow;typeRow.Padding=new Padding(4,7,4,4);
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,18));
   typeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,38));
-  var typeLabel=LabelText("WHEEL TEXT",10,Cyan);typeLabel.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeLabel,0,0);
+  var typeLabel=LabelText("WHEEL TEXT",10,Cyan);macroTypeLabel=typeLabel;typeLabel.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeLabel,0,0);
   wheelFontSize=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   wheelFontSize.Items.AddRange(new object[]{"Medium (20 px)","Large (30 px)"});wheelFontSize.SelectedIndex=0;typeRow.Controls.Add(wheelFontSize,1,0);
   wheelFontBold=new CheckBox{Dock=DockStyle.Fill,Text="Bold",Checked=true,ForeColor=Ink,BackColor=Surface,TextAlign=ContentAlignment.MiddleLeft};typeRow.Controls.Add(wheelFontBold,2,0);
-  var typeHint=LabelText("Dark labels and high contrast are always on. Restart game after saving.",9,Ink);typeHint.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeHint,3,0);
+  var typeHint=LabelText("Dark labels and high contrast are always on. Restart game after saving.",9,Ink);macroTypeHint=typeHint;typeHint.TextAlign=ContentAlignment.MiddleLeft;typeRow.Controls.Add(typeHint,3,0);
   deck.Controls.Add(typeRow,0,3);
-  var flightRow=Grid(4,1);flightRow.Padding=new Padding(4,3,4,3);
+  var flightRow=Grid(4,1);macroFlightRow=flightRow;flightRow.Padding=new Padding(4,3,4,3);
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,14));
   flightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,42));
-  var flightLabel=LabelText("FLIGHT AXES",10,Cyan);flightLabel.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightLabel,0,0);
+  var flightLabel=LabelText("FLIGHT AXES",10,Cyan);macroFlightLabel=flightLabel;flightLabel.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightLabel,0,0);
   flightAxes=new ComboBox{Dock=DockStyle.Fill,DropDownStyle=ComboBoxStyle.DropDownList,FlatStyle=FlatStyle.Flat,BackColor=Night,ForeColor=Ink};
   flightAxes.Items.AddRange(new object[]{"Classic direct (tested)","Classic inverted pitch","Game's saved setup","Custom axes"});flightAxes.SelectedIndex=0;flightRow.Controls.Add(flightAxes,1,0);
   editAxes=ActionButton("Edit axes...",delegate{EditCustomAxes();});editAxes.Visible=false;flightRow.Controls.Add(editAxes,2,0);
-  var flightHint=LabelText(AxesHint(0),9,Ink);flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,3,0);
+  var flightHint=LabelText(AxesHint(0),9,Ink);macroFlightHint=flightHint;flightHint.TextAlign=ContentAlignment.MiddleLeft;flightRow.Controls.Add(flightHint,3,0);
   bool axesLoading=true;
   flightAxes.SelectedIndexChanged+=delegate{
    editAxes.Visible=flightAxes.SelectedIndex==3;flightHint.Text=AxesHint(flightAxes.SelectedIndex);
@@ -110,12 +121,12 @@ partial class ControllerSetup {
   };
   axesLoading=false;
   deck.Controls.Add(flightRow,0,4);
-  var lookRow=Grid(4,1);lookRow.Padding=new Padding(4,0,4,0);
+  var lookRow=Grid(4,1);macroLookRow=lookRow;lookRow.Padding=new Padding(4,0,4,0);
   lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
   lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,40));
   lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
   lookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,28));
-  var lookLabel=LabelText("D-PAD HOLD TO LOOK",10,Cyan);lookLabel.TextAlign=ContentAlignment.MiddleLeft;lookRow.Controls.Add(lookLabel,0,0);
+  var lookLabel=LabelText("D-PAD HOLD TO LOOK",10,Cyan);macroLookLabel=lookLabel;lookLabel.TextAlign=ContentAlignment.MiddleLeft;lookRow.Controls.Add(lookLabel,0,0);
   lookHoldSlider=new TrackBar{Dock=DockStyle.Fill,AutoSize=false,Minimum=6,Maximum=24,TickFrequency=3,SmallChange=1,LargeChange=2,Value=10,BackColor=Surface};
   lookRow.Controls.Add(lookHoldSlider,1,0);
   lookHoldValue=LabelText("250 ms",10,Ink);lookHoldValue.TextAlign=ContentAlignment.MiddleCenter;lookRow.Controls.Add(lookHoldValue,2,0);
@@ -124,28 +135,78 @@ partial class ControllerSetup {
   lookHoldSlider.ValueChanged+=delegate{UpdateLookTiming();};
   disableLook.CheckedChanged+=delegate{UpdateLookTiming();};
   deck.Controls.Add(lookRow,0,5);
-  var foot=Grid(5,1);foot.Padding=new Padding(0,2,0,0);
+  var foot=Grid(5,1);macroFoot=foot;foot.Padding=new Padding(0,2,0,0);
   foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,43));
   foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
   foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,18));
   foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,13));
   foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,14));
-  var options=Grid(4,1);
+  var options=Grid(4,1);macroOptions=options;
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,40));
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,28));
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
   macroStatus=LabelText("Find or select the installed wheel mod.",9,Ink);macroStatus.TextAlign=ContentAlignment.MiddleLeft;options.Controls.Add(macroStatus,0,0);
   cameraHold=new CheckBox{Text="Hold Menu cycles camera",Checked=true,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(cameraHold,1,0);
-  var buttonsEditor=ActionButton("Buttons...",delegate{EditButtonActions();});options.Controls.Add(buttonsEditor,2,0);options.SetColumnSpan(buttonsEditor,2);
-  foot.Controls.Add(options,0,0);
-  foot.Controls.Add(ActionButton("Browse mod",delegate{BrowseWheelMod();}),1,0);
-  foot.Controls.Add(ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();}),2,0);
-  foot.Controls.Add(ActionButton("ADVANCED",delegate{EditLayouts();}),3,0);
-  var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(82,66,5);foot.Controls.Add(save,4,0);
+  var buttonsEditor=ActionButton("Buttons...",delegate{EditButtonActions();});macroButtonsEditor=buttonsEditor;options.Controls.Add(buttonsEditor,2,0);options.SetColumnSpan(buttonsEditor,2);
+  macroFootChildren[0]=options;macroFootChildren[1]=ActionButton("Browse mod",delegate{BrowseWheelMod();});macroFootChildren[2]=ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();});macroFootChildren[3]=ActionButton("ADVANCED",delegate{EditLayouts();});
+  var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(82,66,5);macroFootChildren[4]=save;
+  for(int i=0;i<5;i++)foot.Controls.Add(macroFootChildren[i],i,0);
   deck.Controls.Add(foot,0,6);
   for(int i=0;i<4;i++)SetMacro(i,DefaultMacros[i]);
   return deck;
+ }
+ void ReflowMacroSettings(bool compact,float scale){
+  if(macroTypeRow==null||compactMacroSettings==compact)return;
+  compactMacroSettings=compact;
+  macroTypeRow.SuspendLayout();macroTypeRow.Controls.Clear();macroTypeRow.ColumnStyles.Clear();macroTypeRow.RowStyles.Clear();
+  macroFlightRow.SuspendLayout();macroFlightRow.Controls.Clear();macroFlightRow.ColumnStyles.Clear();macroFlightRow.RowStyles.Clear();
+  macroLookRow.SuspendLayout();macroLookRow.Controls.Clear();macroLookRow.ColumnStyles.Clear();macroLookRow.RowStyles.Clear();
+  if(compact){
+   macroTypeRow.ColumnCount=3;macroTypeRow.RowCount=2;
+   foreach(float width in new float[]{28,48,24})macroTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroTypeRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));macroTypeRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));
+   macroTypeRow.Controls.Add(macroTypeLabel,0,0);macroTypeRow.Controls.Add(wheelFontSize,1,0);macroTypeRow.Controls.Add(wheelFontBold,2,0);macroTypeRow.Controls.Add(macroTypeHint,0,1);macroTypeRow.SetColumnSpan(macroTypeHint,3);
+   macroFlightRow.ColumnCount=3;macroFlightRow.RowCount=2;
+   foreach(float width in new float[]{28,50,22})macroFlightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroFlightRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));macroFlightRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));
+   macroFlightRow.Controls.Add(macroFlightLabel,0,0);macroFlightRow.Controls.Add(flightAxes,1,0);macroFlightRow.Controls.Add(editAxes,2,0);macroFlightRow.Controls.Add(macroFlightHint,0,1);macroFlightRow.SetColumnSpan(macroFlightHint,3);
+   macroLookRow.ColumnCount=3;macroLookRow.RowCount=2;
+   foreach(float width in new float[]{28,53,19})macroLookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroLookRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));macroLookRow.RowStyles.Add(new RowStyle(SizeType.Percent,50));
+   macroLookRow.Controls.Add(macroLookLabel,0,0);macroLookRow.Controls.Add(lookHoldSlider,1,0);macroLookRow.Controls.Add(lookHoldValue,2,0);macroLookRow.Controls.Add(disableLook,0,1);macroLookRow.SetColumnSpan(disableLook,3);
+  }else{
+   macroTypeRow.ColumnCount=4;macroTypeRow.RowCount=1;foreach(float width in new float[]{20,24,18,38})macroTypeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroTypeRow.Controls.Add(macroTypeLabel,0,0);macroTypeRow.Controls.Add(wheelFontSize,1,0);macroTypeRow.Controls.Add(wheelFontBold,2,0);macroTypeRow.Controls.Add(macroTypeHint,3,0);
+   macroFlightRow.ColumnCount=4;macroFlightRow.RowCount=1;foreach(float width in new float[]{20,24,14,42})macroFlightRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroFlightRow.Controls.Add(macroFlightLabel,0,0);macroFlightRow.Controls.Add(flightAxes,1,0);macroFlightRow.Controls.Add(editAxes,2,0);macroFlightRow.Controls.Add(macroFlightHint,3,0);
+   macroLookRow.ColumnCount=4;macroLookRow.RowCount=1;foreach(float width in new float[]{20,40,12,28})macroLookRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,width));
+   macroLookRow.Controls.Add(macroLookLabel,0,0);macroLookRow.Controls.Add(lookHoldSlider,1,0);macroLookRow.Controls.Add(lookHoldValue,2,0);macroLookRow.Controls.Add(disableLook,3,0);
+  }
+  int[] original={40,32,40};int[] narrow={76,76,86};
+  for(int i=0;i<3;i++)macroDeckLayout.RowStyles[3+i]=new RowStyle(SizeType.Absolute,(int)Math.Ceiling((compact?narrow[i]:original[i])*scale));
+  macroTypeRow.ResumeLayout(true);macroFlightRow.ResumeLayout(true);macroLookRow.ResumeLayout(true);
+ }
+ void ReflowMacroFooter(bool compact,float scale){
+  if(macroFoot==null||(macroFooterInitialized&&compactMacroFooter==compact))return;
+  macroFooterInitialized=true;compactMacroFooter=compact;macroFoot.SuspendLayout();macroFoot.Controls.Clear();macroFoot.ColumnStyles.Clear();macroFoot.RowStyles.Clear();
+  macroOptions.Controls.Remove(macroStatus);macroOptions.Controls.Remove(cameraHold);macroOptions.Controls.Remove(macroButtonsEditor);
+  if(compact){
+   macroFoot.ColumnCount=2;macroFoot.RowCount=4;
+   for(int i=0;i<2;i++)macroFoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
+   for(int i=0;i<4;i++)macroFoot.RowStyles.Add(new RowStyle(SizeType.Percent,25));
+   macroFoot.Controls.Add(macroStatus,0,0);macroFoot.SetColumnSpan(macroStatus,2);
+   cameraHold.Text="MENU HOLD: CAMERA";macroFoot.Controls.Add(cameraHold,0,1);macroFoot.Controls.Add(macroButtonsEditor,1,1);macroFoot.SetColumnSpan(macroButtonsEditor,1);
+   for(int i=1;i<5;i++)macroFoot.Controls.Add(macroFootChildren[i],(i-1)%2,2+(i-1)/2);
+  }else{
+   macroFoot.ColumnCount=4;macroFoot.RowCount=2;
+   for(int i=0;i<4;i++)macroFoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
+   macroFoot.RowStyles.Add(new RowStyle(SizeType.Percent,42));macroFoot.RowStyles.Add(new RowStyle(SizeType.Percent,58));
+   macroFoot.Controls.Add(macroStatus,0,0);macroFoot.SetColumnSpan(macroStatus,2);
+   cameraHold.Text="Hold Menu cycles camera";macroFoot.Controls.Add(cameraHold,2,0);macroFoot.Controls.Add(macroButtonsEditor,3,0);macroFoot.SetColumnSpan(macroButtonsEditor,1);
+   for(int i=1;i<5;i++)macroFoot.Controls.Add(macroFootChildren[i],i-1,1);
+  }
+  macroDeckLayout.RowStyles[6]=new RowStyle(SizeType.Absolute,(int)Math.Ceiling((compact?185:110)*scale));macroFoot.ResumeLayout(true);
  }
  void UpdateLookTiming(){
   if(lookHoldSlider==null||lookHoldValue==null||disableLook==null)return;
@@ -153,10 +214,10 @@ partial class ControllerSetup {
   lookHoldValue.Text=disableLook.Checked?"OFF":(lookHoldSlider.Value*25)+" ms";
  }
  Control BuildMacroCard(int i){
-  var card=Grid(2,4);card.BackColor=Color.FromArgb(15,14,5);TargetingFrame.Apply(card);card.Margin=new Padding(4,0,4,0);card.Padding=new Padding(4);
+  var card=Grid(2,5);card.BackColor=Color.FromArgb(15,14,5);TargetingFrame.Apply(card);card.Margin=new Padding(4,0,4,0);card.Padding=new Padding(4);
   card.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,94));
   card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-  Rows(card,22,26,26,26);
+  Rows(card,22,26,26,26,-1);
   card.Controls.Add(LabelText("RIGHT / SLOT "+(i+1),11,Cyan),0,0);card.SetColumnSpan(card.GetControlFromPosition(0,0),2);
   card.Controls.Add(LabelText("HUD label",9,Ink),0,1);
   macroLabels[i]=new TextBox{Dock=DockStyle.Fill,BackColor=Night,ForeColor=Ink,MaxLength=32};
