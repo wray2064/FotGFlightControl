@@ -1,22 +1,30 @@
 $ErrorActionPreference = 'Stop'
 $workspace = [System.IO.Path]::GetFullPath($PSScriptRoot)
-foreach ($script in @('Install.ps1', 'BuildFlightPreset.ps1', 'tools\ProbeSdl3Guid.ps1', 'tools\ProbeSdl2Guid.ps1')) {
-    $path = Join-Path $workspace $script
-    $null = [scriptblock]::Create([IO.File]::ReadAllText($path))
-}
+# Setup installs by itself (setup\Installer.cs) and runs no scripts.
 & (Join-Path $workspace 'bridge\Build.ps1')
 & (Join-Path $workspace 'console\Build.ps1')
 & (Join-Path $workspace 'setup\Build.ps1')
+$setupTest = Start-Process -FilePath (Join-Path $workspace 'setup\Setup.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
+if ($setupTest.ExitCode -ne 0) { throw "Setup self-test failed with exit code $($setupTest.ExitCode)" }
 $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSetup.exe') -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.1.1'
+$version = '1.1.2'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-' + $version
 $dist = Join-Path $workspace 'dist'
 $stage = Join-Path $dist $name
+if (Test-Path -LiteralPath $stage) {
+    $resolvedDist = [IO.Path]::GetFullPath($dist).TrimEnd('\')
+    $resolvedStage = [IO.Path]::GetFullPath($stage).TrimEnd('\')
+    if (-not $resolvedStage.StartsWith($resolvedDist + '\', [StringComparison]::OrdinalIgnoreCase) -or
+        -not [String]::Equals([IO.Path]::GetFileName($resolvedStage), $name, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Package staging path escaped dist.'
+    }
+    Remove-Item -LiteralPath $resolvedStage -Recurse -Force
+}
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 $sourceMod = Join-Path $workspace 'mod\FotG_Gamepad_Wheel'
 $targetMod = Join-Path $stage 'FotG_Gamepad_Wheel'
@@ -38,10 +46,9 @@ foreach ($item in @('ControllerSetup.exe', 'Build.ps1', 'BuildIcon.ps1', 'Help.h
 }
 Copy-Item -LiteralPath (Join-Path $setup 'src') -Destination (Join-Path $targetSetup 'src') -Recurse
 Copy-Item -LiteralPath (Join-Path $setup 'Assets') -Destination (Join-Path $targetSetup 'Assets') -Recurse
-foreach ($item in @('Install.ps1', 'BuildFlightPreset.ps1', 'README.md', 'Help.html', 'About.html', 'LICENSE', 'NOTICE.md', 'ARTWORK-LICENSE.md', 'CONTRIBUTING.md')) {
+foreach ($item in @('README.md', 'Help.html', 'About.html', 'LICENSE', 'NOTICE.md', 'ARTWORK-LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md')) {
     Copy-Item -LiteralPath (Join-Path $workspace $item) -Destination (Join-Path $stage $item)
 }
-Copy-Item -LiteralPath (Join-Path $workspace 'tools') -Destination (Join-Path $stage 'tools') -Recurse
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.exe') -Destination (Join-Path $stage 'Setup.exe')
 foreach ($launcherName in @('Play with Gamepad Wheel.exe', 'Configure Gamepad Wheel.exe')) {
     Copy-Item -LiteralPath (Join-Path (Join-Path $workspace 'setup') $launcherName) -Destination (Join-Path $stage $launcherName)
@@ -52,7 +59,7 @@ Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.png')
 New-Item -ItemType Directory -Path (Join-Path $stage 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Join-Path $stage 'source\Setup.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
-foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs')) {
+foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer.cs', 'AssemblyInfo.cs')) {
     Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Build.ps1') -Destination (Join-Path $stage 'source\BuildSetup.ps1')
@@ -69,7 +76,7 @@ $checksums = Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object Full
 }
 $checksums | Set-Content -LiteralPath (Join-Path $stage 'SHA256SUMS.txt') -Encoding Ascii
 $archive = Join-Path $dist ($name + '.zip')
-Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel Optimal
+Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel Optimal -Force
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Package: $archive"
 Write-Host "SHA256: $hash"

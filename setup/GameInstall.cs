@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 // The FSO engine a Fate of the Galaxy install runs on. Shared by Setup and the bridge;
-// Install.ps1 has the same rules in PowerShell and records its choice in engine.json.
+// The installer (Installer.cs) records the stick numbering it found in engine-axes.txt.
 //
 // 1. The "FSO 26.0.1-SDL3" package (FSO_2601SDL3-1.0.0) when present: FotG 1.1.0 shipped with
 //    it, and Flight Control was first tested on it.

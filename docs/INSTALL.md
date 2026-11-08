@@ -25,8 +25,8 @@ If the game is updated to a version this build doesn't list, Setup shows
 installs for that version anyway, after a warning: compatibility cannot be
 guaranteed while the override is in use, until Flight Control is updated for
 that version. Setup still checks the game's control defaults first and changes
-nothing if they are in a layout it doesn't recognise. From PowerShell, the same
-is `Install.ps1 -GameRoot <folder> -GameVersion <version> -OverrideVersionCheck`.
+nothing if they are in a layout it doesn't recognise. From a command prompt, the same
+is `Setup.exe --install --game <folder> --game-version <version> --override-version-check`.
 
 **Configure** opens the Flight Control Console. Use its Flight Response page to
 sample center drift and set sensitivity/deadzone. **Apply with backup** saves
@@ -48,5 +48,12 @@ settings INI as they were at backup time, including other settings saved then.
 Afterward you may remove `GamepadMods/FotG_Gamepad_Wheel` and the two wheel
 launchers. The original game launcher remains available throughout.
 
-Advanced users can run `Install.ps1 -GameRoot 'C:\path\to\Fate of the Galaxy 1.1.0'`
-from PowerShell. The GUI Setup calls the same script.
+Advanced users can run `Setup.exe --install --game "C:\path\to\Fate of the Galaxy"`
+from a command prompt; it prints each step and exits with 0 on success. Add
+`--skip-pilot-reservation` to leave pilots unchanged. This is the same Install /
+Repair the window runs; Setup never runs a script.
+
+**Updates.** When a newer release is published, Setup offers **Update to x.y.z**.
+It downloads the ZIP from the product site or GitHub, checks its size and SHA-256,
+extracts it, and shows the new Setup.exe in File Explorer. Close Setup, run the
+new one and choose **Install / Repair**.

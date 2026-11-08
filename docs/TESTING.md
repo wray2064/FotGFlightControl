@@ -38,7 +38,8 @@ launcher available for comparison.
    (SDL2) engine, confirm Setup names it, Install detects the pad and its stick
    order, and flight, buttons and Custom axes behave as on the SDL3 engine.
 10. Updates: with a test manifest (FLIGHTCONTROL_UPDATE_URL=file:///...), confirm
-   Setup offers the update, refuses a wrong SHA-256, and opens the new Setup.
+   Setup offers the update, refuses a wrong SHA-256, and shows the new Setup.exe
+   in File Explorer without starting it.
 
 Record game version, ship, mission, controller, Windows version, and the exact
 steps for any failure. Avoid sharing pilot files or logs that contain personal

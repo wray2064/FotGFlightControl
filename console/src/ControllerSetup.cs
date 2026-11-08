@@ -7,6 +7,9 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+
+[assembly: System.Reflection.AssemblyTitle("Flight Control Console")]
+[assembly: System.Reflection.AssemblyDescription("Settings for Flight Control: flight response, command wheels, macros, button actions and axes.")]
 [StructLayout(LayoutKind.Sequential)] struct Pad { public ushort buttons; public byte lt,rt; public short lx,ly,rx,ry; }
 [StructLayout(LayoutKind.Sequential)] struct State { public uint packet; public Pad pad; }
 partial class ControllerSetup : Form {

@@ -76,7 +76,7 @@ partial class ControllerSetup {
  static readonly string[] AxisSourceCaptions={"Left stick, left/right","Left stick, up/down","Right stick, left/right","Right stick, up/down","Not used"};
  // FSO's SDL3 gamepad axes: left X/Y, right X/Y (the right stick reads as Z and RX).
  static readonly Dictionary<string,string> Sdl3Axes=new Dictionary<string,string>{{"left_x","X_AXIS"},{"left_y","Y_AXIS"},{"right_x","Z_AXIS"},{"right_y","RX_AXIS"}};
- // Install.ps1 records the engine's stick numbering in engine-axes.txt as "sdl2 X_AXIS,Y_AXIS,RX_AXIS,RY_AXIS"
+ // Setup records the engine's stick numbering in engine-axes.txt as "sdl2 X_AXIS,Y_AXIS,RX_AXIS,RY_AXIS"
  // (left X, left Y, right X, right Y). An SDL2 engine reads raw joystick axes, so its right stick differs.
  static Dictionary<string,string> StickAxes(string modFolder){
   try{
@@ -289,7 +289,7 @@ partial class ControllerSetup {
  }
 
  // --- Repair support: rebuild the Custom preset from the saved config -----------------------
- // Install.ps1 regenerates the control table on Install / Repair, then runs this so a saved
+ // Setup regenerates the control table on Install / Repair, then runs this so a saved
  // Custom layout survives. Exit code 0 also when the config does not use Custom axes.
  static int ApplyCustomAxesCli(string[] args){
   try{
@@ -308,7 +308,7 @@ partial class ControllerSetup {
  }
 
  static bool ButtonsAndAxesSelfTest(){
-  // A two-preset table shaped like BuildFlightPreset.ps1 output.
+  // A two-preset table shaped like the Classic presets Setup writes.
   string axisBlock="    $Bind: JOY_HEADING_AXIS\r\n        $Primary:\r\n            $Controller: CID_JOY0\r\n            $Flags: AXIS\r\n            $Input: Z_AXIS\r\n        $Secondary:\r\n            $Controller: CID_NONE\r\n";
   string table="#ControlConfigOverride\r\n$Name: default\r\n    $Bind: FIRE_PRIMARY\r\n        $Primary:\r\n            $Controller: CID_NONE\r\n#End\r\n\r\n"+
    "#ControlConfigOverride\r\n$Name: FotG Classic Native\r\n    $Bind: FIRE_PRIMARY\r\n        $Primary:\r\n            $Controller: CID_NONE\r\n"+axisBlock+"#End\r\n\r\n"+

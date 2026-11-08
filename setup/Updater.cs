@@ -13,7 +13,8 @@ using Microsoft.Win32;
 // update.json on the product site names the latest release (version, ZIP URL, size, SHA-256)
 // and, per Flight Control version, any newer game versions checked to work with it. The ZIP is
 // downloaded only from the product site or the GitHub releases of the source repository, must
-// match the published size and SHA-256, and is extracted under %LOCALAPPDATA%. Nothing is sent
+// match the published size and SHA-256, and is extracted under %LOCALAPPDATA%. Its Setup.exe is
+// then shown in File Explorer for the player to run; Flight Control never starts it. Nothing is sent
 // beyond the HTTPS request itself. FLIGHTCONTROL_UPDATE_URL points the check at a local test
 // manifest (file:// or http://localhost only).
 sealed class UpdateInfo {
@@ -153,10 +154,15 @@ static class Updater {
         return setup;
     }
 
+    // Opens File Explorer with the file selected.
+    public static void ShowInExplorer(string file) {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "/select,\"" + file + "\"") { UseShellExecute = true });
+    }
+
     public static bool SelfTest() {
         if (!IsNewer("1.1.1", "1.1.0") || IsNewer("1.1.0", "1.1.0") || IsNewer("1.0.9", "1.1.0") || IsNewer("x", "1.1.0")) return false;
-        if (!TrustedDownload("https://manictrashpanda.dev/games/FotGFlightControl/download/FotG-Flight-Control-1.1.1.zip")) return false;
-        if (!TrustedDownload("https://github.com/wray2064/FotGFlightControl/releases/download/v1.1.1/FotG-Flight-Control-1.1.1.zip")) return false;
+        if (!TrustedDownload("https://manictrashpanda.dev/games/FotGFlightControl/download/FotG-Flight-Control-1.1.2.zip")) return false;
+        if (!TrustedDownload("https://github.com/wray2064/FotGFlightControl/releases/download/v1.1.2/FotG-Flight-Control-1.1.2.zip")) return false;
         if (TrustedDownload("http://manictrashpanda.dev/games/FotGFlightControl/download/x.zip")) return false;
         if (TrustedDownload("https://evil.example/games/FotGFlightControl/download/x.zip")) return false;
         if (TrustedDownload("https://manictrashpanda.dev.evil.example/games/FotGFlightControl/download/x.zip")) return false;

@@ -11,6 +11,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 
+[assembly: System.Reflection.AssemblyTitle("Flight Control controller bridge")]
+[assembly: System.Reflection.AssemblyDescription("Reads the gamepad for Flight Control's command wheels and menus, and starts Fate of the Galaxy with the add-on.")]
+
 [StructLayout(LayoutKind.Sequential)] struct XPad {
     public ushort Buttons;
     public byte LeftTrigger, RightTrigger;
@@ -204,7 +207,7 @@ sealed class Bridge : ApplicationContext {
         info.Arguments = "-mod \"" + paths + "\" -aa -soft_particles -deferred_cockpit";
         game = Process.Start(info);
     }
-    // Supported game releases, newest first; keep in step with setup\Setup.cs and Install.ps1.
+    // Supported game releases, newest first; keep in step with setup\Installer.cs.
     static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
     static readonly string[] GamePackages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
     static bool HasRelease(string root, string version) {
@@ -465,7 +468,7 @@ static class Program {
     [STAThread] static int Main(string[] args) {
         try {
             if (args.Length > 0 && args[0] == "--self-test") return SelfTest();
-            // Install.ps1 asks which engine the launcher will start, so both use one rule.
+            // Diagnostics: which engine the launcher will start (the same rule Setup uses).
             // Prints "<exe>|sdl3|<label>" or "<exe>|sdl2|<label>"; exit code 2 when none is found.
             if (args.Length > 0 && args[0] == "--engine") {
                 int at = Array.IndexOf(args, "--game");

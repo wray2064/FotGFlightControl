@@ -6,6 +6,9 @@ using System.Linq;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
+[assembly: System.Reflection.AssemblyTitle("Flight Control Setup")]
+[assembly: System.Reflection.AssemblyDescription("Installs and repairs Flight Control, a gamepad add-on for Fate of the Galaxy.")]
+
 internal sealed class WheelSetup : Form {
     static readonly Color Background = Color.Black;
     static readonly Color PanelColor = Color.FromArgb(13, 15, 11);
@@ -174,7 +177,7 @@ internal sealed class WheelSetup : Form {
         if (info == null) return;
         var answer = MessageBox.Show(this,
             "Flight Control " + info.Version + " is available (you have " + BuildInfo.Version + ").\r\n\r\n" +
-            "Setup will download it from " + (new Uri(info.Url).IsFile ? "a local test file" : new Uri(info.Url).Host) + ", check it against its published SHA-256, and open the new Setup. Then choose Install / Repair there; your settings are kept and your pilot is backed up.\r\n\r\n" +
+            "Setup will download it from " + (new Uri(info.Url).IsFile ? "a local test file" : new Uri(info.Url).Host) + ", check it against its published SHA-256, and show the new Setup.exe in File Explorer. Run it and choose Install / Repair; your settings are kept and your pilot is backed up.\r\n\r\n" +
             "Windows may warn that the new Setup is from an unknown publisher; it is not code-signed yet.\r\n\r\n" +
             "Release notes: " + info.Notes + "\r\n\r\nDownload and open it now?",
             "Update Flight Control", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
@@ -187,8 +190,12 @@ internal sealed class WheelSetup : Form {
             catch (Exception e) { error = e.Message; }
             BeginInvoke((Action)delegate {
                 if (error != null) { updateButton.Enabled = true; Check(); MessageBox.Show(this, "The update was not installed.\r\n\r\n" + error, "Update Flight Control"); return; }
-                Process.Start(new ProcessStartInfo(setup) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(setup) });
-                Close();
+                // Hand the verified Setup to the player rather than starting it from here.
+                Updater.ShowInExplorer(setup);
+                updateButton.Visible = false;
+                Check();
+                verdict.Text = "UPDATE " + info.Version + " READY";
+                details.Text = "Flight Control " + info.Version + " was downloaded and matches its published SHA-256.\r\n\r\nFile Explorer now shows its Setup.exe:\r\n" + setup + "\r\n\r\nClose this window, run that Setup.exe and choose Install / Repair.";
             });
         });
     }
@@ -212,10 +219,9 @@ internal sealed class WheelSetup : Form {
         button.Click += delegate { try { action(); } catch (Exception e) { MessageBox.Show(e.Message, Text); } };
         return button;
     }
-    // Game releases this build supports, newest first. Each installs to kn_portable\Library\FotG_R\FotG_R-<version>
-    // and runs on FSO 26.0.1 (GameInstall.cs picks the engine build). Keep this list in step with Install.ps1, BuildFlightPreset.ps1
-    // and WheelBridge.cs, and add a release only after BuildFlightPreset.ps1 accepts its control defaults.
-    static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
+    // Game releases this build supports (Installer.cs holds the list; keep WheelBridge.cs in step).
+    // Add a release only after the preset builder in Installer.cs accepts its control defaults.
+    static readonly string[] SupportedVersions = Installer.SupportedVersions;
     static string SupportedText() { return String.Join(", ", SupportedVersions.Reverse()); }
     // The newest installed release with a manifest, supported or not, for the version override.
     static string NewestInstalledVersion(string root) {
@@ -351,32 +357,39 @@ internal sealed class WheelSetup : Form {
     void Install() {
         Check();
         if (!install.Enabled || validatedRoot == null) return;
-        string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Install.ps1");
-        if (!File.Exists(script)) { MessageBox.Show("Install.ps1 is missing. Extract the complete ZIP before running Setup.exe.", Text); return; }
+        var options = new InstallOptions { GameRoot = validatedRoot, PackageRoot = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+            GameVersion = usingOverride ? checkedVersion : null, OverrideVersionCheck = usingOverride };
         string root = validatedRoot;
-        string versionArgs = usingOverride ? " -GameVersion " + checkedVersion + " -OverrideVersionCheck" : "";
         install.Enabled = false;
         verdict.Text = "INSTALLING…";
         details.Text = "Backing up pilot settings and copying the add-on. Please wait.";
         System.Threading.ThreadPool.QueueUserWorkItem(delegate {
-            string output; int exitCode;
+            var output = new System.Text.StringBuilder(); bool ok;
             try {
-                string powershell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-                var info = new ProcessStartInfo(powershell, "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\" -GameRoot \"" + root + "\"" + versionArgs);
-                info.UseShellExecute = false; info.CreateNoWindow = true; info.RedirectStandardOutput = true; info.RedirectStandardError = true;
-                using (var process = Process.Start(info)) {
-                    output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-                    process.WaitForExit(); exitCode = process.ExitCode;
-                }
-            } catch (Exception error) { output = error.Message; exitCode = -1; }
+                Installer.Run(options, line => output.AppendLine(line), line => output.AppendLine("WARNING: " + line));
+                ok = true;
+            } catch (Exception error) { output.AppendLine(error.Message); ok = false; }
             BeginInvoke((Action)delegate {
                 Check();
-                verdict.Text = exitCode == 0 ? "INSTALLATION COMPLETE" : "INSTALLATION FAILED";
-                details.Text = exitCode == 0
+                verdict.Text = ok ? "INSTALLATION COMPLETE" : "INSTALLATION FAILED";
+                details.Text = ok
                     ? "Gamepad wheel installed in:\r\n" + root + "\r\n\r\nClick PLAY WITH WHEEL to start the game, or CONFIGURE to adjust flight response and macros.\r\n\r\nYour existing pilot and any previous add-on files were backed up."
-                    : (output.Length == 0 ? "No details were returned. Check the game folder and try again." : output.Replace("\r\n", "\n").Replace("\n", "\r\n"));
+                    : output.ToString().Trim();
             });
         });
+    }
+    // Setup.exe --install --game <folder> [--game-version <v>] [--override-version-check] [--skip-pilot-reservation]
+    // installs without the window; output goes to standard output, exit code 0 on success.
+    static int InstallCli(string[] args) {
+        Func<string, string> value = name => { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; };
+        string game = value("--game");
+        if (game == null) { Console.Error.WriteLine("Usage: Setup.exe --install --game <folder> [--game-version <version>] [--override-version-check] [--skip-pilot-reservation]"); return 2; }
+        try {
+            Installer.Run(new InstallOptions { GameRoot = game.Trim('"'), GameVersion = value("--game-version"), PackageRoot = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                OverrideVersionCheck = args.Contains("--override-version-check"), SkipPilotReservation = args.Contains("--skip-pilot-reservation") },
+                line => Console.Out.WriteLine(line), line => Console.Out.WriteLine("WARNING: " + line));
+            Console.Out.Flush(); return 0;
+        } catch (Exception e) { Console.Out.WriteLine(e.Message); Console.Out.Flush(); return 1; }
     }
     void OpenInstalled(string name) {
         if (validatedRoot == null) throw new InvalidOperationException("Choose the game folder first.");
@@ -391,6 +404,16 @@ internal sealed class WheelSetup : Form {
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
     [STAThread] static void Main(string[] args) {
         if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() && GameInstall.SelfTest() ? 0 : 1); }
+        if (args.Length > 0 && args[0] == "--install") { Environment.Exit(InstallCli(args)); }
+        // Setup.exe --build-presets --game <folder> --game-version <v> --out <file> [--axis-map <map>]
+        // writes the Classic presets for a game release, to check a new release before supporting it.
+        if (args.Length > 0 && args[0] == "--build-presets") {
+            Func<string, string> value = name => { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; };
+            try {
+                File.WriteAllText(value("--out"), Presets.Build(value("--game"), value("--game-version"), value("--axis-map") ?? Presets.Sdl3Axes), new System.Text.UTF8Encoding(false));
+                Environment.Exit(0);
+            } catch (Exception e) { Console.Out.WriteLine(e.Message); Console.Out.Flush(); Environment.Exit(1); }
+        }
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new WheelSetup());

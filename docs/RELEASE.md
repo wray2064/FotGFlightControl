@@ -28,9 +28,13 @@ download, then publish `update.json` to `/games/FotGFlightControl/update.json`;
 Setup and the console offer updates from it. To approve a newer game version for
 an existing build without shipping a new one, add it under
 `verifiedGameVersions` for that build (for example `"1.1.0": ["1.1.3"]`) after
-checking it with BuildFlightPreset.ps1. Keep `setup/BuildInfo.cs` and
+checking it with `Setup.exe --build-presets --game <folder> --game-version <version> --out <file>`. Keep `setup/BuildInfo.cs` and
 `$version` in Package.ps1 equal; packaging refuses otherwise.
 
-The player ZIP has graphical Setup and two game-folder EXE launchers. The
-PowerShell script remains in the package for Setup and advanced manual repair;
-players do not need to open a command window or use a batch launcher.
+The player ZIP has graphical Setup and two game-folder EXE launchers. Setup
+installs by itself (`setup/Installer.cs`) and runs no scripts (the build scripts
+in the source folders are only for rebuilding);
+`Setup.exe --install` is the command-line form for advanced repair. Every
+program carries publisher and version information (`setup/AssemblyInfo.cs`).
+The updater only downloads, verifies and extracts; it shows the new Setup.exe in
+File Explorer and never starts it.
