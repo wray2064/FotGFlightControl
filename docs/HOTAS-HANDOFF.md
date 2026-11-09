@@ -1,5 +1,9 @@
 # HOTAS support branch handoff
 
+Campaign follow-up (2026-11-08): current utility work is now on
+`feature/campaign-utilities`; read `CAMPAIGN-UTILITIES-HANDOFF.md` for the
+1.1.4 candidate. This document remains the future HOTAS implementation plan.
+
 ## Branch and baseline
 
 - Work on `feature/hotas-support`, forked from `vr-prep` at `a8d9892` (the

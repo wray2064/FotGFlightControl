@@ -50,6 +50,73 @@ sealed class DpadGesture {
     }
 }
 
+// Delay only shoulder input while deciding whether this is a single press or
+// a chord. Axes, face buttons and triggers remain live throughout.
+sealed class HyperspaceGesture {
+    const int Shoulders = 256 | 512;
+    enum Phase { Idle, Pending, Single, Chord, Locked }
+    Phase phase = Phase.Locked;
+    int first;
+    long pressedAt, pairedAt;
+    public struct Decision { public int Buttons; public bool Jump; }
+    public void Reset() { phase = Phase.Locked; }
+    public Decision Update(int buttons, long now) {
+        int shoulders = buttons & Shoulders;
+        Decision result = new Decision { Buttons = buttons & ~Shoulders };
+        if (phase == Phase.Locked) {
+            if (shoulders == 0) phase = Phase.Idle;
+            return result;
+        }
+        if (phase == Phase.Idle && shoulders != 0) {
+            first = shoulders; pressedAt = now;
+            phase = shoulders == Shoulders ? Phase.Chord : Phase.Pending;
+            pairedAt = now;
+        }
+        if (phase == Phase.Pending) {
+            if (shoulders == Shoulders && now - pressedAt <= 120) {
+                phase = Phase.Chord; pairedAt = now;
+            } else if (shoulders == 0 || shoulders != first || now - pressedAt >= 120) {
+                // Preserve even a quick tap released inside the decision window.
+                result.Buttons |= first;
+                phase = Phase.Single;
+                return result;
+            }
+        }
+        if (phase == Phase.Single) {
+            result.Buttons |= shoulders;
+            if (shoulders == 0) phase = Phase.Idle;
+        } else if (phase == Phase.Chord) {
+            if (shoulders != Shoulders) phase = Phase.Locked;
+            else if (now - pairedAt >= 300) {
+                result.Jump = true;
+                phase = Phase.Locked;
+            }
+        }
+        return result;
+    }
+}
+
+sealed class MissionKeys {
+    string lastSequence;
+    public static ushort Key(string action) {
+        if (action != null && action.Length == 1 && action[0] >= '0' && action[0] <= '9') return (ushort)action[0];
+        if (action == "log") return 0x73; // F4
+        if (action == "fleet") return 0x7A; // F11
+        if (action == "fleet_page") return 0x20;
+        return 0;
+    }
+    public ushort Read(string state) {
+        Match seq = Regex.Match(state, @"\|missionseq=(\d+)(?=\||$)");
+        if (!seq.Success) return 0;
+        string next = seq.Groups[1].Value;
+        if (lastSequence == null) { lastSequence = next; return 0; }
+        if (next == lastSequence) return 0;
+        lastSequence = next;
+        Match key = Regex.Match(state, @"\|missionkey=([^|]+)(?=\||$)");
+        return next == "0" || !key.Success ? (ushort)0 : Key(key.Groups[1].Value);
+    }
+}
+
 static class WinInput {
     [DllImport("xinput1_4.dll")] public static extern uint XInputGetState(uint index, out XState state);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
@@ -145,9 +212,12 @@ sealed class Bridge : ApplicationContext {
     readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly DpadGesture dpad = new DpadGesture();
+    readonly HyperspaceGesture hyperspace = new HyperspaceGesture();
+    readonly MissionKeys missionKeys = new MissionKeys();
+    ushort pendingMissionKey;
     readonly DateTime startedUtc = DateTime.UtcNow;
     Process game;
-    long lastTick, lastStateRead, lastWrite;
+    long lastTick, lastStateRead;
     readonly int preferredSlot;
     int slot = -1, sequence, previousButtons;
     int lookKey, tapSequence, tapDirection;
@@ -287,6 +357,7 @@ sealed class Bridge : ApplicationContext {
     }
     void Release() {
         ResetDpad();
+        hyperspace.Reset();
         startHeld = startConsumed = false; cameraFinishAt = 0;
         if (leftMouse) WinInput.Mouse(4);
         if (shift) WinInput.Key(0x10, false);
@@ -302,6 +373,8 @@ sealed class Bridge : ApplicationContext {
         WinInput.Key(vk, want);
         held = want;
     }
+    bool waitingForDialogRelease;
+    bool dialogReported;
     void ReadState(long now) {
         if (now-lastStateRead < 150) return;
         lastStateRead = now;
@@ -314,6 +387,14 @@ sealed class Bridge : ApplicationContext {
                 mode = "WAIT"; modal = false; Release(); return;
             }
             string state = File.ReadAllText(statePath).Trim();
+            pendingMissionKey = missionKeys.Read(state);
+            bool nextDialog = Regex.IsMatch(state, @"\|dialog=[1-9][0-9]*(\||$)");
+            if (nextDialog != dialogReported) {
+                Release();
+                waitingForDialogRelease = true;
+                pendingWheelUntil = 0;
+            }
+            dialogReported = nextDialog;
             wheelReported = state.Contains("wheel=1");
             if (wheelReported) pendingWheelUntil = 0;
             modal = wheelReported || now < pendingWheelUntil;
@@ -341,8 +422,8 @@ sealed class Bridge : ApplicationContext {
     }
     void Publish(XPad pad, bool active, long now) {
         // Constant heartbeat lets Lua discard stale input after a companion crash.
-        if (now-lastWrite < 25) return;
-        lastWrite = now;
+        // Tick already runs at 25 ms. Do not drop a gesture's one-frame tap
+        // when Windows delivers adjacent timer ticks slightly under 25 ms.
         ++sequence;
         string line = String.Format(System.Globalization.CultureInfo.InvariantCulture,
             "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}\n", sequence,
@@ -367,12 +448,34 @@ sealed class Bridge : ApplicationContext {
                 for (uint i=0; i<4; i++) if (WinInput.XInputGetState(i, out state) == 0) { slot=(int)i; connected=true; break; }
             }
             bool active = focused && connected;
+            // A held fire trigger or confirmation button must not become a
+            // dialog click, or a flight action when that dialog closes.
+            if (waitingForDialogRelease && active) {
+                if (state.Pad.Buttons == 0 && state.Pad.LeftTrigger <= 48 && state.Pad.RightTrigger <= 48)
+                    waitingForDialogRelease = false;
+                else active = false;
+            }
             if (!active && wasFocused) { Release(); previousButtons=0; modal=false; pendingWheelUntil=0; }
             wasFocused = active;
+            // Consume requests even when unfocused/disconnected: never replay
+            // a mission choice later in another application or game context.
+            if (pendingMissionKey != 0) {
+                if (active && mode != "WAIT" && !dialogReported && !modal)
+                    WinInput.Tap(pendingMissionKey);
+                pendingMissionKey = 0;
+            }
             if (active && mode != "WAIT") HandleInput(state.Pad, dt, now);
+            XPad publishedPad = state.Pad;
+            if (active && mode == "FLIGHT" && !modal) {
+                HyperspaceGesture.Decision gesture = hyperspace.Update(state.Pad.Buttons, now);
+                publishedPad.Buttons = (ushort)gesture.Buttons;
+                // Use Return so FotG's END_MISSION keybinding hook retains its
+                // normal jump-vector checks and mission-specific behavior.
+                if (gesture.Jump) WinInput.Tap(0x0D);
+            } else hyperspace.Reset();
             // The game can have the state file open at the same instant we replace
             // it. Keep the bridge alive and retry on the next timer tick.
-            try { Publish(state.Pad, active, now); } catch (IOException) { }
+            try { Publish(publishedPad, active, now); } catch (IOException) { }
             string status = !connected ? (preferredSlot >= 0 ? "Wheel: XInput " + preferredSlot + " disconnected" : "Wheel: controller disconnected") : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / XInput " + slot;
             if (status != latestStatus) { tray.Text = status; latestStatus = status; }
         } catch (Exception ex) {
@@ -563,6 +666,19 @@ static class Program {
     }
     static int SelfTest() {
         WinInput.DryRun=true;
+        MissionKeys mission = new MissionKeys();
+        if (mission.Read("FLIGHT|missionkey=1|missionseq=8") != 0 ||
+            mission.Read("FLIGHT|missionkey=1|missionseq=9") != 0x31 ||
+            mission.Read("FLIGHT|missionkey=1|missionseq=9") != 0 ||
+            mission.Read("FLIGHT|missionkey=arbitrary|missionseq=10") != 0 ||
+            mission.Read("FLIGHT|missionkey=log|missionseq=11") != 0x73 ||
+            mission.Read("FLIGHT|missionkey=fleet|missionseq=12") != 0x7A ||
+            mission.Read("FLIGHT|missionkey=fleet_page|missionseq=13") != 0x20 ||
+            mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
+            mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
+            mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||
+            mission.Read("FLIGHT|missionkey=9|missionseq=bad") != 0) return 15;
+        if (!SelfTestHyperspace()) return 14;
         if (Marshal.SizeOf(typeof(WinInput.INPUT)) != 40) return 1;
         if (Marshal.SizeOf(typeof(XPad)) != 12 || Marshal.SizeOf(typeof(XState)) != 16) return 2;
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;
@@ -586,5 +702,39 @@ static class Program {
         gesture.Reset();
         if (gesture.Update(1,2000,250,true,false).Tap!=0 || gesture.Update(0,2250,250,true,false).Tap!=1) return 9;
         return 0;
+    }
+    static bool SelfTestHyperspace() {
+        const int lb=256, rb=512, both=768, a=4096;
+        HyperspaceGesture g = new HyperspaceGesture();
+        g.Update(0,0);
+        if (g.Update(lb|a,10).Buttons != a) return false;
+        if (g.Update(both|a,110).Buttons != a) return false;
+        if (g.Update(both,409).Jump) return false;
+        if (!g.Update(both,410).Jump || g.Update(both,900).Jump) return false;
+        if (g.Update(lb,920).Buttons != 0 || g.Update(both,930).Jump) return false;
+        g.Update(0,950);
+        // A short single tap survives the decision window exactly once.
+        if (g.Update(rb,1000).Buttons != 0) return false;
+        if (g.Update(0,1050).Buttons != rb || g.Update(0,1075).Buttons != 0) return false;
+        // Single holds resume normally; a late second shoulder is not a jump.
+        g.Update(lb,1100);
+        if (g.Update(lb,1220).Buttons != lb) return false;
+        if (g.Update(both,1230).Buttons != both || g.Update(both,1800).Jump) return false;
+        g.Update(0,1900);
+        // A canceled chord consumes both individual actions until release.
+        g.Update(both,2000);
+        if (g.Update(rb,2100).Buttons != 0 || g.Update(both,2500).Jump) return false;
+        g.Update(0,2600);
+        g.Update(both,2700);
+        g.Reset(); // focus loss, disconnect, popup or wheel opening
+        if (g.Update(both,3200).Jump || g.Update(both,3200).Buttons != 0) return false;
+        g.Update(0,3300);
+        // Exact window boundary and reverse order work; unrelated buttons pass.
+        g.Update(rb,3400);
+        if (g.Update(both|a,3520).Buttons != a || !g.Update(both,3820).Jump) return false;
+        g.Update(0,3900);
+        g.Update(lb,4000);
+        if (g.Update(both,4121).Jump || g.Update(both,4600).Jump) return false;
+        return true;
     }
 }

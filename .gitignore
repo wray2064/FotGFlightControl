@@ -11,6 +11,7 @@ simulate-input.ps1
 *.log
 *.tmp
 *.simtmp
+docs/steamvr-triage-20261108/
 
 # Editor and operating-system files
 .vs/

@@ -22,6 +22,11 @@ FotGWheel = {
     message = nil,
     message_age = 0,
     state = "GS_STATE_MAIN_MENU",
+    dialog_depth = 0,
+    right_wheel = "macros",
+    right_wheel_loaded = false,
+    mission_key = "none",
+    mission_key_sequence = 0,
     axes_applied_state = nil,
     telemetry_sequence = 0,
     vr_gauge = nil,
@@ -187,7 +192,7 @@ end
 
 function W:publish_state()
     self.telemetry_sequence = self.telemetry_sequence + 1
-    local kind = is_flight_state(self.state) and "FLIGHT" or "MENU"
+    local kind = is_flight_state(self.state) and self.dialog_depth == 0 and "FLIGHT" or "MENU"
     local axis_names = {}
     for _, action in ipairs({ "JOY_HEADING_AXIS", "JOY_PITCH_AXIS",
             "JOY_BANK_AXIS", "JOY_REL_THROTTLE_AXIS" }) do
@@ -200,6 +205,9 @@ function W:publish_state()
     local body = kind .. "|" .. self.state .. "|" .. mission_name()
         .. "|wheel=" .. (self.mode and "1" or "0")
         .. "|" .. tostring(self.telemetry_sequence)
+        .. "|dialog=" .. tostring(self.dialog_depth)
+        .. "|missionkey=" .. self.mission_key
+        .. "|missionseq=" .. tostring(self.mission_key_sequence)
         .. "|preset=" .. tostring(ui and ui.ControlConfig and ui.ControlConfig.getCurrentPreset() or "")
         .. "|axes=" .. (self.axes_applied_state == self.state and "applied" or "pending")
         .. "|binds=" .. table.concat(axis_names, ",")
@@ -382,7 +390,44 @@ function W:close_panel(close_native)
     end
 end
 
+-- System popups run their own loop without entering a new game state. In VR
+-- the simulation hook can stop altogether, so publish from dialog hooks too.
+function W:dialog_open()
+    self.dialog_depth = self.dialog_depth + 1
+    self:close_panel(false)
+    self.pending_actions = {}
+    self.hold_elapsed, self.hold_fired = {}, {}
+    self:publish_state()
+end
+
+function W:dialog_frame()
+    -- Refresh visibility after the underlying game's frame scripts. FSO owns
+    -- the cursor status stack and restores the previous state after close.
+    io.setCursorHidden(false, false)
+end
+
+function W:dialog_close()
+    self.dialog_depth = math.max(0, self.dialog_depth - 1)
+    self.input_age = 10
+    self.input_sequence = nil
+    self.last_tap_sequence = nil
+    self.prior_buttons = 0
+    self:publish_state()
+end
+
 function W:open_panel(mode)
+    if mode == "macros" then
+        if not self.right_wheel_loaded then
+            self.right_wheel_loaded = true
+            local file = cf.openFile("fotg-right-wheel.txt", "r", "data/players")
+            if file and file:isValid() then
+                local value = file:read("*a")
+                file:close()
+                if value == "mission" then self.right_wheel = "mission" end
+            end
+        end
+        mode = self.right_wheel
+    end
     if self.mode == "commands" and mode ~= "commands" and hu.isCommMenuOpen() then
         self:queue_action("SQUADMSG_MENU")
     end
@@ -495,6 +540,21 @@ local function static_entries(mode)
     return "", {}
 end
 
+function W:swap_right_wheel()
+    self.right_wheel = self.mode == "mission" and "macros" or "mission"
+    local file = cf.openFile("fotg-right-wheel.txt", "w", "data/players")
+    if file and file:isValid() then file:write(self.right_wheel); file:close() end
+    self.mode = self.right_wheel
+    self.page, self.selected, self.stick_ready = 1, nil, false
+    self:publish_state()
+end
+
+function W:wheel_hint()
+    if self.mode == "mission" then return "X  Page   Y  Macros" end
+    if self.mode == "macros" then return "Y  Mission wheel" end
+    return "Right stick: choose"
+end
+
 -- A layout is a permutation of visible choices, never executable profile code.
 -- Squad layouts affect the first communications page only; later pages and
 -- native follow-on menus retain their engine order.
@@ -527,6 +587,24 @@ local function arrange_entries(mode, entries, count)
 end
 
 function W:view()
+    if self.mode == "mission" then
+        self.page = clipped(self.page, 1, 2)
+        local entries = {}
+        if self.page == 1 then
+            for i = 1, 8 do
+                entries[i] = { sector = i, name = "Response " .. i,
+                    action = "mission_key", argument = tostring(i) }
+            end
+        else
+            local choices = { {"Response 9", "9"}, {"Response 0", "0"},
+                {"Mission log (F4)", "log"}, {"Fleet info (F11)", "fleet"},
+                {"Fleet page (Space)", "fleet_page"} }
+            for i, choice in ipairs(choices) do
+                entries[i] = {sector = i, name = choice[1], action = "mission_key", argument = choice[2]}
+            end
+        end
+        return "MISSION " .. self.page .. "/2", entries, self.page, 2
+    end
     local title, all
     if self.mode == "commands" then
         title, all = available_comm_items()
@@ -744,6 +822,12 @@ function W:confirm()
         self:notice("Unavailable now")
         return
     end
+    if chosen.action == "mission_key" and self.mode == "mission" then
+        self.mission_key = chosen.argument
+        self.mission_key_sequence = self.mission_key_sequence + 1
+        self:close_panel(false)
+        return
+    end
     if chosen.action == "page_next" or chosen.action == "page_prev" then
         self.page = self.page + (chosen.action == "page_next" and 1 or -1)
         self.selected = nil
@@ -808,6 +892,7 @@ local function sector_from_stick(rx, ry)
 end
 
 function W:frame()
+    if self.dialog_depth > 0 then return end
     local dt = clipped(ba.getRealFrametime() or 0.016, 0, 0.2)
     if gr.isVR() then
         self.vr_debug_elapsed = self.vr_debug_elapsed + dt
@@ -846,10 +931,16 @@ function W:frame()
         or tap_direction == D_RIGHT and "macros"
     if category and player_ship() then
         changed_category = true
-        if self.mode == category then self:close_panel(true)
+        if self.mode == category or (category == "macros" and self.mode == "mission") then self:close_panel(true)
         else self:open_panel(category) end
     end
     if self.mode and not changed_category then
+        if (self.mode == "macros" or self.mode == "mission") and pressed(B_Y) then
+            self:swap_right_wheel()
+        elseif self.mode == "mission" and pressed(B_X) then
+            self.page = self.page == 1 and 2 or 1
+            self.selected, self.stick_ready = nil, false
+        end
         local sector = sector_from_stick(self.input.rx, self.input.ry)
         if sector == nil then
             self.stick_ready = true
@@ -895,7 +986,7 @@ local function short_label(value)
 end
 
 function W:draw()
-    if gr.isVR() then return end
+    if self.dialog_depth > 0 or gr.isVR() then return end
     local previous_font = gr.CurrentFont
     local config = FotGWheelConfig or {}
     local font_name = (config.font_bold == false and "font_" or "font_bold_")
@@ -962,7 +1053,8 @@ function W:draw()
     gr.setColor(255, 196, 89, 255)
     gr.drawString(title, cx - math.floor(gr.getStringWidth(title) * 0.5), cy - math.floor(30 * scale))
     local detail = self.comm_open_requested and "Opening communications..."
-        or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose")
+        or ((self.mode == "mission" or self.mode == "macros") and self:wheel_hint()
+            or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"))
     gr.setColor(223, 243, 250, 255)
     gr.drawString(detail, cx - math.floor(gr.getStringWidth(detail) * 0.5), cy + math.floor(2 * scale))
     local hint = "A  Confirm    B  Cancel"
@@ -982,7 +1074,7 @@ end
 -- A scripted HUD gauge is rendered by FSO in each eye's HUD space. Direct gr
 -- drawing at fixed screen pixels produces doubled, blurry text in OpenXR.
 function W:draw_vr(draw, layer)
-    if not gr.isVR() or not self.vr_gauge then return end
+    if self.dialog_depth > 0 or not gr.isVR() or not self.vr_gauge then return end
     if layer == "text" then self.vr_draws = self.vr_draws + 1 end
     local previous_font = gr.CurrentFont
     gr.CurrentFont = gr.Fonts["font_bold_medium"]
@@ -1036,7 +1128,8 @@ function W:draw_vr(draw, layer)
     if layer == "text" then
         centered(title, -28)
         centered(self.comm_open_requested and "Opening communications..."
-            or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"), 4)
+            or ((self.mode == "mission" or self.mode == "macros") and self:wheel_hint()
+                or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose")), 4)
         centered("A  Confirm    B  Cancel", 32)
     end
     gr.CurrentFont = previous_font
@@ -1104,6 +1197,9 @@ function W:mission_end()
 end
 
 if not IS_STANDALONE then
+    engine.addHook("On Dialog Init", function() W:dialog_open() end)
+    engine.addHook("On Dialog Frame", function() W:dialog_frame() end)
+    engine.addHook("On Dialog Close", function() W:dialog_close() end)
     -- The bridge reads the stick for selection. Suppress flight actions while a
     -- wheel is visible, even if the pilot also bound that physical stick here.
     for _, action in ipairs({ "JOY_HEADING_AXIS", "JOY_PITCH_AXIS", "JOY_BANK_AXIS" }) do

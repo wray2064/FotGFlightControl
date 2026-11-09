@@ -10,7 +10,7 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.1.3'
+$version = '1.1.4'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-' + $version
@@ -66,7 +66,11 @@ foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer
     Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Build.ps1') -Destination (Join-Path $stage 'source\BuildSetup.ps1')
-Copy-Item -LiteralPath (Join-Path $workspace 'docs') -Destination (Join-Path $stage 'docs') -Recurse
+New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force | Out-Null
+# Raw local diagnostic logs are investigation evidence, not player downloads.
+Get-ChildItem -LiteralPath (Join-Path $workspace 'docs') | Where-Object { $_.Name -ne 'steamvr-triage-20261108' } | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stage 'docs') -Recurse
+}
 Copy-Item -LiteralPath (Join-Path $workspace 'Help.html') -Destination (Join-Path $targetMod 'Help.html')
 Copy-Item -LiteralPath (Join-Path $workspace 'About.html') -Destination (Join-Path $targetMod 'About.html')
 Copy-Item -LiteralPath (Join-Path $workspace 'LICENSE') -Destination (Join-Path $targetMod 'LICENSE')

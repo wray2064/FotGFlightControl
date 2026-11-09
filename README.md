@@ -1,6 +1,6 @@
 # Flight Control for Fate of the Galaxy
 
-**Version 1.1.3 candidate.** A free, handheld-first controller add-on for the Windows release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**.
+**Version 1.1.4 campaign utilities candidate.** A free, handheld-first controller add-on for the Windows release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**.
 
 Development began so the game could be played on a Legion Go 2 at launch, before it had gamepad support. Fate of the Galaxy gained native gamepad bindings along the way; Flight Control covers what individual bindings don't: more cockpit commands than a controller has buttons, and menus that still expect a mouse. The command wheels are inspired by MechWarrior 5 and adapted for FotG (no affiliation). The default layout is a tested starting point, not a rule: switch flight-axis presets, add long-press actions, rearrange the wheels and tinker with the macros.
 
