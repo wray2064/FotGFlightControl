@@ -12,10 +12,17 @@ contains `data/tables/Controlconfigdefaults.tbl`.
 | Engine selection on the local SDL3 package | Passed; selected FSO 26.0.1 SDL3 SSE2. |
 | Engine selection with only the clean-install SDL2 package present | Passed; selected FSO 26.0.1 SDL2 AVX. |
 | Launch the isolated SDL3 game with Flight Control and a copied pilot | Passed; pilot selection and the main menu rendered without a startup warning. The game was closed after the check. |
-| In-flight axes, wheels, menu input, mission packs, and VR in 1.1.3 | Pending physical play test. |
+| In-flight axes, triggers, a D-pad wheel, and menus in a practice mission | Passed in the user's physical test after selecting the connected controller. Bridge diagnostics showed the Classic Native preset applied, XInput 0 active, stick movement, and a wheel tap. |
+| Additional missions, other controllers, and VR in 1.1.3 | Not yet tested. |
 
 The compatibility tests used isolated folders under `dist/` with junctions to
 the installed game data and engine. They did not alter the real game's pilot
-files, settings, or installed Flight Control files. The build still needs a
-practice-mission controller test before 1.1.3 can be called fully verified or
-the supported-version claim is published.
+files, settings, or installed Flight Control files. The first physical test
+appeared to have no input because its copied preferences
+were pinned to disconnected XInput slot 1. Windows reported the connected pad
+at XInput 0. Changing the isolated copy to slot 0 and running Install / Repair
+rematched the FSO joystick; the subsequent practice test passed. This was a
+test-profile selection issue, not a 1.1.3 control-table failure.
+
+Core practice-mission compatibility is confirmed. Broader mission and VR checks
+remain for a later release review. No public upload was made.
