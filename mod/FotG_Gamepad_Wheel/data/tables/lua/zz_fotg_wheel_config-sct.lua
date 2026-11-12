@@ -4,6 +4,8 @@
 FotGWheelConfig = {
     camera_hold_enabled = true,
     hold_enabled = false,
+    r3_mouse_hold_enabled = true, -- hold R3 for N; tap still cycles the target subsystem
+    rb_mode_hold_enabled = true, -- tap RB cycles primary bank; hold changes ship mode
     hold_ms = 450,
     hold_bindings = { A="none", B="none", X="none", LB="none", RB="none", L3="none", R3="none" },
     flight_axes = "classic", -- classic: tested pitch; classic_inverted: reverse pitch; official: saved game bindings

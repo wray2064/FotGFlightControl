@@ -71,6 +71,11 @@ local BUTTON_ACTIONS = {
     target_subsystem_toggle = { script = true },
     target_subsystem_reticle = { script = true },
     target_next_subsystem = { native = "TARGET_NEXT_SUBOBJECT" },
+    toggle_mouse_mode = { run = function(self)
+        self.mission_key = "mouse_mode"
+        self.mission_key_sequence = self.mission_key_sequence + 1
+        self:publish_state()
+    end },
     target_live_turret = { script = true },
     match_speed = { script = true },
     cycle_secondary = { native = "CYCLE_SECONDARY" },
@@ -105,7 +110,7 @@ local BUTTON_ACTIONS = {
 -- Quick-press actions when the config names none: the 1.0 layout.
 local TAP_DEFAULTS = {
     A = "target_reticle", B = "target_attacker", X = "target_next", Y = "third_gun",
-    LB = "cycle_secondary", RB = "cycle_ship_mode", L3 = "match_speed", R3 = "target_next_subsystem"
+    LB = "cycle_secondary", RB = "cycle_primary", L3 = "match_speed", R3 = "target_next_subsystem"
 }
 
 local function down(buttons, flag)
@@ -302,6 +307,14 @@ function W:hold_button(name, flag, buttons, previous, dt, base)
     local config = FotGWheelConfig or {}
     local bindings = type(config.hold_bindings) == "table" and config.hold_bindings or {}
     local action = config.hold_enabled and bindings[name] or nil
+    -- R3 holds the tutorial's N key by default, independently of the optional
+    -- second hold layer. An explicitly configured R3 hold takes precedence.
+    if name == "R3" and not is_hold_action(action) and config.r3_mouse_hold_enabled ~= false then
+        action = "toggle_mouse_mode"
+    end
+    if name == "RB" and not is_hold_action(action) and config.rb_mode_hold_enabled ~= false then
+        action = "cycle_ship_mode"
+    end
     if not is_hold_action(action) then
         self.hold_elapsed[name], self.hold_fired[name] = nil, nil
         if down(buttons, flag) and not down(previous, flag) and base then base() end
@@ -500,7 +513,9 @@ local function static_entries(mode)
             { name = "Clear target", action = "target_clear", sector = 5 },
             { name = "Subsystem in sight", action = "target_subsystem_reticle",
                 sector = 6, active = has_subsystems },
-            { name = "Friendlies", action = "target_friend", sector = 7 }
+            { name = "Friendlies", action = "target_friend", sector = 7 },
+            { name = "Next subsystem", action = "target_next_subsystem", sector = 8,
+                active = has_subsystems }
         }
     elseif mode == "macros" then
         local defaults = {
@@ -777,6 +792,7 @@ function W:execute(action, argument)
     end
     local native = {
         target_clear = "STOP_TARGETING_SHIP",
+        target_next_subsystem = "TARGET_NEXT_SUBOBJECT",
         target_nearest_enemy = "TARGET_NEXT_CLOSEST_HOSTILE",
         match_speed = "MATCH_TARGET_SPEED",
         shield_equalize = "SHIELD_EQUALIZE",

@@ -34,7 +34,7 @@ partial class ControllerSetup {
   var draft=CopyLayouts(layoutOrders);
   using(var dialog=new Form{Text="Advanced wheel layouts",StartPosition=FormStartPosition.CenterParent,FormBorderStyle=FormBorderStyle.Sizable,MinimumSize=new Size(500,450),ClientSize=new Size(690,530),BackColor=Night,ForeColor=Ink,Font=new Font("Consolas",10)}){
    var main=Grid(1,3);main.Padding=new Padding(14);Rows(main,42,-1,52);dialog.Controls.Add(main);
-   main.Controls.Add(LabelText("Swap top-level choices. Squad changes affect page one only.",10,Ink),0,0);
+   main.Controls.Add(LabelText("Swap top-level choices. Targeting's eighth slot cycles subsystems; squad changes affect page one only.",10,Ink),0,0);
    var tabs=new TabControl{Dock=DockStyle.Fill};main.Controls.Add(tabs,0,1);
    for(int panel=0;panel<LayoutNames.Length;panel++){
     int index=panel;
@@ -61,21 +61,25 @@ partial class ControllerSetup {
   public ProfileMacro[] macros{get;set;}public string fontSize{get;set;}public bool fontBold{get;set;}
   public string flightAxes{get;set;}public int lookHoldMs{get;set;}public bool lookEnabled{get;set;}
   public bool cameraEnabled{get;set;}public bool holdEnabled{get;set;}public int holdMs{get;set;}
+  public bool r3MouseHoldEnabled{get;set;}
+  public bool rbModeHoldEnabled{get;set;}
   public string[] holdBindings{get;set;}
-  // Version 2: quick-press actions and the Custom axis map. Version 1 profiles load with the defaults.
+  // Version 2 added quick-press actions and Custom axes; versions 3 and 4 added default hold choices. Older profiles load with those holds enabled.
   public string[] tapBindings{get;set;}public string[] customAxes{get;set;}public bool[] customInvert{get;set;}
  }
  WheelProfile CurrentProfile(int[][] layouts){return new WheelProfile{
-  version=2,game="FotG 1.1.0",layouts=CopyLayouts(layouts),
+  version=4,game="FotG 1.1.0",layouts=CopyLayouts(layouts),
   macros=ReadMacroCards().Select(m=>new ProfileMacro{label=m.Label,action=m.Action,argument=m.Argument}).ToArray(),
   fontSize=wheelFontSize.SelectedIndex==1?"large":"medium",fontBold=wheelFontBold.Checked,
   flightAxes=AxesMode(flightAxes.SelectedIndex),
   lookHoldMs=lookHoldSlider.Value*25,lookEnabled=!disableLook.Checked,cameraEnabled=cameraHold.Checked,
-  holdEnabled=holdEnabled,holdMs=holdLayerMs,holdBindings=(string[])holdActions.Clone(),
+  holdEnabled=holdEnabled,holdMs=holdLayerMs,r3MouseHoldEnabled=r3MouseHoldEnabled,rbModeHoldEnabled=rbModeHoldEnabled,holdBindings=(string[])holdActions.Clone(),
   tapBindings=(string[])tapActions.Clone(),customAxes=(string[])customAxes.Clone(),customInvert=(bool[])customInvert.Clone()};}
  static void ValidateProfile(WheelProfile p){
-  if(p==null||(p.version!=1&&p.version!=2)||p.game!="FotG 1.1.0")throw new Exception("This profile is not a Flight Control wheel profile.");
+  if(p==null||(p.version!=1&&p.version!=2&&p.version!=3&&p.version!=4)||p.game!="FotG 1.1.0")throw new Exception("This profile is not a Flight Control wheel profile.");
   if(p.version==1){p.tapBindings=(string[])DefaultTapActions.Clone();p.customAxes=(string[])DefaultCustomAxes.Clone();p.customInvert=new bool[4];}
+  if(p.version<3)p.r3MouseHoldEnabled=true;
+  if(p.version<4)p.rbModeHoldEnabled=true;
   if(p.tapBindings==null||p.tapBindings.Length!=TapButtons.Length||p.tapBindings.Any(x=>!IsTapAction(x)))throw new Exception("Invalid button actions.");
   ValidateAxes(p.customAxes,p.customInvert);
   if(p.layouts==null||p.layouts.Length!=4)throw new Exception("Profile layouts are incomplete.");
@@ -123,7 +127,7 @@ partial class ControllerSetup {
   flightAxes.SelectedIndex=AxesIndex(profile.flightAxes);
   Array.Copy(profile.tapBindings,tapActions,TapButtons.Length);Array.Copy(profile.customAxes,customAxes,4);Array.Copy(profile.customInvert,customInvert,4);
   lookHoldSlider.Value=profile.lookHoldMs/25;disableLook.Checked=!profile.lookEnabled;cameraHold.Checked=profile.cameraEnabled;
-  holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
+  holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;r3MouseHoldEnabled=profile.r3MouseHoldEnabled;rbModeHoldEnabled=profile.rbModeHoldEnabled;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
   macroStatus.Text="PROFILE LOADED / Review and save wheel to apply.";
   return true;
  }}

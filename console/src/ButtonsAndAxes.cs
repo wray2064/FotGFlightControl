@@ -29,6 +29,7 @@ partial class ControllerSetup {
   new ButtonAction("target_subsystem_toggle","Subsystem / hull"),
   new ButtonAction("target_subsystem_reticle","Subsystem in sight"),
   new ButtonAction("target_next_subsystem","Next subsystem"),
+  new ButtonAction("toggle_mouse_mode","Toggle mouse movement (N)"),
   new ButtonAction("target_live_turret","Next live turret"),
   new ButtonAction("match_speed","Match target speed"),
   new ButtonAction("cycle_secondary","Cycle secondary bank"),
@@ -62,7 +63,7 @@ partial class ControllerSetup {
  };
  static readonly string[] TapButtons={"A","B","X","Y","LB","RB","L3","R3"};
  // The 1.0 quick-press layout.
- static readonly string[] DefaultTapActions={"target_reticle","target_attacker","target_next","third_gun","cycle_secondary","cycle_ship_mode","match_speed","target_next_subsystem"};
+ static readonly string[] DefaultTapActions={"target_reticle","target_attacker","target_next","third_gun","cycle_secondary","cycle_primary","match_speed","target_next_subsystem"};
  readonly string[] tapActions=(string[])DefaultTapActions.Clone();
  bool holdEnabled;
  static ButtonAction FindAction(string id){return Array.Find(ButtonActions,a=>a.Id==id);}
@@ -197,12 +198,12 @@ partial class ControllerSetup {
 
  // --- Dialogs ------------------------------------------------------------------------------
  void EditButtonActions(){
-  using(var dialog=new Form{Text="Button actions",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(820,520),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
-   var layout=Grid(3,13);layout.Padding=new Padding(16);
+  using(var dialog=new Form{Text="Button actions",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(820,550),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
+   var layout=Grid(3,14);layout.Padding=new Padding(16);
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,70));
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,55));
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,45));
-   Rows(layout,50,30,34,34,34,34,34,34,34,34,38,40,52);
+   Rows(layout,50,30,34,34,34,34,34,34,34,34,38,35,35,52);
    var intro=LabelText("IN FLIGHT, WITH NO WHEEL OPEN. A confirms and B cancels while a wheel is open, whatever is set here. The D-pad, Menu, sticks and triggers keep their roles.",9,Cyan);
    layout.Controls.Add(intro,0,0);layout.SetColumnSpan(intro,3);
    layout.Controls.Add(LabelText("BUTTON",9,Ink),0,1);layout.Controls.Add(LabelText("QUICK PRESS",9,Ink),1,1);layout.Controls.Add(LabelText("LONG PRESS",9,Ink),2,1);
@@ -235,15 +236,20 @@ partial class ControllerSetup {
    var duration=new NumericUpDown{Dock=DockStyle.Fill,Minimum=250,Maximum=1000,Increment=50,Value=holdLayerMs,BackColor=Surface,ForeColor=Ink};
    timing.Controls.Add(duration,1,0);timing.Controls.Add(LabelText("ms to count as a long press. A button with a long press runs its quick action on release.",9,Ink),2,0);
    layout.Controls.Add(timing,0,10);layout.SetColumnSpan(timing,3);
-   useHolds.CheckedChanged+=delegate{refresh();duration.Enabled=useHolds.Checked;};duration.Enabled=useHolds.Checked;
-   layout.Controls.Add(LabelText("“While held” actions repeat as long as the button is down, so they take no long press.",9,Ink),0,11);layout.SetColumnSpan(layout.GetControlFromPosition(0,11),3);
+   useHolds.CheckedChanged+=delegate{refresh();duration.Enabled=useHolds.Checked||r3MouseHoldEnabled||rbModeHoldEnabled;};duration.Enabled=useHolds.Checked||r3MouseHoldEnabled||rbModeHoldEnabled;
+   var r3Default=new CheckBox{Text="Hold R3 for mouse movement (N); tap R3 for next subsystem. Custom R3 long press overrides this.",Checked=r3MouseHoldEnabled,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Night};
+   layout.Controls.Add(r3Default,0,11);layout.SetColumnSpan(r3Default,3);
+   var rbDefault=new CheckBox{Text="Tap RB to cycle primary bank; hold RB to change ship mode. Custom RB long press overrides this.",Checked=rbModeHoldEnabled,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Night};
+   layout.Controls.Add(rbDefault,0,12);layout.SetColumnSpan(rbDefault,3);
+   Action refreshDuration=delegate{duration.Enabled=useHolds.Checked||r3Default.Checked||rbDefault.Checked;};
+   r3Default.CheckedChanged+=delegate{refreshDuration();};rbDefault.CheckedChanged+=delegate{refreshDuration();};useHolds.CheckedChanged+=delegate{refreshDuration();};
    var controls=Grid(3,1);for(int c=0;c<3;c++)controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,33.3f));
    controls.Controls.Add(ActionButton("Reset to defaults",delegate{
     for(int i=0;i<TapButtons.Length;i++){taps[i].SelectedIndex=Array.FindIndex(ButtonActions,a=>a.Id==DefaultTapActions[i]);if(holds[i]!=null)holds[i].SelectedIndex=0;}
-    useHolds.Checked=false;duration.Value=450;}),0,0);
+    useHolds.Checked=false;r3Default.Checked=true;rbDefault.Checked=true;duration.Value=450;}),0,0);
    controls.Controls.Add(ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;}),1,0);
    var ok=ActionButton("Use these actions",delegate{dialog.DialogResult=DialogResult.OK;});ok.BackColor=Color.FromArgb(82,66,5);controls.Controls.Add(ok,2,0);
-   layout.Controls.Add(controls,0,12);layout.SetColumnSpan(controls,3);
+   layout.Controls.Add(controls,0,13);layout.SetColumnSpan(controls,3);
    dialog.Controls.Add(layout);refresh();
    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
    for(int i=0;i<TapButtons.Length;i++){
@@ -251,7 +257,7 @@ partial class ControllerSetup {
     int hi=Array.IndexOf(HoldButtons,TapButtons[i]);
     if(hi>=0)holdActions[hi]=tap.Held?"none":((ButtonAction)holds[i].SelectedItem).Id;
    }
-   holdEnabled=useHolds.Checked;holdLayerMs=(int)duration.Value;
+   holdEnabled=useHolds.Checked;r3MouseHoldEnabled=r3Default.Checked;rbModeHoldEnabled=rbDefault.Checked;holdLayerMs=(int)duration.Value;
    macroStatus.Text="BUTTONS READY / Save wheel to apply.";
   }
  }
