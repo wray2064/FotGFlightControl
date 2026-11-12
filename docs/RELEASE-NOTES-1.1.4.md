@@ -2,10 +2,10 @@
 
 - Use LB + RB together, held for 300 ms, to request hyperspace with Return.
   Individual shoulder actions remain, with a 120 ms combination decision delay.
-- Switch the D-pad Right wheel between Macros and Mission with Y. X changes
-  Mission pages. Send numbered replies/docking requests, open the mission log
-  and access fleet information without reaching for the keyboard.
-- The right-wheel choice is remembered; saved macros and layouts stay intact.
+- D-pad Right now opens one combined wheel: four macros on the cardinal slots,
+  with diagonal groups for responses 1–5, responses 6–0, dock/nav, and other
+  mission commands. This replaces the Y toggle and X page switch.
+- Existing saved macros and four-slot layout profiles retain their actions.
 - In-mission system dialogs now request visible cursor/menu input and clear
   held flight inputs. Focus/disconnect handling prevents delayed key replay.
 

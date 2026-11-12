@@ -23,8 +23,6 @@ FotGWheel = {
     message_age = 0,
     state = "GS_STATE_MAIN_MENU",
     dialog_depth = 0,
-    right_wheel = "macros",
-    right_wheel_loaded = false,
     mission_key = "none",
     mission_key_sequence = 0,
     axes_applied_state = nil,
@@ -416,18 +414,6 @@ function W:dialog_close()
 end
 
 function W:open_panel(mode)
-    if mode == "macros" then
-        if not self.right_wheel_loaded then
-            self.right_wheel_loaded = true
-            local file = cf.openFile("fotg-right-wheel.txt", "r", "data/players")
-            if file and file:isValid() then
-                local value = file:read("*a")
-                file:close()
-                if value == "mission" then self.right_wheel = "mission" end
-            end
-        end
-        mode = self.right_wheel
-    end
     if self.mode == "commands" and mode ~= "commands" and hu.isCommMenuOpen() then
         self:queue_action("SQUADMSG_MENU")
     end
@@ -535,23 +521,18 @@ local function static_entries(mode)
                 sector = (i - 1) * 2 + 1
             }
         end
-        return "MACROS", entries
+        entries[#entries + 1] = { name = "Responses 1-5", action = "mission_panel", argument = "mission_1_5", sector = 8 }
+        entries[#entries + 1] = { name = "Responses 6-0", action = "mission_panel", argument = "mission_6_0", sector = 2 }
+        entries[#entries + 1] = { name = "Dock / nav", action = "mission_panel", argument = "mission_dock", sector = 6 }
+        entries[#entries + 1] = { name = "Other mission", action = "mission_panel", argument = "mission_other", sector = 4 }
+        return "MACROS / MISSION", entries
     end
     return "", {}
 end
 
-function W:swap_right_wheel()
-    self.right_wheel = self.mode == "mission" and "macros" or "mission"
-    local file = cf.openFile("fotg-right-wheel.txt", "w", "data/players")
-    if file and file:isValid() then file:write(self.right_wheel); file:close() end
-    self.mode = self.right_wheel
-    self.page, self.selected, self.stick_ready = 1, nil, false
-    self:publish_state()
-end
-
 function W:wheel_hint()
-    if self.mode == "mission" then return "X  Page   Y  Macros" end
-    if self.mode == "macros" then return "Y  Mission wheel" end
+    if string.sub(self.mode or "", 1, 8) == "mission_" then return "B  Back to macros" end
+    if self.mode == "macros" then return "Diagonals: mission commands" end
     return "Right stick: choose"
 end
 
@@ -587,23 +568,27 @@ local function arrange_entries(mode, entries, count)
 end
 
 function W:view()
-    if self.mode == "mission" then
-        self.page = clipped(self.page, 1, 2)
+    if self.mode == "mission_1_5" or self.mode == "mission_6_0" then
         local entries = {}
-        if self.page == 1 then
-            for i = 1, 8 do
-                entries[i] = { sector = i, name = "Response " .. i,
-                    action = "mission_key", argument = tostring(i) }
-            end
-        else
-            local choices = { {"Response 9", "9"}, {"Response 0", "0"},
-                {"Mission log (F4)", "log"}, {"Fleet info (F11)", "fleet"},
-                {"Fleet page (Space)", "fleet_page"} }
-            for i, choice in ipairs(choices) do
-                entries[i] = {sector = i, name = choice[1], action = "mission_key", argument = choice[2]}
-            end
+        local first = self.mode == "mission_1_5" and 1 or 6
+        for i = 1, 5 do
+            local number = (first + i - 1) % 10
+            entries[i] = { sector = i, name = "Response " .. number,
+                action = "mission_key", argument = tostring(number) }
         end
-        return "MISSION " .. self.page .. "/2", entries, self.page, 2
+        return first == 1 and "RESPONSES 1-5" or "RESPONSES 6-0", entries, 1, 1
+    elseif self.mode == "mission_dock" then
+        return "DOCK / NAV", {
+            { sector = 1, name = "Dock / confirm (Enter)", action = "mission_key", argument = "enter" },
+            { sector = 3, name = "Next nav point", action = "mission_native", argument = "NAV_CYCLE" },
+            { sector = 5, name = "Autopilot", action = "mission_native", argument = "AUTO_PILOT_TOGGLE" }
+        }, 1, 1
+    elseif self.mode == "mission_other" then
+        return "MISSION COMMANDS", {
+            { sector = 1, name = "Mission log (F4)", action = "mission_key", argument = "log" },
+            { sector = 3, name = "Fleet info (F11)", action = "mission_key", argument = "fleet" },
+            { sector = 5, name = "Fleet page (Space)", action = "mission_key", argument = "fleet_page" }
+        }, 1, 1
     end
     local title, all
     if self.mode == "commands" then
@@ -822,10 +807,23 @@ function W:confirm()
         self:notice("Unavailable now")
         return
     end
-    if chosen.action == "mission_key" and self.mode == "mission" then
+    if chosen.action == "mission_panel" and self.mode == "macros" then
+        self.mode = chosen.argument
+        self.selected, self.stick_ready = nil, false
+        self:publish_state()
+        return
+    end
+    if chosen.action == "mission_key" and string.sub(self.mode or "", 1, 8) == "mission_" then
         self.mission_key = chosen.argument
         self.mission_key_sequence = self.mission_key_sequence + 1
         self:close_panel(false)
+        return
+    end
+    if chosen.action == "mission_native" and string.sub(self.mode or "", 1, 8) == "mission_" then
+        if chosen.argument == "NAV_CYCLE" or chosen.argument == "AUTO_PILOT_TOGGLE" then
+            self:queue_action(chosen.argument)
+            self:close_panel(true)
+        end
         return
     end
     if chosen.action == "page_next" or chosen.action == "page_prev" then
@@ -931,23 +929,21 @@ function W:frame()
         or tap_direction == D_RIGHT and "macros"
     if category and player_ship() then
         changed_category = true
-        if self.mode == category or (category == "macros" and self.mode == "mission") then self:close_panel(true)
+        if self.mode == category or (category == "macros" and string.sub(self.mode or "", 1, 8) == "mission_") then self:close_panel(true)
         else self:open_panel(category) end
     end
     if self.mode and not changed_category then
-        if (self.mode == "macros" or self.mode == "mission") and pressed(B_Y) then
-            self:swap_right_wheel()
-        elseif self.mode == "mission" and pressed(B_X) then
-            self.page = self.page == 1 and 2 or 1
-            self.selected, self.stick_ready = nil, false
-        end
         local sector = sector_from_stick(self.input.rx, self.input.ry)
         if sector == nil then
             self.stick_ready = true
         elseif sector ~= 0 and self.stick_ready then
             self.selected = sector
         end
-        if pressed(B_B) then
+        if pressed(B_B) and string.sub(self.mode or "", 1, 8) == "mission_" then
+            self.mode = "macros"
+            self.selected, self.stick_ready = nil, false
+            self:publish_state()
+        elseif pressed(B_B) then
             if self.confirm_depart then self.confirm_depart = nil
             else self:close_panel(true) end
         elseif pressed(B_A) then
@@ -1053,7 +1049,7 @@ function W:draw()
     gr.setColor(255, 196, 89, 255)
     gr.drawString(title, cx - math.floor(gr.getStringWidth(title) * 0.5), cy - math.floor(30 * scale))
     local detail = self.comm_open_requested and "Opening communications..."
-        or ((self.mode == "mission" or self.mode == "macros") and self:wheel_hint()
+        or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
             or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"))
     gr.setColor(223, 243, 250, 255)
     gr.drawString(detail, cx - math.floor(gr.getStringWidth(detail) * 0.5), cy + math.floor(2 * scale))
@@ -1128,7 +1124,7 @@ function W:draw_vr(draw, layer)
     if layer == "text" then
         centered(title, -28)
         centered(self.comm_open_requested and "Opening communications..."
-            or ((self.mode == "mission" or self.mode == "macros") and self:wheel_hint()
+            or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
                 or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose")), 4)
         centered("A  Confirm    B  Cancel", 32)
     end

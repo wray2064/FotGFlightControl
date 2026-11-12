@@ -1,31 +1,31 @@
-# Mission / Macros wheel
+# Combined Macros / Mission wheel
 
-D-pad Right retains the four-macro wheel by default. Y while the right wheel
-is open swaps to Mission mode or back to Macros. X changes Mission pages.
-The selection is stored in data/players/fotg-right-wheel.txt via FSO cfile,
-independent of editable macro configuration and layout profiles. Unknown saved
-values fall back to Macros on a fresh run.
+D-pad Right opens one wheel. The four editable macros occupy the cardinal
+directions. The diagonal directions open fixed mission-command groups:
 
-Page 1: Response 1–8. Page 2: Response 9, Response 0, Mission log (F4), Fleet
-info (F11), Fleet page (Space). Right stick selects; A sends the actual key
-once and closes the wheel; B cancels. D-pad Right closes either variant.
-Both flat and VR drawing show swap/page hints. Existing macro labels, actions
-and layout permutations remain intact. This does not add controller text
-entry or support GCW Ctrl+Enter planning forms.
+| Direction | Group | Choices |
+| --- | --- | --- |
+| Up-left | Responses 1–5 | Actual number keys 1, 2, 3, 4, 5 |
+| Up-right | Responses 6–0 | Actual number keys 6, 7, 8, 9, 0 |
+| Down-left | Dock / nav | Contextual Enter, next nav point, autopilot |
+| Down-right | Other mission | Mission log (F4), fleet info (F11), fleet page (Space) |
 
-The Lua-to-bridge telemetry adds missionkey and missionseq named fields while
-preserving the existing positional sequence. The bridge permits only the
-listed keys, ignores its initial request baseline, deduplicates sequences,
-and consumes/discards requests when focus, connection, dialog or modal state
-prevents dispatch. It never sends arbitrary profile-supplied key codes.
+Select a group with the right stick and A, then select a command and press A.
+B returns to the macro wheel from a group; B on the macro wheel closes it.
+D-pad Right closes either level. The old Y toggle, X page switch, and saved
+`fotg-right-wheel.txt` mode are no longer used. Existing macro configurations
+and four-slot layout profiles retain their actions and order.
 
-Verification: bridge build and --self-test passed (key whitelist, sequence
-baseline/deduplication, invalid commands); scripts/test-mission-wheel.cjs passed
-against actual wheel Lua in Fengari, including Y/X frame handlers, numbered
-choices, page contents, one-shot confirmation, saved mode restore, invalid
-saved mode, macro/layout preservation. Existing dialog regressions passed.
-Run with: node scripts/test-mission-wheel.cjs <path-to-fengari-package>.
+Enter is context-sensitive in FotG. Some missions use it for docking or
+confirmation, while others require a numbered response. The LB+RB hold still
+requests hyperspace separately, with FotG's jump-vector checks intact.
 
-Installed locally in C:\Games\Fate of the Galaxy 1.1.0, backed up first.
-No release or merge. Actual mission response/docking/log behavior and visual
-layout in flat/Meta VR still require in-game confirmation.
+Lua publishes only a fixed mission-key token and sequence. The bridge
+whitelists its keyboard translation, ignores the initial baseline, consumes
+the request once, and discards it if the game lacks focus or a dialog is open.
+Navigation and autopilot use native controls through the wheel; no profile can
+inject an arbitrary key or control name.
+
+The bridge self-test, actual-Lua mission wheel regression and dialog regression
+pass. Campaign-specific behavior and VR legibility still need player testing
+before a public release.

@@ -103,6 +103,7 @@ sealed class MissionKeys {
         if (action == "log") return 0x73; // F4
         if (action == "fleet") return 0x7A; // F11
         if (action == "fleet_page") return 0x20;
+        if (action == "enter") return 0x0D; // Contextual docking / mission confirmation
         return 0;
     }
     public ushort Read(string state) {
@@ -677,6 +678,7 @@ static class Program {
             mission.Read("FLIGHT|missionkey=log|missionseq=11") != 0x73 ||
             mission.Read("FLIGHT|missionkey=fleet|missionseq=12") != 0x7A ||
             mission.Read("FLIGHT|missionkey=fleet_page|missionseq=13") != 0x20 ||
+            mission.Read("FLIGHT|missionkey=enter|missionseq=131") != 0x0D ||
             mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||

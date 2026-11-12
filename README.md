@@ -48,7 +48,7 @@ The installer checks the game/engine version, copies only its own `GamepadMods/F
 | D-pad down | Tap for squad commands; hold to look rear | Next item / Down |
 | D-pad up | Tap for ship systems; hold to look up | Previous item / Up |
 | D-pad left | Tap for targeting; hold to look left | Previous item / Left |
-| D-pad right | Tap for macros; hold to look right | Next item / Right |
+| D-pad right | Tap for macros and mission commands; hold to look right | Next item / Right |
 | Right stick | Select wheel segment | Move pointer |
 | A | Confirm selection; target ship in reticle when wheel closed | Activate selection; click after stick movement |
 | B | Target closest attacker; cancel an open wheel | Back/Escape |
@@ -57,7 +57,14 @@ The installer checks the game/engine version, copies only its own `GamepadMods/F
 | Left stick | Native flight controls | Move pointer |
 | X / Y | X cycles the selected target class; hold Y for the B-wing or T-Blade's third gun | Enter / Backspace |
 | LB / RB | LB cycles secondary banks; RB changes ship mode | Previous / next tab |
+| LB + RB | Hold together for hyperspace | No menu action |
 | L3 / R3 | Match target speed / cycle subsystems on the targeted ship | No menu action |
+
+The D-pad Right wheel keeps four configurable macros on its cardinal slots.
+Its diagonals open responses 1–5, responses 6–0, Dock / nav, and other mission
+commands. Choose a group and then a command with the right stick and A; B
+returns to macros. Dock / confirm sends Enter, which is context-sensitive in
+FotG. Numbered prompts send the actual number keys.
 | Start / Menu | Tap to pause; hold 500 ms to cycle Cockpit → Chase → External | Enter |
 
 The main menu uses discrete D-pad selection with a visible cursor highlight. Other menus receive arrow key taps, while A sends Enter after D-pad navigation. After moving either stick, A clicks at the pointer; RT always clicks. LB/RB send Shift+Tab/Tab. This keeps the game's pointer-only controls accessible without a touchpad or finger mouse.
