@@ -299,7 +299,7 @@ sealed class Bridge : ApplicationContext {
         return " -aa -soft_particles -deferred_cockpit" + (vr ? " -vr -stretch_menu" : "");
     }
     // Supported game releases, newest first; keep in step with setup\Installer.cs.
-    static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
+    static readonly string[] SupportedVersions = { "1.1.3", "1.1.2", "1.1.1", "1.1.0" };
     static readonly string[] GamePackages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
     static bool HasRelease(string root, string version) {
         return File.Exists(Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version, "mod.json"));
@@ -660,7 +660,10 @@ static class Program {
             File.WriteAllText(Path.Combine(mod, "version-override.txt"), "9.9.9");
             if (Bridge.GameVersion(temp) != "9.9.9") return false;
             File.WriteAllText(Path.Combine(mod, "version-override.txt"), "8.8.8");
-            return Bridge.GameVersion(temp) == "1.1.2";
+            if (Bridge.GameVersion(temp) != "1.1.2") return false;
+            Directory.CreateDirectory(Path.Combine(lib, "FotG_R-1.1.3", "data"));
+            File.WriteAllText(Path.Combine(lib, "FotG_R-1.1.3", "mod.json"), "{}");
+            return Bridge.GameVersion(temp) == "1.1.3";
         } catch { return false; }
         finally { try { Directory.Delete(temp, true); } catch { } }
     }

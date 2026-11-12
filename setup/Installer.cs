@@ -21,7 +21,7 @@ sealed class InstallException : Exception { public InstallException(string m) : 
 
 static class Installer {
     // Supported game releases, newest first; keep in step with Setup.cs and WheelBridge.cs.
-    public static readonly string[] SupportedVersions = { "1.1.2", "1.1.1", "1.1.0" };
+    public static readonly string[] SupportedVersions = { "1.1.3", "1.1.2", "1.1.1", "1.1.0" };
     static readonly string[] LauncherNames = { "Play with Gamepad Wheel.exe", "Configure Gamepad Wheel.exe", "Play with Gamepad Wheel VR.exe" };
     static readonly string[] LegacyNames = { "Play with Gamepad Wheel.cmd", "Configure Gamepad Wheel.cmd" };
     static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);

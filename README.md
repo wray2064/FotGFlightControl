@@ -2,6 +2,8 @@
 
 **Version 1.1.4 campaign utilities candidate.** A free, handheld-first controller add-on for the Windows release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**.
 
+Fate of the Galaxy 1.1.3 passed preset generation, isolated installation, and a main-menu launch check. Its in-flight controller test is pending; see the [compatibility report](docs/COMPATIBILITY-FOTG-1.1.3.md).
+
 Development began so the game could be played on a Legion Go 2 at launch, before it had gamepad support. Fate of the Galaxy gained native gamepad bindings along the way; Flight Control covers what individual bindings don't: more cockpit commands than a controller has buttons, and menus that still expect a mouse. The command wheels are inspired by MechWarrior 5 and adapted for FotG (no affiliation). The default layout is a tested starting point, not a rule: switch flight-axis presets, add long-press actions, rearrange the wheels and tinker with the macros.
 
 - **Download the player build:** https://manictrashpanda.dev/games/FotGFlightControl/ (the ZIP with Setup.exe; this repository's automatic source ZIP does not contain the compiled programs)
@@ -19,7 +21,7 @@ The original add-on code, companion programs and documentation are released unde
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). For source builds and release packaging, see [docs/RELEASE.md](docs/RELEASE.md).
 
-An independent, additive controller mod for **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** on Windows with its **FSO 26.0.1** engine (the standard SDL2 build, or the FSO 26.0.1-SDL3 package on older installs). The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. The external Flight Control Console configures wheel layouts and macros, and backs up native pilot settings.
+An independent, additive controller mod for **Fate of the Galaxy 1.1.0, 1.1.1, 1.1.2 or 1.1.3** on Windows with its **FSO 26.0.1** engine (the standard SDL2 build, or the FSO 26.0.1-SDL3 package on older installs). The Lua addon draws four in-flight panels; a small XInput bridge supplies raw D-pad and right-stick input and adds menu navigation. The external Flight Control Console configures wheel layouts and macros, and backs up native pilot settings.
 
 ![Setup detects the installed game](docs/screenshots/setup-final.png)
 
@@ -27,7 +29,7 @@ The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/s
 
 ## Install
 
-1. Install Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2 with its FSO 26.0.1 engine. Run the unmodified game once and create a pilot, then exit. Connect the gamepad before running Setup.
+1. Install Fate of the Galaxy 1.1.0, 1.1.1, 1.1.2 or 1.1.3 with its FSO 26.0.1 engine. Run the unmodified game once and create a pilot, then exit. Connect the gamepad before running Setup.
 2. Extract the entire ZIP. Close the game and any older FotG controller companion.
 3. Double-click **Setup.exe**. It finds common game locations; otherwise choose the folder containing `kn_portable` with **Browse game**. Click **Install / Repair**.
 4. Open **Hangar Bay.exe** in the game folder. On Deploy, choose the base game or an installed mission pack, then launch Standard Flight or OpenXR VR. The original game launcher runs without Flight Control.

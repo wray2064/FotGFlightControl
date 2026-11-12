@@ -1,6 +1,6 @@
 # Install Flight Control and use Hangar Bay
 
-Flight Control works with the Windows portable **Fate of the Galaxy 1.1.0, 1.1.1 or 1.1.2** release
+Flight Control works with the Windows portable **Fate of the Galaxy 1.1.0, 1.1.1, 1.1.2 or 1.1.3** release
 and its **FSO 26.0.1** engine (the standard SDL2 build, or the SDL3 package on
 installs that still have it). The game is a separate download. The add-on
 does not include the game or engine.
