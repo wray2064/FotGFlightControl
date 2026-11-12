@@ -1,5 +1,10 @@
 # Campaign utilities handoff — 1.1.4 candidate
 
+Historical design record: the Y-toggle mission wheel described below was
+replaced by the combined cardinal-macro/diagonal-mission wheel on
+`feature/mission-diagonals`. Use `MISSION-WHEEL.md` and the 1.1.4 publishing
+handoff for the current behavior.
+
 ## Branch and scope
 
 Work continues on feature/campaign-utilities, based on the HOTAS investigation

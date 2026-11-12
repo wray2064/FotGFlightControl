@@ -13,3 +13,7 @@ This is an unreleased test candidate. Campaign and VR validation remains
 pending. SteamVR OpenGL session initialization is still a known issue on the
 reported setup; the launcher flags were verified. Meta Link is the previously
 working VR path. GCW text entry and Ctrl+Enter planning forms remain unsupported.
+
+The user confirmed controller input and the combined wheel working in a local
+FotG 1.1.3 test, and specifically confirmed the shoulder escape shortcut feels
+better under fire. This does not establish a complete campaign or VR test.

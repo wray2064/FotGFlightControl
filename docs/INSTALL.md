@@ -49,6 +49,11 @@ sample center drift and set sensitivity/deadzone. **Apply with backup** saves
 those pilot settings. The Command Wheel / Macro Deck page configures flight axes,
 four macros, pitch direction, and wheel text. **Classic direct** keeps the tested
 right-stick pitch; **Classic inverted pitch** reverses its vertical direction.
+In flight, D-pad Right opens the four macros on cardinal slots and mission
+command groups on diagonals: responses 1–5, responses 6–0, Dock / nav, and
+Other mission. Hold LB + RB together to request hyperspace; FotG decides
+whether the jump is allowed. Dock / confirm sends Enter, while some missions
+require a numbered response instead.
 The **D-pad hold to look** slider changes when a held direction starts its view;
 **Disable look around** makes the D-pad open wheels without view controls.
 **Hold Menu cycles camera** is on by default. **Buttons...** sets a quick-press action for A, B, X, Y, LB, RB, L3 and R3

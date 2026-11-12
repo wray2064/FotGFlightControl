@@ -1,10 +1,10 @@
 # Flight Control page handoff
 
-The Hangar Bay page assets in `updated/site-builder` describe the 1.1.3
-candidate. Its player ZIP contains `Hangar Bay.exe`; the older 1.1.2 ZIP does
-not. **Keep the new page and download in draft until the 1.1.3 candidate has
-passed installation and gameplay testing.** The game and engine remain
-separate downloads.
+The Hangar Bay page assets in `updated/site-builder` describe the 1.1.4
+candidate. Its player ZIP contains `Hangar Bay.exe` and the combined
+macro/mission wheel. **Keep the download in draft until the campaign-specific
+mission commands and release archive have been checked.** The game and engine
+remain separate downloads.
 
 ## Page structure
 
@@ -14,8 +14,9 @@ separate downloads.
    26.0.1 engine (SDL2 build, or the SDL3 package), a native pilot created on first run, XInput gamepad.
    Show the five steps in `PAGE-COPY.md`.
 3. Features: flight axes and pitch direction, D-pad command wheels and held
-   cockpit look, Menu camera cycle, menu pointer, four macros, visual controller
-   preview, shareable advanced wheel profiles.
+   cockpit look, Menu camera cycle, menu pointer, four macros plus diagonal
+   mission groups, LB+RB hyperspace, visual controller preview, shareable
+   advanced wheel profiles.
 4. Screenshot gallery in the order listed below. Use captions and alt text.
 5. Help and trust: link to the bundled `Help.html`, `docs/INSTALL.md`,
    `docs/TESTING.md`, `LICENSE`, `ARTWORK-LICENSE.md`, `NOTICE.md`, and source.
@@ -24,7 +25,7 @@ separate downloads.
 
 ## Files
 
-- `player-download/FotG-Flight-Control-1.1.3.zip`: candidate player archive.
+- `player-download/FotG-Flight-Control-1.1.4.zip`: candidate player archive.
   Preserve its exact name and publish its SHA-256 after testing.
 - `source-upload/FotG-Flight-Control-source-*.zip`: source from the same commit
   as the player archive. It is for the public repository, not installation.
@@ -56,6 +57,7 @@ separate downloads.
 - Link the matching source commit or repository when it has been published.
   Do not show the source ZIP as the primary download.
 
-Practice-mission testing includes handheld and external XInput controllers.
-The campaign and multiplayer have not been fully validated. Keep that note on
-the page, with dev@manictrashpanda.dev for bugs and ideas.
+The user confirmed controller input and the combined wheel locally in FotG
+1.1.3, including the shoulder escape under fire. The campaign, VR with this
+specific build, and multiplayer have not been fully validated. Keep that note
+on the page, with dev@manictrashpanda.dev for bugs and ideas.

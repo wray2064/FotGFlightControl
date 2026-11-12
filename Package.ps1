@@ -99,7 +99,7 @@ $manifest = [ordered]@{
         sha256 = $hash
         notes = "https://github.com/wray2064/FotGFlightControl/releases/tag/v$version"
     }
-    verifiedGameVersions = [ordered]@{ $version = @() }
+    verifiedGameVersions = [ordered]@{ $version = @('1.1.3') }
 }
 [IO.File]::WriteAllText((Join-Path $dist 'update.json'), ($manifest | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
 Write-Host "Update manifest: $(Join-Path $dist 'update.json')"

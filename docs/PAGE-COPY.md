@@ -1,6 +1,6 @@
 # Suggested web page copy
 
-**Publishing status:** This copy describes the 1.1.3 Hangar Bay candidate.
+**Publishing status:** This copy describes the 1.1.4 Hangar Bay candidate.
 Keep it in draft until installation and gameplay checks pass and the matching
 player ZIP, source ZIP, and checksum are published.
 
@@ -39,8 +39,10 @@ stick and roll and relative throttle on the left. An inverted pitch option is
 also available. Adjust sensitivity and deadzone in the console.
 
 **Commands within reach.** Tap the D-pad for squad, systems, targeting, or
-macro wheels. Hold a direction to look around the cockpit. Hold Menu to cycle
-Cockpit, Chase, and External views.
+the combined macro/mission wheel. Four macros occupy its cardinal slots;
+diagonal groups reach numbered mission prompts, docking/navigation and other
+mission commands. Hold a direction to look around the cockpit. Hold Menu to
+cycle Cockpit, Chase, and External views. Hold LB+RB to request hyperspace.
 
 **Navigate without a mouse.** The D-pad handles common menu selections; either
 stick can steer the pointer on custom screens.
@@ -67,7 +69,8 @@ Use current Hangar Bay captures before older standalone-console images:
   active gamepad slot, and live controller diagram.”
 - **Command Wheel** (`docs/screenshots/hangar-macros.png`) — “Configure four
   macros and reach the advanced wheel controls.” Alt: “Hangar Bay Command Wheel
-  tab showing four editable macro slots.”
+  tab showing four editable macro slots; mission commands occupy the in-game
+  wheel's diagonals.”
 - **Service** (`docs/screenshots/hangar-service.png`) — “Inspect backups,
   repair setup, or choose a controller.” Alt: “Hangar Bay Service screen with
   backup list and maintenance actions.”
