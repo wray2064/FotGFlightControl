@@ -3,30 +3,37 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Web.Script.Serialization;
 
 internal static class HangarProgram {
  [STAThread] static int Main(string[] args) {
-  if(args.Length==2&&args[0]=="--remove")return RemoveInstalled(args[1]);
   Application.EnableVisualStyles();
   Application.SetCompatibleTextRenderingDefault(false);
   Application.Run(new HangarBay());
   return 0;
  }
- static int RemoveInstalled(string game){
-  try{System.Threading.Thread.Sleep(1200);string root=Path.GetFullPath(game).TrimEnd('\\');
-   if(!Directory.Exists(Path.Combine(root,"kn_portable")))return 2;
-   string addon=Path.GetFullPath(Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"));
-   string parent=Path.GetFullPath(Path.Combine(root,"GamepadMods"));
-   if(!addon.StartsWith(parent+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||Path.GetFileName(addon)!="FotG_Gamepad_Wheel")return 3;
-   if(Directory.Exists(addon))Directory.Delete(addon,true);
-   foreach(string name in new[]{"Hangar Bay.exe","Flight Control Setup.exe","Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe"}){
-    string file=Path.Combine(root,name);if(File.Exists(file))File.Delete(file);
-   }
-   return 0;
-  }catch{return 1;}
+ // Removes the add-on, the launchers and the Setup copy, in this process. Hangar Bay.exe is left:
+ // a running program cannot delete its own file, so the player deletes it after Hangar Bay closes.
+ // Returns the files that could not be removed.
+ internal static List<string> RemoveInstalled(string game){
+  string root=Path.GetFullPath(game).TrimEnd('\\');
+  if(!Directory.Exists(Path.Combine(root,"kn_portable")))throw new Exception("This is not a Fate of the Galaxy folder; nothing was removed.");
+  string addon=Path.GetFullPath(Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"));
+  string parent=Path.GetFullPath(Path.Combine(root,"GamepadMods"));
+  if(!addon.StartsWith(parent+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||Path.GetFileName(addon)!="FotG_Gamepad_Wheel")throw new Exception("The add-on folder did not resolve inside GamepadMods; nothing was removed.");
+  var left=new List<string>();
+  if(Directory.Exists(addon)){
+   foreach(string file in Directory.GetFiles(addon,"*",SearchOption.AllDirectories)){try{File.SetAttributes(file,FileAttributes.Normal);File.Delete(file);}catch(IOException){left.Add(file);}catch(UnauthorizedAccessException){left.Add(file);}}
+   if(left.Count==0){try{Directory.Delete(addon,true);}catch(IOException){left.Add(addon);}}
+  }
+  foreach(string name in new[]{"Flight Control Setup.exe","Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe","Play with Gamepad Wheel.cmd","Configure Gamepad Wheel.cmd"}){
+   string file=Path.Combine(root,name);
+   if(File.Exists(file)){try{File.Delete(file);}catch(IOException){left.Add(file);}catch(UnauthorizedAccessException){left.Add(file);}}
+  }
+  return left;
  }
 }
 
@@ -135,24 +142,47 @@ internal sealed class HangarBay : Form {
  void SelectController(){SetSection(1);ShowConsole();console.FocusControllerSlot();status.Text="  SELECT THE ACTIVE XINPUT SLOT, THEN APPLY WITH BACKUP. RESTART THE GAME TO SWITCH CONTROLLERS.";}
  void Repair(){
   if(Process.GetProcesses().Any(x=>x.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close the game before repairing Flight Control.");
+  if(Process.GetProcesses().Any(x=>x.ProcessName=="WheelBridge"||x.ProcessName.StartsWith("ControllerSetup",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close the controller bridge and any open Configure window before repairing.");
   string addon=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"), setup=Path.Combine(root,"Flight Control Setup.exe");
   if(!Directory.Exists(addon)||!File.Exists(setup))throw new Exception("The installed repair files are missing. Run Setup.exe from the full Flight Control download.");
-  string stage=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Repair-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(stage);
-  CopyTree(addon,Path.Combine(stage,"FotG_Gamepad_Wheel"));File.Copy(setup,Path.Combine(stage,"Setup.exe"));
-  foreach(string name in new[]{"Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe","Hangar Bay.exe"}){
-   string file=Path.Combine(root,name);if(File.Exists(file))File.Copy(file,Path.Combine(stage,name));
-  }
-  var info=new ProcessStartInfo(Path.Combine(stage,"Setup.exe")){WorkingDirectory=stage,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true};
-  info.Arguments="--install --game \""+root+"\"";using(var process=Process.Start(info)){string output=process.StandardOutput.ReadToEnd();process.WaitForExit();
-   if(process.ExitCode!=0)throw new Exception("Repair failed: "+output);MessageBox.Show("Repair complete. Previous files and pilots were backed up.\n\n"+output,"Hangar Bay");}
-  RefreshBackups();
+  // The installed files are the repair source, and Install replaces that folder, so copy them aside
+  // first. This is data only: the repair runs here, with the same installer code as Setup, and no
+  // program is started from the copy. Hangar Bay.exe itself is not copied; it is already in place.
+  ReleaseAddonFiles();
+  string stage=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Repair-"+Guid.NewGuid().ToString("N"));
+  var log=new StringBuilder();
+  try{
+   CopyTree(addon,Path.Combine(stage,"FotG_Gamepad_Wheel"));File.Copy(setup,Path.Combine(stage,"Setup.exe"));
+   foreach(string name in new[]{"Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe"}){
+    string file=Path.Combine(root,name);if(File.Exists(file))File.Copy(file,Path.Combine(stage,name));
+   }
+   Cursor=Cursors.WaitCursor;status.Text="  REPAIRING...";Application.DoEvents();
+   // An install made with the version-check override records the game version; repair keeps it.
+   string overrideRecord=Path.Combine(addon,"version-override.txt");
+   string overridden=File.Exists(overrideRecord)?File.ReadAllText(overrideRecord).Trim():null;
+   var options=new InstallOptions{GameRoot=root,PackageRoot=stage};
+   if(!String.IsNullOrEmpty(overridden)){options.GameVersion=overridden;options.OverrideVersionCheck=true;}
+   Installer.Run(options,line=>log.AppendLine(line),line=>log.AppendLine("WARNING: "+line));
+  }catch(InstallException e){throw new Exception("Repair failed: "+e.Message+(log.Length>0?"\n\n"+log:""));}
+  finally{Cursor=Cursors.Default;try{Directory.Delete(stage,true);}catch{}Maintenance();}
+  MessageBox.Show("Repair complete. Previous files and pilots were backed up.\n\n"+log,"Hangar Bay");
  }
+ // Close the pages that read files from the add-on folder, so it can be replaced or deleted.
+ void ReleaseAddonFiles(){Clear();if(console!=null){console.Dispose();console=null;}GC.Collect();GC.WaitForPendingFinalizers();}
  static void CopyTree(string source,string destination){Directory.CreateDirectory(destination);foreach(string file in Directory.GetFiles(source))File.Copy(file,Path.Combine(destination,Path.GetFileName(file)));foreach(string folder in Directory.GetDirectories(source))CopyTree(folder,Path.Combine(destination,Path.GetFileName(folder)));}
  void Remove(){
   if(Process.GetProcesses().Any(x=>x.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)||x.ProcessName=="WheelBridge"))throw new Exception("Close the game and controller bridge before removing Flight Control.");
-  if(MessageBox.Show("Remove Flight Control files and launchers? Pilot files and backups will be kept. Restore any native pilot settings you want from Flight Console before removal.","Remove Flight Control",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes)return;
-  string helper=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Remove-"+Guid.NewGuid().ToString("N")+".exe");File.Copy(Application.ExecutablePath,helper);
-  Process.Start(new ProcessStartInfo(helper){Arguments="--remove \""+root+"\"",WorkingDirectory=Path.GetTempPath(),UseShellExecute=false,CreateNoWindow=true});Close();
+  if(MessageBox.Show("Remove Flight Control files and launchers? Pilot files and backups will be kept. Restore any native pilot settings you want from the Console before removal.","Remove Flight Control",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes)return;
+  ReleaseAddonFiles();
+  var left=HangarProgram.RemoveInstalled(root);
+  if(left.Count>0){
+   MessageBox.Show("Some files could not be removed because they are in use:\n\n"+String.Join("\n",left.Take(8))+(left.Count>8?"\n...":"")+"\n\nClose any program using them and choose Remove tool again.","Remove Flight Control",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+   Maintenance();return;
+  }
+  string self=Application.ExecutablePath;
+  MessageBox.Show("Flight Control is removed. Your pilots and backups were kept.\n\nHangar Bay can't delete its own file while it is open. File Explorer will show Hangar Bay.exe: delete it after this window closes to finish.","Remove Flight Control",MessageBoxButtons.OK,MessageBoxIcon.Information);
+  Process.Start(new ProcessStartInfo("explorer.exe","/select,\""+self+"\""){UseShellExecute=true});
+  Close();
  }
  void Help(){var p=Page("04   /   FIELD GUIDE");string file=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","Help.html");if(!File.Exists(file)){var missing=Note("The guide (Help.html) was not found in the installed Flight Control folder.\nChoose SERVICE > REPAIR SETUP to restore it.",80,muted);missing.Dock=DockStyle.Top;p.Controls.Add(missing);p.Controls.SetChildIndex(missing,0);return;}var web=new WebBrowser{Dock=DockStyle.Fill,ScriptErrorsSuppressed=true};p.Controls.Add(web);p.Controls.SetChildIndex(web,0);web.Navigate(file);}
 }

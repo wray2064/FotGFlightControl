@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
-// Update check shared by Setup and the Flight Control Console.
+// Update check shared by Setup and Hangar Bay's Console.
 //
 // update.json on the product site names the latest release (version, ZIP URL, size, SHA-256)
 // and, per Flight Control version, any newer game versions checked to work with it. The ZIP is
