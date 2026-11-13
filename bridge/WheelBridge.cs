@@ -108,6 +108,7 @@ sealed class MissionKeys {
         if (action == "link_guns") return 0x45; // E: primary firing sequence
         if (action == "link_torpedoes") return 0x51; // Q: missile salvo count
         if (action == "shield_front") return 0x100; // Alt-W: tutorial objective
+        if (action == "targeting_computer") return 0x5A; // Z: FotG control and tutorial
         return 0;
     }
     public ushort Read(string state) {
@@ -691,6 +692,7 @@ static class Program {
             mission.Read("FLIGHT|missionkey=link_guns|missionseq=133") != 0x45 ||
             mission.Read("FLIGHT|missionkey=link_torpedoes|missionseq=134") != 0x51 ||
             mission.Read("FLIGHT|missionkey=shield_front|missionseq=135") != 0x100 ||
+            mission.Read("FLIGHT|missionkey=targeting_computer|missionseq=136") != 0x5A ||
             mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||

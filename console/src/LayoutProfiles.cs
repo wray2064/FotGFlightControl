@@ -11,7 +11,7 @@ partial class ControllerSetup {
  static readonly string[] LayoutNames={"systems","targeting","macros","commands"};
  static readonly string[][] LayoutCaptions={
   new[]{"All energy: shields","All energy: weapons","All energy: engines","Balance energy","Equalize shields","Match target speed","Transfer to shields","Transfer to lasers"},
-  new[]{"All ships","Target subsystem / hull","Enemies","Next live turret","Clear target","Subsystem in sight","Friendlies"},
+  new[]{"All ships","Target subsystem / hull","Enemies","Next live turret","Clear target","Targeting computer","Friendlies"},
   new[]{"Macro 1","Macro 2","Macro 3","Macro 4"},
   new[]{"Squad choice 1","Squad choice 2","Squad choice 3","Squad choice 4","Squad choice 5","Squad choice 6"}
  };

@@ -28,6 +28,7 @@ partial class ControllerSetup {
   new ButtonAction("target_clear","Clear target"),
   new ButtonAction("target_subsystem_toggle","Subsystem / hull"),
   new ButtonAction("target_subsystem_reticle","Subsystem in sight"),
+  new ButtonAction("toggle_targeting_computer","Toggle targeting computer (Z)"),
   new ButtonAction("target_next_subsystem","Next subsystem"),
   new ButtonAction("toggle_mouse_mode","Toggle mouse movement (N)"),
   new ButtonAction("link_guns","Link guns / primary firing sequence (E)"),

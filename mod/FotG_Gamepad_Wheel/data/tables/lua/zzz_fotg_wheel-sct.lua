@@ -80,6 +80,7 @@ local BUTTON_ACTIONS = {
     target_clear = { script = true },
     target_subsystem_toggle = { script = true },
     target_subsystem_reticle = { script = true },
+    toggle_targeting_computer = { script = true },
     target_next_subsystem = { native = "TARGET_NEXT_SUBOBJECT" },
     toggle_mouse_mode = { run = function(self)
         self.mission_key = "mouse_mode"
@@ -786,8 +787,9 @@ local function static_entries(mode)
             { name = "Next live turret", action = "target_live_turret", sector = 4,
                 active = has_targetable_subsystem(target, true) },
             { name = "Clear target", action = "target_clear", sector = 5 },
-            { name = "Subsystem in sight", action = "target_subsystem_reticle",
-                sector = 6, active = has_subsystems },
+            { name = AutoAim and AutoAim.SecondaryAutoAimOn and
+                "Computer: ON" or "Computer: OFF", action = "toggle_targeting_computer",
+                sector = 6 },
             { name = "Friendlies", action = "target_friend", sector = 7 },
             { name = "Next subsystem", action = "target_next_subsystem", sector = 8,
                 active = has_subsystems }
@@ -1047,6 +1049,13 @@ function W:execute(action, argument)
         end
         self:queue_action("TARGET_SUBOBJECT_IN_RETICLE")
         return true, "Targeting subsystem in sight"
+    end
+    if action == "toggle_targeting_computer" then
+        -- FotG binds Custom Control 1 to Z. The Excoriator tutorial also
+        -- checks the physical Z key, so relay it through the focused bridge.
+        self.mission_key = "targeting_computer"
+        self.mission_key_sequence = self.mission_key_sequence + 1
+        return true, "Targeting computer requested"
     end
     if action == "shields_max" or action == "weapons_max"
         or action == "engines_max" or action == "balance_energy" then
