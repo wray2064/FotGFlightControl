@@ -41,5 +41,35 @@ run(`
   FotGWheelConfig={hold_enabled=true,hold_ms=450,hold_bindings={RB="target_next_subsystem"}}
   w:hold_button("RB",rb,rb,0,0.5,bank)
   assert(w.pending_actions[#w.pending_actions]=="TARGET_NEXT_SUBOBJECT")
+  local l3,lb=64,256
+  local matches,secondaries=0,0
+  FotGWheelConfig={hold_enabled=false,hold_ms=450}
+  w:hold_button("L3",l3,l3,0,0.1,function() matches=matches+1 end)
+  w:hold_button("L3",l3,0,l3,0.1,function() matches=matches+1 end)
+  assert(matches==1 and w.mission_key_sequence==1)
+  w:hold_button("L3",l3,l3,0,0.2,function() matches=matches+1 end)
+  w:hold_button("L3",l3,l3,l3,0.2,function() matches=matches+1 end)
+  w:hold_button("L3",l3,l3,l3,0.1,function() matches=matches+1 end)
+  assert(w.mission_key=="link_guns" and w.mission_key_sequence==2)
+  w:hold_button("L3",l3,0,l3,0.1,function() matches=matches+1 end)
+  assert(matches==1)
+  w:hold_button("LB",lb,lb,0,0.1,function() secondaries=secondaries+1 end)
+  w:hold_button("LB",lb,0,lb,0.1,function() secondaries=secondaries+1 end)
+  assert(secondaries==1)
+  w:hold_button("LB",lb,lb,0,0.2,function() secondaries=secondaries+1 end)
+  w:hold_button("LB",lb,lb,lb,0.2,function() secondaries=secondaries+1 end)
+  w:hold_button("LB",lb,lb,lb,0.1,function() secondaries=secondaries+1 end)
+  assert(w.mission_key=="link_torpedoes" and w.mission_key_sequence==3)
+  w:hold_button("LB",lb,0,lb,0.1,function() secondaries=secondaries+1 end)
+  assert(secondaries==1)
+  FotGWheelConfig.l3_gun_hold_enabled=false
+  FotGWheelConfig.lb_torpedo_hold_enabled=false
+  w:hold_button("L3",l3,l3,0,0.1,function() matches=matches+1 end)
+  w:hold_button("LB",lb,lb,0,0.1,function() secondaries=secondaries+1 end)
+  assert(matches==2 and secondaries==2)
+  FotGWheelConfig={hold_enabled=true,hold_ms=450,hold_bindings={L3="target_next_subsystem",LB="target_next_subsystem"}}
+  w:hold_button("L3",l3,l3,0,0.5,tap)
+  w:hold_button("LB",lb,lb,0,0.5,tap)
+  assert(w.pending_actions[#w.pending_actions]=="TARGET_NEXT_SUBOBJECT" and w.mission_key_sequence==3)
 `, 'r3-hold-regressions');
-console.log('R3 tap, long press, disable, and override checks passed.');
+console.log('Default tap, hold, disable, and override checks passed.');

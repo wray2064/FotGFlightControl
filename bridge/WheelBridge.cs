@@ -105,6 +105,8 @@ sealed class MissionKeys {
         if (action == "fleet_page") return 0x20;
         if (action == "enter") return 0x0D; // Contextual docking / mission confirmation
         if (action == "mouse_mode") return 0x4E; // N: tutorial checks the physical key
+        if (action == "link_guns") return 0x45; // E: primary firing sequence
+        if (action == "link_torpedoes") return 0x51; // Q: missile salvo count
         return 0;
     }
     public ushort Read(string state) {
@@ -681,6 +683,8 @@ static class Program {
             mission.Read("FLIGHT|missionkey=fleet_page|missionseq=13") != 0x20 ||
             mission.Read("FLIGHT|missionkey=enter|missionseq=131") != 0x0D ||
             mission.Read("FLIGHT|missionkey=mouse_mode|missionseq=132") != 0x4E ||
+            mission.Read("FLIGHT|missionkey=link_guns|missionseq=133") != 0x45 ||
+            mission.Read("FLIGHT|missionkey=link_torpedoes|missionseq=134") != 0x51 ||
             mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||

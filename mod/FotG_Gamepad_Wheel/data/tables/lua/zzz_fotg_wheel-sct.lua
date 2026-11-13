@@ -76,6 +76,16 @@ local BUTTON_ACTIONS = {
         self.mission_key_sequence = self.mission_key_sequence + 1
         self:publish_state()
     end },
+    link_guns = { run = function(self)
+        self.mission_key = "link_guns"
+        self.mission_key_sequence = self.mission_key_sequence + 1
+        self:publish_state()
+    end },
+    link_torpedoes = { run = function(self)
+        self.mission_key = "link_torpedoes"
+        self.mission_key_sequence = self.mission_key_sequence + 1
+        self:publish_state()
+    end },
     target_live_turret = { script = true },
     match_speed = { script = true },
     cycle_secondary = { native = "CYCLE_SECONDARY" },
@@ -314,6 +324,12 @@ function W:hold_button(name, flag, buttons, previous, dt, base)
     end
     if name == "RB" and not is_hold_action(action) and config.rb_mode_hold_enabled ~= false then
         action = "cycle_ship_mode"
+    end
+    if name == "L3" and not is_hold_action(action) and config.l3_gun_hold_enabled ~= false then
+        action = "link_guns"
+    end
+    if name == "LB" and not is_hold_action(action) and config.lb_torpedo_hold_enabled ~= false then
+        action = "link_torpedoes"
     end
     if not is_hold_action(action) then
         self.hold_elapsed[name], self.hold_fired[name] = nil, nil

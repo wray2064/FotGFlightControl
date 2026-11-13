@@ -63,23 +63,26 @@ partial class ControllerSetup {
   public bool cameraEnabled{get;set;}public bool holdEnabled{get;set;}public int holdMs{get;set;}
   public bool r3MouseHoldEnabled{get;set;}
   public bool rbModeHoldEnabled{get;set;}
+  public bool l3GunHoldEnabled{get;set;}
+  public bool lbTorpedoHoldEnabled{get;set;}
   public string[] holdBindings{get;set;}
-  // Version 2 added quick-press actions and Custom axes; versions 3 and 4 added default hold choices. Older profiles load with those holds enabled.
+  // Version 2 added quick-press actions and Custom axes; versions 3–5 added default hold choices. Older profiles load with those holds enabled.
   public string[] tapBindings{get;set;}public string[] customAxes{get;set;}public bool[] customInvert{get;set;}
  }
  WheelProfile CurrentProfile(int[][] layouts){return new WheelProfile{
-  version=4,game="FotG 1.1.0",layouts=CopyLayouts(layouts),
+  version=5,game="FotG 1.1.0",layouts=CopyLayouts(layouts),
   macros=ReadMacroCards().Select(m=>new ProfileMacro{label=m.Label,action=m.Action,argument=m.Argument}).ToArray(),
   fontSize=wheelFontSize.SelectedIndex==1?"large":"medium",fontBold=wheelFontBold.Checked,
   flightAxes=AxesMode(flightAxes.SelectedIndex),
   lookHoldMs=lookHoldSlider.Value*25,lookEnabled=!disableLook.Checked,cameraEnabled=cameraHold.Checked,
-  holdEnabled=holdEnabled,holdMs=holdLayerMs,r3MouseHoldEnabled=r3MouseHoldEnabled,rbModeHoldEnabled=rbModeHoldEnabled,holdBindings=(string[])holdActions.Clone(),
+  holdEnabled=holdEnabled,holdMs=holdLayerMs,r3MouseHoldEnabled=r3MouseHoldEnabled,rbModeHoldEnabled=rbModeHoldEnabled,l3GunHoldEnabled=l3GunHoldEnabled,lbTorpedoHoldEnabled=lbTorpedoHoldEnabled,holdBindings=(string[])holdActions.Clone(),
   tapBindings=(string[])tapActions.Clone(),customAxes=(string[])customAxes.Clone(),customInvert=(bool[])customInvert.Clone()};}
  static void ValidateProfile(WheelProfile p){
-  if(p==null||(p.version!=1&&p.version!=2&&p.version!=3&&p.version!=4)||p.game!="FotG 1.1.0")throw new Exception("This profile is not a Flight Control wheel profile.");
+  if(p==null||(p.version!=1&&p.version!=2&&p.version!=3&&p.version!=4&&p.version!=5)||p.game!="FotG 1.1.0")throw new Exception("This profile is not a Flight Control wheel profile.");
   if(p.version==1){p.tapBindings=(string[])DefaultTapActions.Clone();p.customAxes=(string[])DefaultCustomAxes.Clone();p.customInvert=new bool[4];}
   if(p.version<3)p.r3MouseHoldEnabled=true;
   if(p.version<4)p.rbModeHoldEnabled=true;
+  if(p.version<5){p.l3GunHoldEnabled=true;p.lbTorpedoHoldEnabled=true;}
   if(p.tapBindings==null||p.tapBindings.Length!=TapButtons.Length||p.tapBindings.Any(x=>!IsTapAction(x)))throw new Exception("Invalid button actions.");
   ValidateAxes(p.customAxes,p.customInvert);
   if(p.layouts==null||p.layouts.Length!=4)throw new Exception("Profile layouts are incomplete.");
@@ -127,7 +130,7 @@ partial class ControllerSetup {
   flightAxes.SelectedIndex=AxesIndex(profile.flightAxes);
   Array.Copy(profile.tapBindings,tapActions,TapButtons.Length);Array.Copy(profile.customAxes,customAxes,4);Array.Copy(profile.customInvert,customInvert,4);
   lookHoldSlider.Value=profile.lookHoldMs/25;disableLook.Checked=!profile.lookEnabled;cameraHold.Checked=profile.cameraEnabled;
-  holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;r3MouseHoldEnabled=profile.r3MouseHoldEnabled;rbModeHoldEnabled=profile.rbModeHoldEnabled;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
+  holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;r3MouseHoldEnabled=profile.r3MouseHoldEnabled;rbModeHoldEnabled=profile.rbModeHoldEnabled;l3GunHoldEnabled=profile.l3GunHoldEnabled;lbTorpedoHoldEnabled=profile.lbTorpedoHoldEnabled;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
   macroStatus.Text="PROFILE LOADED / Review and save wheel to apply.";
   return true;
  }}
