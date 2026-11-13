@@ -55,6 +55,18 @@ run(`
   assert(ship.EtsEngineIndex~=12)
   wheel:power_frame(0,function(flag) return flag==4096 end,0.016)
   assert(wheel.mode==nil and ship.EtsEngineIndex==12)
+  mn.getMissionFilename=function() return '_SPC_R_Exc_m01.fs2' end
+  wheel:open_power()
+  wheel.power_selected=1
+  wheel:power_frame(0,function(flag) return flag==16384 end,0.016)
+  wheel:power_frame(0,function(flag) return flag==4096 end,0.016)
+  assert(wheel.mode==nil and wheel.power_pending
+    and wheel.mission_key=='power_shields' and ship.EtsShieldIndex==0)
+  ba.getRealFrametime=function() return 0.2 end
+  ba.getControlInfo=function() return {clearLuaButtonInfo=function() end} end
+  wheel.power_pending.delay=0.01
+  wheel:frame()
+  assert(wheel.power_pending==nil and ship.EtsShieldIndex==12)
   wheel:open_panel("systems")
   ba.MultiplayerMode=true
   wheel:open_power()

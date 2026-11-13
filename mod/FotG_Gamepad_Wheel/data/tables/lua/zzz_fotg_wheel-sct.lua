@@ -13,6 +13,7 @@ FotGWheel = {
     power_adjust_direction = 0,
     power_adjust_armed = false,
     power_nav_ready = false,
+    power_pending = nil,
     shield_values = nil,
     shield_selected = nil,
     shield_pending = nil,
@@ -513,6 +514,7 @@ local function read_power(ship)
 end
 
 function W:open_power()
+    if self.power_pending then self:notice("Power allocation applying"); return end
     if ba.MultiplayerMode then self:notice("Manual power is single-player only"); return end
     local values = read_power(player_ship())
     if not values then self:notice("Power allocation unavailable on this ship"); return end
@@ -557,6 +559,18 @@ function W:power_frame(buttons, pressed, dt)
             or live[2] ~= self.power_saved[2]
             or live[3] ~= self.power_saved[3] then
             self:notice("Power changed; cancel and try again")
+            return
+        end
+        if string.find(string.lower(mission_name()), "_spc_r_exc_m01", 1, true) then
+            -- The Excoriator tutorial requires both physical ETS keys. Send
+            -- them through the bridge, then restore the chosen preview after
+            -- native controls have processed those keys.
+            self.power_pending = { values = { values[1], values[2], values[3] },
+                mission = mission_name(), delay = 0.7 }
+            self.mission_key = ({ "power_shields", "power_engines", "power_lasers" })[self.power_selected]
+            self.mission_key_sequence = self.mission_key_sequence + 1
+            self:close_panel(false)
+            self:publish_state()
             return
         end
         local ok, result = pcall(function()
@@ -1202,6 +1216,7 @@ function W:frame()
     if self.message_age > 0 then self.message_age = self.message_age - dt end
     if not is_flight_state(self.state) then
         self.shield_pending = nil
+        self.power_pending = nil
         self:close_panel(true)
         self.prior_buttons = 0
         self:flush_action()
@@ -1214,6 +1229,21 @@ function W:frame()
             self.shield_pending = nil
             if not self:apply_shields(pending.values, pending.mission) then
                 self:notice("Shield allocation unavailable")
+            end
+        end
+    end
+    if self.power_pending then
+        self.power_pending.delay = self.power_pending.delay - dt
+        if self.power_pending.delay <= 0 then
+            local pending = self.power_pending
+            self.power_pending = nil
+            local ship = player_ship()
+            if ship and not ba.MultiplayerMode and mission_name() == pending.mission then
+                local values = pending.values
+                local ok, result = pcall(function()
+                    return ship:EtsSetIndexes(values[2], values[1], values[3])
+                end)
+                if not ok or not result then self:notice("Power allocation unavailable") end
             end
         end
     end
@@ -1713,6 +1743,7 @@ function W:mission_start()
     ba.setButtonControlMode(BUTTON_MODE_ADDITIVE)
     self:close_panel(false)
     self.shield_pending = nil
+    self.power_pending = nil
     self.prior_buttons = 0
     self.input_sequence = nil
     self.last_tap_sequence = nil
@@ -1726,6 +1757,7 @@ end
 function W:mission_end()
     self:close_panel(false)
     self.shield_pending = nil
+    self.power_pending = nil
     self.pending_actions = {}
     self.vr_gauge = nil
     -- FotG's stock scripts do not set button-control mode; restore the engine

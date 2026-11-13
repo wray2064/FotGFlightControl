@@ -109,6 +109,9 @@ sealed class MissionKeys {
         if (action == "link_torpedoes") return 0x51; // Q: missile salvo count
         if (action == "shield_front") return 0x100; // Alt-W: tutorial objective
         if (action == "targeting_computer") return 0x5A; // Z: FotG control and tutorial
+        if (action == "power_shields") return 0x101; // End, Shift-End
+        if (action == "power_lasers") return 0x102; // Page Up, Shift-Page Up
+        if (action == "power_engines") return 0x103; // Page Down, Shift-Page Down
         return 0;
     }
     public ushort Read(string state) {
@@ -180,11 +183,17 @@ static class WinInput {
     public static uint KeyFlags(ushort vk, bool down) {
         return (ArrowScan(vk) != 0 ? 9u : 0u) | (down ? 0u : 2u);
     }
-    public static void Scan(ushort scan, bool down) {
+    public static void Scan(ushort scan, bool down, bool extended = false) {
         INPUT value = new INPUT(); value.type = 1; value.data.key.scan = scan;
-        value.data.key.flags = 8u | (down ? 0u : 2u); Send(value);
+        value.data.key.flags = 8u | (extended ? 1u : 0u) | (down ? 0u : 2u); Send(value);
     }
-    public static void ScanTap(ushort scan) { Scan(scan, true); Scan(scan, false); }
+    public static void ScanTap(ushort scan, bool extended = false) {
+        Scan(scan, true, extended); Scan(scan, false, extended);
+    }
+    public static void ShiftExtendedScanTap(ushort scan) {
+        Scan(0x2A, true);
+        try { ScanTap(scan, true); } finally { Scan(0x2A, false); }
+    }
     public static void Tap(ushort vk) { Key(vk, true); Key(vk, false); }
     public static void ShiftTab() { Key(0x10, true); try { Tap(0x09); } finally { Key(0x10, false); } }
     public static bool MoveToGamePoint(double x, double y) {
@@ -221,6 +230,8 @@ sealed class Bridge : ApplicationContext {
     readonly HyperspaceGesture hyperspace = new HyperspaceGesture();
     readonly MissionKeys missionKeys = new MissionKeys();
     ushort pendingMissionKey;
+    ushort pendingPowerScan;
+    long pendingPowerSecondAt;
     readonly DateTime startedUtc = DateTime.UtcNow;
     Process game;
     long lastTick, lastStateRead;
@@ -363,6 +374,7 @@ sealed class Bridge : ApplicationContext {
     }
     void Release() {
         ResetDpad();
+        pendingPowerScan = 0;
         hyperspace.Reset();
         startHeld = startConsumed = false; cameraFinishAt = 0;
         if (leftMouse) WinInput.Mouse(4);
@@ -470,9 +482,19 @@ sealed class Bridge : ApplicationContext {
                     if (pendingMissionKey == 0x100) {
                         WinInput.Key(0x12, true); // Alt
                         try { WinInput.Tap(0x57); } finally { WinInput.Key(0x12, false); }
+                    } else if (pendingMissionKey >= 0x101 && pendingMissionKey <= 0x103) {
+                        pendingPowerScan = pendingMissionKey == 0x101 ? (ushort)0x4F :
+                            pendingMissionKey == 0x102 ? (ushort)0x49 : (ushort)0x51;
+                        WinInput.ScanTap(pendingPowerScan, true);
+                        pendingPowerSecondAt = now + 140;
                     } else WinInput.Tap(pendingMissionKey);
                 }
                 pendingMissionKey = 0;
+            }
+            if (pendingPowerScan != 0 && now >= pendingPowerSecondAt) {
+                if (active && mode != "WAIT" && !dialogReported && !modal)
+                    WinInput.ShiftExtendedScanTap(pendingPowerScan);
+                pendingPowerScan = 0;
             }
             if (active && mode != "WAIT") HandleInput(state.Pad, dt, now);
             XPad publishedPad = state.Pad;
@@ -693,6 +715,9 @@ static class Program {
             mission.Read("FLIGHT|missionkey=link_torpedoes|missionseq=134") != 0x51 ||
             mission.Read("FLIGHT|missionkey=shield_front|missionseq=135") != 0x100 ||
             mission.Read("FLIGHT|missionkey=targeting_computer|missionseq=136") != 0x5A ||
+            mission.Read("FLIGHT|missionkey=power_shields|missionseq=137") != 0x101 ||
+            mission.Read("FLIGHT|missionkey=power_lasers|missionseq=138") != 0x102 ||
+            mission.Read("FLIGHT|missionkey=power_engines|missionseq=139") != 0x103 ||
             mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||
