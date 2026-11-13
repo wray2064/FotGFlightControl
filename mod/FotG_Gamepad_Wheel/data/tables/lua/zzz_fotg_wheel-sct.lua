@@ -6,6 +6,16 @@ FotGWheel = {
     page = 1,
     selected = nil,
     stick_ready = false,
+    power_values = nil,
+    power_selected = nil,
+    power_edit = false,
+    power_adjust_time = 0,
+    power_adjust_direction = 0,
+    power_adjust_armed = false,
+    power_nav_ready = false,
+    shield_values = nil,
+    shield_selected = nil,
+    shield_pending = nil,
     prior_buttons = 0,
     input_sequence = nil,
     last_tap_sequence = nil,
@@ -406,6 +416,9 @@ function W:close_panel(close_native)
     end
     if self.mode then
         self.mode = nil
+        self.power_values, self.power_selected, self.power_edit = nil, nil, false
+        self.power_saved = nil
+        self.shield_values, self.shield_selected = nil, nil
         self.page = 1
         self.selected = nil
         self.stick_ready = false
@@ -447,6 +460,9 @@ function W:open_panel(mode)
         self:queue_action("SQUADMSG_MENU")
     end
     self.mode = mode
+    self.power_values, self.power_selected, self.power_edit = nil, nil, false
+    self.power_saved = nil
+    self.shield_values, self.shield_selected = nil, nil
     self.page = 1
     self.selected = nil
     self.stick_ready = false
@@ -479,6 +495,249 @@ function W:open_panel(mode)
         self.comm_open_requested = true
     end
     self:publish_state()
+end
+
+local function read_power(ship)
+    if not ship then return nil end
+    local ok, e, s, w = pcall(function()
+        return tonumber(ship.EtsEngineIndex), tonumber(ship.EtsShieldIndex),
+            tonumber(ship.EtsWeaponIndex)
+    end)
+    if not ok or not e or not s or not w then return nil end
+    e, s, w = math.floor(e + 0.5), math.floor(s + 0.5), math.floor(w + 0.5)
+    if e < 0 or s < 0 or w < 0 or e > 12 or s > 12 or w > 12
+        or e + s + w ~= 12 then return nil end
+    -- ETS order: shields (inner), engines (middle), weapons/lasers (outer).
+    return { s, e, w }
+end
+
+function W:open_power()
+    if ba.MultiplayerMode then self:notice("Manual power is single-player only"); return end
+    local values = read_power(player_ship())
+    if not values then self:notice("Power allocation unavailable on this ship"); return end
+    self.mode, self.power_values, self.power_selected = "power", values, 3
+    self.power_saved = { values[1], values[2], values[3] }
+    self.power_edit, self.power_adjust_direction, self.power_adjust_time = false, 0, 0
+    self.power_adjust_armed, self.power_nav_ready = false, false
+    self:publish_state()
+end
+
+-- Keep the three ETS indexes within 0..12 and their required total of 12.
+-- Raising a bar takes from the richer remaining bar; lowering it gives to
+-- the poorer remaining bar. Each step is reversible before confirmation.
+function W:power_shift(direction)
+    local values, selected = self.power_values, self.power_selected
+    if not values or not selected or direction == 0 then return false end
+    local a, b = selected % 3 + 1, (selected + 1) % 3 + 1
+    if direction > 0 then
+        if values[selected] == 12 then return false end
+        local donor = values[a] >= values[b] and a or b
+        if values[donor] == 0 then return false end
+        values[donor], values[selected] = values[donor] - 1, values[selected] + 1
+    else
+        if values[selected] == 0 then return false end
+        local receiver = values[a] <= values[b] and a or b
+        values[receiver], values[selected] = values[receiver] + 1, values[selected] - 1
+    end
+    return true
+end
+
+function W:power_frame(buttons, pressed, dt)
+    if pressed(B_Y) or pressed(B_B) then self:close_panel(false); return end
+    if pressed(B_X) then
+        for i = 1, 3 do self.power_values[i] = i == self.power_selected and 12 or 0 end
+        return
+    end
+    if pressed(B_A) then
+        local ship, values = player_ship(), self.power_values
+        if not ship or ba.MultiplayerMode then self:notice("Power unavailable"); return end
+        local live = read_power(ship)
+        if not live or live[1] ~= self.power_saved[1]
+            or live[2] ~= self.power_saved[2]
+            or live[3] ~= self.power_saved[3] then
+            self:notice("Power changed; cancel and try again")
+            return
+        end
+        local ok, result = pcall(function()
+            return ship:EtsSetIndexes(values[2], values[1], values[3])
+        end)
+        if not ok or not result then self:notice("Ship rejected power allocation"); return end
+        self:close_panel(false)
+        return
+    end
+    local x, y = (self.input.rx or 0) / 32768, (self.input.ry or 0) / 32768
+    if math.abs(y) < 0.28 then self.power_nav_ready = true
+    elseif self.power_nav_ready and y > 0.58 then
+        self.power_selected = math.min(3, self.power_selected + 1)
+        self.power_nav_ready = false
+    elseif self.power_nav_ready and y < -0.58 then
+        self.power_selected = math.max(1, self.power_selected - 1)
+        self.power_nav_ready = false
+    end
+    if math.abs(y) < 0.45 then
+        local direction = x > 0.58 and 1 or (x < -0.58 and -1 or 0)
+        if direction == 0 then
+            self.power_adjust_armed = true
+            self.power_adjust_direction, self.power_adjust_time = 0, 0
+        elseif not self.power_adjust_armed then
+            return
+        elseif direction ~= self.power_adjust_direction then
+            self.power_adjust_direction, self.power_adjust_time = direction, 0.35
+            self:power_shift(direction)
+        else
+            self.power_adjust_time = self.power_adjust_time - dt
+            if self.power_adjust_time <= 0 then
+                self:power_shift(direction)
+                self.power_adjust_time = 0.12
+            end
+        end
+    else
+        self.power_adjust_armed = false
+    end
+end
+
+-- FotG fighters normally have front/rear shields. Standard four-quadrant
+-- ships use front/right/rear/left in the same order as the FSO shield handle.
+local function read_shields(ship)
+    if not ship then return nil end
+    local ok, values, maximum = pcall(function()
+        local handle = ship.Shields
+        if not handle or not handle:isValid() then return nil end
+        local count = #handle
+        if count ~= 2 and count ~= 4 then return nil end
+        local max = tonumber(handle.CombinedMax)
+        if not max or max <= 0 then return nil end
+        local result = {}
+        for i = 1, count do
+            result[i] = tonumber(handle[i])
+            if not result[i] or result[i] < 0 then return nil end
+        end
+        return result, max
+    end)
+    if not ok or not values then return nil end
+    return values, maximum
+end
+
+function W:open_shields()
+    if ba.MultiplayerMode then self:notice("Shield allocation is single-player only"); return end
+    local values, maximum = read_shields(player_ship())
+    if not values then self:notice("Shield allocation unavailable on this ship"); return end
+    self.mode, self.shield_values, self.shield_max = "shields", values, maximum
+    self.shield_selected = 1
+    self.shield_nav_ready, self.shield_adjust_armed = false, false
+    self.shield_adjust_direction, self.shield_adjust_time = 0, 0
+    self:publish_state()
+end
+
+function W:shield_shift(direction)
+    local values, selected = self.shield_values, self.shield_selected
+    if not values or not selected or direction == 0 then return false end
+    local cap = self.shield_max * 2 / #values
+    local other
+    for i = 1, #values do
+        if i ~= selected and (not other or
+            (direction > 0 and values[i] > values[other]) or
+            (direction < 0 and values[i] < values[other])) then other = i end
+    end
+    if not other then return false end
+    local step = cap / 12
+    local amount
+    if direction > 0 then amount = math.min(step, cap - values[selected], values[other])
+    else amount = math.min(step, values[selected], cap - values[other]) end
+    if amount <= 0.0001 then return false end
+    values[selected] = values[selected] + amount * direction
+    values[other] = values[other] - amount * direction
+    return true
+end
+
+function W:shield_max_selected()
+    local values, selected = self.shield_values, self.shield_selected
+    local room = self.shield_max * 2 / #values - values[selected]
+    for i = 1, #values do
+        if i ~= selected and room > 0 then
+            local amount = math.min(room, values[i])
+            values[i], values[selected] = values[i] - amount, values[selected] + amount
+            room = room - amount
+        end
+    end
+end
+
+-- Rebase the chosen proportions on the current total: combat damage and
+-- recharge can occur while the preview is open. Never mint shield hitpoints.
+function W:apply_shields(preview, expected_mission)
+    if ba.MultiplayerMode or (expected_mission and mission_name() ~= expected_mission) then return false end
+    local ship = player_ship()
+    local live, maximum = read_shields(ship)
+    if not live or #live ~= #preview then return false end
+    local live_total, preview_total = 0, 0
+    for i = 1, #live do
+        live_total, preview_total = live_total + live[i], preview_total + preview[i]
+    end
+    if preview_total <= 0 or live_total <= 0 then return false end
+    local cap, result, remainder = maximum * 2 / #live, {}, live_total
+    for i = 1, #live do
+        result[i] = math.min(cap, live_total * preview[i] / preview_total)
+        remainder = remainder - result[i]
+    end
+    for i = 1, #live do
+        local extra = math.min(math.max(0, remainder), math.max(0, cap - result[i]))
+        result[i], remainder = result[i] + extra, remainder - extra
+    end
+    local ok = pcall(function()
+        for i = 1, #live do
+            if result[i] < live[i] then ship.Shields[i] = result[i] end
+        end
+        for i = 1, #live do
+            if result[i] >= live[i] then ship.Shields[i] = result[i] end
+        end
+    end)
+    return ok
+end
+
+function W:shield_frame(buttons, pressed, dt)
+    if pressed(B_B) or pressed(B_Y) then self:close_panel(false); return end
+    if pressed(B_X) then self:shield_max_selected(); return end
+    if pressed(B_A) then
+        local preview, selected = self.shield_values, self.shield_selected
+        if selected == 1 then
+            -- Excoriator's tutorial checks the physical Alt-W key event.
+            self.shield_pending = { values = preview, mission = mission_name(), delay = 0.45 }
+            self.mission_key, self.mission_key_sequence = "shield_front", self.mission_key_sequence + 1
+            self:close_panel(false)
+            self:publish_state()
+        else
+            if not self:apply_shields(preview) then self:notice("Shield allocation unavailable"); return end
+            self:close_panel(false)
+        end
+        return
+    end
+    local x, y = (self.input.rx or 0) / 32768, (self.input.ry or 0) / 32768
+    if math.abs(y) < 0.28 then self.shield_nav_ready = true
+    elseif self.shield_nav_ready and y > 0.58 then
+        self.shield_selected = math.max(1, self.shield_selected - 1)
+        self.shield_nav_ready = false
+    elseif self.shield_nav_ready and y < -0.58 then
+        self.shield_selected = math.min(#self.shield_values, self.shield_selected + 1)
+        self.shield_nav_ready = false
+    end
+    if math.abs(y) < 0.45 then
+        local direction = x > 0.58 and 1 or (x < -0.58 and -1 or 0)
+        if direction == 0 then
+            self.shield_adjust_armed = true
+            self.shield_adjust_direction, self.shield_adjust_time = 0, 0
+        elseif self.shield_adjust_armed then
+            if direction ~= self.shield_adjust_direction then
+                self.shield_adjust_direction, self.shield_adjust_time = direction, 0.35
+                self:shield_shift(direction)
+            else
+                self.shield_adjust_time = self.shield_adjust_time - dt
+                if self.shield_adjust_time <= 0 then
+                    self:shield_shift(direction)
+                    self.shield_adjust_time = 0.12
+                end
+            end
+        end
+    else self.shield_adjust_armed = false end
 end
 
 local function available_comm_items()
@@ -933,10 +1192,21 @@ function W:frame()
     end
     if self.message_age > 0 then self.message_age = self.message_age - dt end
     if not is_flight_state(self.state) then
+        self.shield_pending = nil
         self:close_panel(true)
         self.prior_buttons = 0
         self:flush_action()
         return
+    end
+    if self.shield_pending then
+        self.shield_pending.delay = self.shield_pending.delay - dt
+        if self.shield_pending.delay <= 0 then
+            local pending = self.shield_pending
+            self.shield_pending = nil
+            if not self:apply_shields(pending.values, pending.mission) then
+                self:notice("Shield allocation unavailable")
+            end
+        end
     end
     self:poll_input(dt)
     if self.input_age > 0.35 then self:close_panel(true) end
@@ -965,21 +1235,31 @@ function W:frame()
         else self:open_panel(category) end
     end
     if self.mode and not changed_category then
-        local sector = sector_from_stick(self.input.rx, self.input.ry)
-        if sector == nil then
-            self.stick_ready = true
-        elseif sector ~= 0 and self.stick_ready then
-            self.selected = sector
-        end
-        if pressed(B_B) and string.sub(self.mode or "", 1, 8) == "mission_" then
-            self.mode = "macros"
-            self.selected, self.stick_ready = nil, false
-            self:publish_state()
-        elseif pressed(B_B) then
-            if self.confirm_depart then self.confirm_depart = nil
-            else self:close_panel(true) end
-        elseif pressed(B_A) then
-            self:confirm()
+        if self.mode == "power" then
+            self:power_frame(buttons, pressed, dt)
+        elseif self.mode == "shields" then
+            self:shield_frame(buttons, pressed, dt)
+        elseif self.mode == "systems" and pressed(B_Y) then
+            self:open_power()
+        elseif self.mode == "systems" and pressed(B_X) then
+            self:open_shields()
+        else
+            local sector = sector_from_stick(self.input.rx, self.input.ry)
+            if sector == nil then
+                self.stick_ready = true
+            elseif sector ~= 0 and self.stick_ready then
+                self.selected = sector
+            end
+            if pressed(B_B) and string.sub(self.mode or "", 1, 8) == "mission_" then
+                self.mode = "macros"
+                self.selected, self.stick_ready = nil, false
+                self:publish_state()
+            elseif pressed(B_B) then
+                if self.confirm_depart then self.confirm_depart = nil
+                else self:close_panel(true) end
+            elseif pressed(B_A) then
+                self:confirm()
+            end
         end
     end
     if not self.mode and not wheel_was_open then
@@ -1013,6 +1293,125 @@ local function short_label(value)
     return value
 end
 
+local POWER_LABELS = { "SHIELDS", "ENGINES", "LASERS" }
+local POWER_RADII = { 105, 150, 195 }
+local SHIELD_LABELS_2 = { "FRONT", "REAR" }
+local SHIELD_LABELS_4 = { "FRONT", "RIGHT", "REAR", "LEFT" }
+local SHIELD_ARCS_2 = { -174, 6 }
+local SHIELD_ARCS_4 = { -132, -42, 48, 138 }
+
+local function shield_label(values, max, index)
+    local names = #values == 2 and SHIELD_LABELS_2 or SHIELD_LABELS_4
+    local percent = math.floor(100 * values[index] / (max / #values) + 0.5)
+    return names[index] .. "  " .. tostring(percent) .. "%"
+end
+
+function W:draw_shields()
+    local values = self.shield_values
+    if not values then return end
+    local width, height = gr.getScreenWidth(), gr.getScreenHeight()
+    local scale = clipped(height / 1080, 0.72, 1.3)
+    local cx, cy = math.floor(width * 0.5), math.floor(height * 0.5)
+    local radius = 175 * scale
+    gr.setColor(2, 10, 19, 237)
+    gr.drawCircle(math.floor(218 * scale), cx, cy, true)
+    local starts = #values == 2 and SHIELD_ARCS_2 or SHIELD_ARCS_4
+    local step = #values == 2 and 14 or 7
+    local span = #values == 2 and 10 or 5
+    local cap = self.shield_max * 2 / #values
+    for i = 1, #values do
+        local lit = math.floor(12 * values[i] / cap + 0.5)
+        for segment = 1, 12 do
+            if segment <= lit then
+                if self.shield_selected == i then gr.setColor(255, 205, 92, 255)
+                else gr.setColor(77, 225, 255, 255) end
+            else gr.setColor(35, 75, 95, 255) end
+            local a = (starts[i] + (segment - 1) * step) * PI / 180
+            local b = a + span * PI / 180
+            for stroke = -2, 2 do
+                local r = radius + stroke * scale
+                local x1, y1 = cx + math.cos(a) * r, cy + math.sin(a) * r
+                for part = 1, 3 do
+                    local angle = a + (b - a) * part / 3
+                    local x2, y2 = cx + math.cos(angle) * r, cy + math.sin(angle) * r
+                    gr.drawLine(math.floor(x1), math.floor(y1), math.floor(x2), math.floor(y2))
+                    x1, y1 = x2, y2
+                end
+            end
+        end
+        local label = shield_label(values, self.shield_max, i)
+        local lx = cx + ((#values == 4 and i == 2) and 108 * scale or
+            (#values == 4 and i == 4) and -108 * scale or 0)
+        local ly = cy + ((i == 1) and -125 * scale or
+            (i == 3 or (#values == 2 and i == 2)) and 112 * scale or -65 * scale)
+        if self.shield_selected == i then gr.setColor(255, 225, 145, 255)
+        else gr.setColor(242, 249, 252, 255) end
+        gr.drawString(label, math.floor(lx - gr.getStringWidth(label) * 0.5), math.floor(ly))
+    end
+    gr.setColor(255, 196, 89, 255)
+    local title = "SHIELD ALLOCATION"
+    gr.drawString(title, cx - math.floor(gr.getStringWidth(title) * 0.5), cy - math.floor(17 * scale))
+    gr.setColor(223, 243, 250, 255)
+    for _, row in ipairs({ { "UP/DOWN SELECT", 15 },
+            { "LEFT/RIGHT MOVE", 43 },
+            { "A APPLY   B CANCEL   X MAX", 75 } }) do
+        gr.drawString(row[1], cx - math.floor(gr.getStringWidth(row[1]) * 0.5),
+            cy + math.floor(row[2] * scale))
+    end
+end
+
+function W:draw_power()
+    local values = self.power_values
+    if not values then return end
+    local width, height = gr.getScreenWidth(), gr.getScreenHeight()
+    local scale = clipped(height / 1080, 0.72, 1.3)
+    local cx, cy = math.floor(width * 0.5), math.floor(height * 0.50)
+    local arc_y = cy + math.floor(30 * scale)
+    gr.setColor(2, 10, 19, 237)
+    gr.drawCircle(math.floor(218 * scale), cx, cy, true)
+    for index = 1, 3 do
+        local selected = self.power_selected == index
+        local arc_radius = POWER_RADII[index] * scale
+        for level = 1, 12 do
+            if level <= values[index] then
+                if selected then gr.setColor(255, 205, 92, 255)
+                else gr.setColor(77, 225, 255, 255) end
+            else gr.setColor(35, 75, 95, 255) end
+            local start_angle = (-178 + (level - 1) * 15) * PI / 180
+            local end_angle = (start_angle * 180 / PI + 11) * PI / 180
+            for stroke = -2, 2 do
+                local r = arc_radius + stroke * scale
+                local x1, y1 = cx + math.cos(start_angle) * r, arc_y + math.sin(start_angle) * r
+                for part = 1, 4 do
+                    local angle = start_angle + (end_angle - start_angle) * part / 4
+                    local x2, y2 = cx + math.cos(angle) * r, arc_y + math.sin(angle) * r
+                    gr.drawLine(math.floor(x1), math.floor(y1), math.floor(x2), math.floor(y2))
+                    x1, y1 = x2, y2
+                end
+            end
+        end
+        local label = POWER_LABELS[index] .. "  " .. tostring(values[index]) .. "/12"
+        local x = math.floor(cx - gr.getStringWidth(label) * 0.5)
+        local y = math.floor(arc_y - arc_radius + 13 * scale)
+        if selected then gr.setColor(255, 225, 145, 255)
+        else gr.setColor(242, 249, 252, 255) end
+        gr.drawString(label, x, y)
+    end
+    gr.setColor(255, 196, 89, 255)
+    local title = "MANUAL POWER"
+    gr.drawString(title, cx - math.floor(gr.getStringWidth(title) * 0.5), cy + math.floor(57 * scale))
+    gr.setColor(223, 243, 250, 255)
+    local hint = "UP/DOWN SELECT   LEFT/RIGHT ADJUST"
+    gr.drawString(hint, cx - math.floor(gr.getStringWidth(hint) * 0.5), cy + math.floor(89 * scale))
+    hint = "A APPLY & CLOSE   B CANCEL   X MAX"
+    gr.drawString(hint, cx - math.floor(gr.getStringWidth(hint) * 0.5), cy + math.floor(119 * scale))
+    if self.message and self.message_age > 0 then
+        gr.setColor(255, 196, 89, 255)
+        gr.drawString(self.message, cx - math.floor(gr.getStringWidth(self.message) * 0.5),
+            cy + math.floor(165 * scale))
+    end
+end
+
 function W:draw()
     if self.dialog_depth > 0 or gr.isVR() then return end
     local previous_font = gr.CurrentFont
@@ -1020,6 +1419,16 @@ function W:draw()
     local font_name = (config.font_bold == false and "font_" or "font_bold_")
         .. (config.font_size == "large" and "large" or "medium")
     gr.CurrentFont = gr.Fonts[font_name]
+    if self.mode == "power" then
+        self:draw_power()
+        gr.CurrentFont = previous_font
+        return
+    end
+    if self.mode == "shields" then
+        self:draw_shields()
+        gr.CurrentFont = previous_font
+        return
+    end
     if not self.mode then
         if self.message and self.message_age > 0 then
             local mx = math.floor(gr.getScreenWidth() * 0.5 - gr.getStringWidth(self.message) * 0.5)
@@ -1080,7 +1489,8 @@ function W:draw()
     end
     gr.setColor(255, 196, 89, 255)
     gr.drawString(title, cx - math.floor(gr.getStringWidth(title) * 0.5), cy - math.floor(30 * scale))
-    local detail = self.comm_open_requested and "Opening communications..."
+    local detail = self.mode == "systems" and "Y Manual power   X Shield allocation"
+        or self.comm_open_requested and "Opening communications..."
         or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
             or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"))
     gr.setColor(223, 243, 250, 255)
@@ -1101,11 +1511,79 @@ end
 
 -- A scripted HUD gauge is rendered by FSO in each eye's HUD space. Direct gr
 -- drawing at fixed screen pixels produces doubled, blurry text in OpenXR.
+function W:draw_power_vr(draw, layer)
+    local values = self.power_values
+    if not values then return end
+    local art = self.vr_art
+    if layer == "back" and art then
+        draw:drawImage(art.power_base, -224, -224)
+        for i = 1, 3 do
+            draw:drawImage(art.power_bars[i][values[i]], -224, -224)
+        end
+        if self.power_selected then
+            draw:drawImage(art.power_selected[self.power_selected], -224, -224)
+        end
+    elseif layer == "text" then
+        for i = 3, 1, -1 do
+            local label = POWER_LABELS[i] .. "  " .. tostring(values[i]) .. "/12"
+            draw:drawString(label, -math.floor(gr.getStringWidth(label) * 0.5),
+                30 - POWER_RADII[i] + 13)
+        end
+        local title = "MANUAL POWER"
+        draw:drawString(title, -math.floor(gr.getStringWidth(title) * 0.5), 57)
+        local hint = "UP / DOWN SELECT   LEFT / RIGHT ADJUST"
+        draw:drawString(hint, -math.floor(gr.getStringWidth(hint) * 0.5), 89)
+        hint = "A APPLY & CLOSE   B CANCEL   X MAX"
+        draw:drawString(hint, -math.floor(gr.getStringWidth(hint) * 0.5), 119)
+        if self.message and self.message_age > 0 then
+            draw:drawString(self.message, -math.floor(gr.getStringWidth(self.message) * 0.5), 165)
+        end
+    end
+end
+
+function W:draw_shields_vr(draw, layer)
+    local values, art = self.shield_values, self.vr_art
+    if not values then return end
+    local count = #values
+    if layer == "back" and art then
+        draw:drawImage(art.shield_base, -224, -224)
+        for i = 1, count do
+            local level = clipped(math.floor(12 * values[i] / (self.shield_max * 2 / count) + 0.5), 0, 12)
+            draw:drawImage(art.shield_bars[count][i][level], -224, -224)
+        end
+        draw:drawImage(art.shield_selected[count][self.shield_selected], -224, -224)
+    elseif layer == "text" then
+        for i = 1, count do
+            local label = shield_label(values, self.shield_max, i)
+            local x = count == 4 and (i == 2 and 108 or i == 4 and -108 or 0) or 0
+            local y = i == 1 and -125 or
+                (i == 3 or (count == 2 and i == 2)) and 112 or -65
+            draw:drawString(label, math.floor(x - gr.getStringWidth(label) * 0.5), y)
+        end
+        for _, row in ipairs({ { "SHIELD ALLOCATION", -17 },
+                { "UP/DOWN SELECT", 15 },
+                { "LEFT/RIGHT MOVE", 43 },
+                { "A APPLY   B CANCEL   X MAX", 75 } }) do
+            draw:drawString(row[1], -math.floor(gr.getStringWidth(row[1]) * 0.5), row[2])
+        end
+    end
+end
+
 function W:draw_vr(draw, layer)
     if self.dialog_depth > 0 or not gr.isVR() or not self.vr_gauge then return end
     if layer == "text" then self.vr_draws = self.vr_draws + 1 end
     local previous_font = gr.CurrentFont
     gr.CurrentFont = gr.Fonts["font_bold_medium"]
+    if self.mode == "power" then
+        self:draw_power_vr(draw, layer)
+        gr.CurrentFont = previous_font
+        return
+    end
+    if self.mode == "shields" then
+        self:draw_shields_vr(draw, layer)
+        gr.CurrentFont = previous_font
+        return
+    end
     -- HUD draw primitives ignore Lua color state. Precolored textures keep
     -- the backdrop and selection plates legible in both OpenXR eyes.
     if not self.mode then
@@ -1155,7 +1633,8 @@ function W:draw_vr(draw, layer)
     end
     if layer == "text" then
         centered(title, -28)
-        centered(self.comm_open_requested and "Opening communications..."
+        centered(self.mode == "systems" and "Y Manual power   X Shield allocation"
+            or self.comm_open_requested and "Opening communications..."
             or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
                 or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose")), 4)
         centered("A  Confirm    B  Cancel", 32)
@@ -1172,8 +1651,29 @@ end
 
 function W:ensure_vr_art()
     if self.vr_art then return end
-    local art = { labels = {}, selected = {} }
+    local art = { labels = {}, selected = {}, power_bars = {}, power_selected = {},
+        shield_bars = {}, shield_selected = {} }
     art.wheel = gr.loadTexture("fotg_vr_wheel")
+    art.power_base = gr.loadTexture("fotg_vr_power_base")
+    for i = 1, 3 do
+        art.power_bars[i] = {}
+        art.power_selected[i] = gr.loadTexture("fotg_vr_power_selected_" .. i)
+        for level = 0, 12 do
+            art.power_bars[i][level] = gr.loadTexture("fotg_vr_power_" .. i .. "_" .. level)
+        end
+    end
+    art.shield_base = gr.loadTexture("fotg_vr_shield_base")
+    for _, count in ipairs({ 2, 4 }) do
+        art.shield_bars[count], art.shield_selected[count] = {}, {}
+        for i = 1, count do
+            art.shield_bars[count][i] = {}
+            art.shield_selected[count][i] = gr.loadTexture("fotg_vr_shield_selected_" .. count .. "_" .. i)
+            for level = 0, 12 do
+                art.shield_bars[count][i][level] = gr.loadTexture(
+                    "fotg_vr_shield_" .. count .. "_" .. i .. "_" .. level)
+            end
+        end
+    end
     for _, width in ipairs({ 128, 192, 256, 320, 384, 448, 512, 640 }) do
         art.labels[width] = gr.loadTexture("fotg_vr_label_" .. width)
         art.selected[width] = gr.loadTexture("fotg_vr_selected_" .. width)
@@ -1203,6 +1703,7 @@ function W:mission_start()
     self.state = "GS_STATE_GAME_PLAY"
     ba.setButtonControlMode(BUTTON_MODE_ADDITIVE)
     self:close_panel(false)
+    self.shield_pending = nil
     self.prior_buttons = 0
     self.input_sequence = nil
     self.last_tap_sequence = nil
@@ -1215,6 +1716,7 @@ end
 
 function W:mission_end()
     self:close_panel(false)
+    self.shield_pending = nil
     self.pending_actions = {}
     self.vr_gauge = nil
     -- FotG's stock scripts do not set button-control mode; restore the engine

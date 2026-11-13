@@ -46,3 +46,94 @@ foreach ($width in @(128, 192, 256, 320, 384, 448, 512, 640)) {
     Save-Panel "fotg_vr_label_$width" $width 48 $false
     Save-Panel "fotg_vr_selected_$width" $width 48 $true
 }
+
+# The manual ETS view is assembled from a panel, three nested segmented
+# semicircles, and a selection marker. This lets VR show live values
+# with colored artwork rather than HUD draw primitives, which render white.
+$powerSize = 448
+$powerCenter = $powerSize / 2
+$powerArcY = 254
+$powerRadii = @(105, 150, 195)
+function Save-PowerImage([string]$name, [scriptblock]$paint) {
+    $bitmap = [System.Drawing.Bitmap]::new($powerSize, $powerSize)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $graphics.Clear([System.Drawing.Color]::Transparent)
+    & $paint $graphics
+    $bitmap.Save((Join-Path $effects "$name.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+    $graphics.Dispose(); $bitmap.Dispose()
+}
+Save-PowerImage 'fotg_vr_power_base' {
+    param($g)
+    $dark = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(237, 2, 11, 20))
+    $g.FillEllipse($dark, 6, 6, 436, 436)
+    $dark.Dispose()
+}
+for ($arm = 1; $arm -le 3; $arm++) {
+    $radius = $powerRadii[$arm - 1]
+    for ($level = 0; $level -le 12; $level++) {
+        $filled = $level
+        Save-PowerImage "fotg_vr_power_${arm}_$level" {
+            param($g)
+            $on = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 77, 225, 255), 5)
+            $off = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 35, 75, 95), 5)
+            for ($step = 1; $step -le 12; $step++) {
+                $start = 182 + ($step - 1) * 15
+                $g.DrawArc($(if ($step -le $filled) { $on } else { $off }),
+                    $powerCenter - $radius, $powerArcY - $radius,
+                    2 * $radius, 2 * $radius, $start, 11)
+            }
+            $on.Dispose(); $off.Dispose()
+        }
+    }
+    Save-PowerImage "fotg_vr_power_selected_$arm" {
+        param($g)
+        $marker = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 255, 205, 92), 2)
+        for ($step = 1; $step -le 12; $step++) {
+            $start = 182 + ($step - 1) * 15
+            $g.DrawArc($marker, $powerCenter - $radius - 6, $powerArcY - $radius - 6,
+                2 * ($radius + 6), 2 * ($radius + 6), $start, 11)
+        }
+        $marker.Dispose()
+    }
+}
+
+# Shield allocation uses the actual section count: front/rear on FotG
+# starfighters, or the standard front/right/rear/left layout on other ships.
+Save-PowerImage 'fotg_vr_shield_base' {
+    param($g)
+    $dark = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(237, 2, 11, 20))
+    $g.FillEllipse($dark, 6, 6, 436, 436)
+    $dark.Dispose()
+}
+foreach ($count in @(2, 4)) {
+    $starts = if ($count -eq 2) { @(-174, 6) } else { @(-132, -42, 48, 138) }
+    $angleStep = if ($count -eq 2) { 14 } else { 7 }
+    $arcSpan = if ($count -eq 2) { 10 } else { 5 }
+    for ($section = 1; $section -le $count; $section++) {
+        $startAngle = $starts[$section - 1]
+        for ($level = 0; $level -le 12; $level++) {
+            $filled = $level
+            Save-PowerImage "fotg_vr_shield_${count}_${section}_$level" {
+                param($g)
+                $on = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 77, 225, 255), 5)
+                $off = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 35, 75, 95), 5)
+                for ($part = 0; $part -lt 12; $part++) {
+                    $angle = $startAngle + $part * $angleStep
+                    $g.DrawArc($(if ($part -lt $filled) { $on } else { $off }),
+                        49, 49, 350, 350, $angle, $arcSpan)
+                }
+                $on.Dispose(); $off.Dispose()
+            }
+        }
+        Save-PowerImage "fotg_vr_shield_selected_${count}_$section" {
+            param($g)
+            $marker = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(255, 255, 205, 92), 2)
+            for ($part = 0; $part -lt 12; $part++) {
+                $g.DrawArc($marker, 43, 43, 362, 362,
+                    $startAngle + $part * $angleStep, $arcSpan)
+            }
+            $marker.Dispose()
+        }
+    }
+}

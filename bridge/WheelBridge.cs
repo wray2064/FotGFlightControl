@@ -107,6 +107,7 @@ sealed class MissionKeys {
         if (action == "mouse_mode") return 0x4E; // N: tutorial checks the physical key
         if (action == "link_guns") return 0x45; // E: primary firing sequence
         if (action == "link_torpedoes") return 0x51; // Q: missile salvo count
+        if (action == "shield_front") return 0x100; // Alt-W: tutorial objective
         return 0;
     }
     public ushort Read(string state) {
@@ -464,8 +465,12 @@ sealed class Bridge : ApplicationContext {
             // Consume requests even when unfocused/disconnected: never replay
             // a mission choice later in another application or game context.
             if (pendingMissionKey != 0) {
-                if (active && mode != "WAIT" && !dialogReported && !modal)
-                    WinInput.Tap(pendingMissionKey);
+                if (active && mode != "WAIT" && !dialogReported && !modal) {
+                    if (pendingMissionKey == 0x100) {
+                        WinInput.Key(0x12, true); // Alt
+                        try { WinInput.Tap(0x57); } finally { WinInput.Key(0x12, false); }
+                    } else WinInput.Tap(pendingMissionKey);
+                }
                 pendingMissionKey = 0;
             }
             if (active && mode != "WAIT") HandleInput(state.Pad, dt, now);
@@ -685,6 +690,7 @@ static class Program {
             mission.Read("FLIGHT|missionkey=mouse_mode|missionseq=132") != 0x4E ||
             mission.Read("FLIGHT|missionkey=link_guns|missionseq=133") != 0x45 ||
             mission.Read("FLIGHT|missionkey=link_torpedoes|missionseq=134") != 0x51 ||
+            mission.Read("FLIGHT|missionkey=shield_front|missionseq=135") != 0x100 ||
             mission.Read("FLIGHT|missionkey=0|missionseq=14") != 0x30 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=15") != 0x39 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||
