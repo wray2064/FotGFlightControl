@@ -1,19 +1,18 @@
 # Changelog
 
-## 2.0.0-preview.1
+## 1.2.0
 
-- Added FotG 2.0.2 installation through MyMod alongside the Classic installation path.
-- Hangar Bay launches standard flight, OpenXR, and selected mission packs. The FotG 2 installer places it beside Knossos.
-- Either stick can navigate command wheels, shields, and power.
-- The embedded console has Flight Response, Wheels, Buttons, and Profiles tabs. Advanced exposes experimental axis and gesture editing.
-- Profiles include flight calibration, axis mapping, buttons, macros, wheel layouts, timing, and appearance.
-- Hangar Bay has an integrated title bar and the Flight Control icon.
+One release for Fate of the Galaxy 2.0.2 and the final classic FotG 1.1.3. Changes since 1.1.4:
 
-Fixes in this build:
+- **New button bindings.** New hold actions for R3 (mouse movement), RB (ship mode), L3 (link guns) and LB (link torpedoes), plus quick and held actions for weapon banks, ship modes, gun linking, torpedo linking and mouse control. These cover what the Excoriator training mission and the campaign interface need.
+- **Reorganized Hangar Bay Console.** Flight Response, Wheels, Buttons and Profiles tabs, with Advanced for custom axes and gestures. The Hangar Bay has its own title bar and the Flight Control icon.
+- **Updated wheel order.** The Targeting wheel changed (slot 6 is now Targeting computer) and the Systems, Macros and Squad wheels were reordered. The Systems wheel opens Manual power (Y) and Shield allocation (X), and the Macros wheel carries the mission-command groups.
+- **Hyperspace on both shoulders.** Hold LB and RB together for 300 ms to request hyperspace. Each shoulder keeps its own action.
+- **Targeting computer toggle and Next subsystem** on the Targeting wheel.
+- **Campaign bindings.** Mission responses 1-5 and 6-0, Dock / nav (Enter, next nav point, autopilot), mission log (F4), fleet info (F11) and fleet page (Space) are on the Macros wheel.
+- **FotG 2.0.2 support.** Setup installs through MyMod alongside the classic installation.
+- **Help.** Illustrated wheels, plus Manual power and Shield allocation.
 
-- Hangar Bay Repair and Remove run inside Hangar Bay and no longer copy a program to the temp folder and start it hidden. They also work on FotG 2 (MyMod) installs: Remove deletes only Flight Control's own files and keeps pilots and backups, and shows Hangar Bay.exe in File Explorer to finish.
-- Every key the bridge sends now uses a scan code. On the Classic (FotG 1.1.x) SDL2 engine, LT, Menu/pause, the wheel's number keys and Enter did nothing.
-- Classic players updating from Flight Control 1.1.4 or earlier keep their settings: the new R3/RB/L3/LB holds start off, RB taps stay on ship mode and the Targeting order is reset once, with a notice. See docs/UPGRADING.md.
-- Hangar Bay and its Console are named consistently; the Console help no longer describes the removed Y-swap Mission wheel.
+Updating from 1.1.4 or earlier on FotG 1.1.x keeps your settings: the new holds start off, RB tap stays on ship mode, and the Targeting order is reset once with a notice. See docs/UPGRADING.md. A fresh install gets the new defaults.
 
-FotG 2.0.2 Standard Flight and the locally adapted Endor mission were tested during development. OpenXR, multiplayer, and later FotG releases await verification.
+VR ready: Flight Control's own VR mode works with the gamepad wheels. This is separate from the game's built-in VR support. Works with FotG 2.0.2 and FotG 1.1.3. Multiplayer and FotG releases after 2.0.2 are not verified.

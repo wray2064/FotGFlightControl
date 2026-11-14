@@ -1,6 +1,6 @@
 # Flight Control for Fate of the Galaxy
 
-**Flight Control 2.0.0-preview.1** supports Fate of the Galaxy 2.0.2 through MyMod and retains the Classic install path. On Windows, create a pilot in FotG, close the game, extract the player ZIP, and run Setup.exe. Select the folder containing Knossos and kn_portable. Launch Hangar Bay.exe from that game folder.
+**Flight Control 1.2.0** supports Fate of the Galaxy 2.0.2 through MyMod and the final classic FotG 1.1.3. On Windows, create a pilot in FotG, close the game, extract the player ZIP, and run Setup.exe. Select the folder containing Knossos and kn_portable. Launch Hangar Bay.exe from that game folder.
 
 See [Help](Help.html), the [preview install guide](docs/INSTALL-FLIGHT-CONTROL-2.md), and the [changelog](CHANGELOG.md). The Classic details below describe the established 1.x install path.
 
