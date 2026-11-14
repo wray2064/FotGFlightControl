@@ -255,6 +255,10 @@ static class Installer {
             files.Add(Path.Combine(core, "data", file.Substring(data.Length + 1)), file);
         foreach (string file in new[] { "ControllerSetup.exe", "Help.html", "About.html", @"Assets\FlightControl.ico", @"Assets\FlightControl.png" })
             files.Add(Path.Combine(support, file), Path.Combine(source, "ControllerSetup", file));
+        string helpArt = Path.Combine(source, "ControllerSetup", "Assets", "help");
+        if (Directory.Exists(helpArt))
+            foreach (string file in Directory.GetFiles(helpArt, "*.png"))
+                files.Add(Path.Combine(support, "Assets", "help", Path.GetFileName(file)), file);
         files.Add(Path.Combine(support, "WheelBridge.exe"), Path.Combine(source, "WheelBridge.exe"));
         if (!o.KeepHangarBay) files.Add(Path.Combine(root, "Hangar Bay.exe"), Path.Combine(o.PackageRoot, "Hangar Bay.exe"));
         foreach (string file in files.Values)
