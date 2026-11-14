@@ -2,6 +2,7 @@
 -- The Hangar Bay Console exports this file after validating action types.
 -- The runtime does not execute label or argument text as Lua code.
 FotGWheelConfig = {
+    config_version = 1,
     camera_hold_enabled = true,
     hold_enabled = false,
     r3_mouse_hold_enabled = true, -- hold R3 for N; tap still cycles the target subsystem

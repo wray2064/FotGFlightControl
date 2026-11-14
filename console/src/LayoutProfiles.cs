@@ -83,9 +83,7 @@ partial class ControllerSetup {
   if(p.version==6&&((p.mode!="default"&&p.mode!="advanced")||p.sensitivity<0||p.sensitivity>9||p.deadzone<0||p.deadzone>45||p.controllerSlot<0||p.controllerSlot>3))
    throw new Exception("Invalid flight response or console mode.");
   if(p.version==1){p.tapBindings=(string[])DefaultTapActions.Clone();p.customAxes=(string[])DefaultCustomAxes.Clone();p.customInvert=new bool[4];}
-  if(p.version<3)p.r3MouseHoldEnabled=true;
-  if(p.version<4)p.rbModeHoldEnabled=true;
-  if(p.version<5){p.l3GunHoldEnabled=true;p.lbTorpedoHoldEnabled=true;}
+  if(p.version<5)MigrateOlderProfile(p);
   if(p.tapBindings==null||p.tapBindings.Length!=TapButtons.Length||p.tapBindings.Any(x=>!IsTapAction(x)))throw new Exception("Invalid button actions.");
   ValidateAxes(p.customAxes,p.customInvert);
   if(p.layouts==null||p.layouts.Length!=4)throw new Exception("Profile layouts are incomplete.");
@@ -98,6 +96,16 @@ partial class ControllerSetup {
   if(p.lookHoldMs<150||p.lookHoldMs>600||p.lookHoldMs%25!=0||p.holdMs<250||p.holdMs>1000)throw new Exception("Invalid hold timing.");
   if(p.holdBindings==null||p.holdBindings.Length!=HoldButtons.Length||p.holdBindings.Any(x=>!IsHoldAction(x)))throw new Exception("Invalid hold bindings.");
  }
+ // Profiles exported before the new button holds and the Targeting wheel change keep their old behaviour:
+ // the holds start off, a version 1 profile keeps RB on ship mode, and the Targeting order (whose slot 6
+ // changed from Subsystem in sight to Targeting computer) goes back to the default.
+ static bool MigrateOlderProfile(WheelProfile p){
+  p.r3MouseHoldEnabled=false;p.rbModeHoldEnabled=false;p.l3GunHoldEnabled=false;p.lbTorpedoHoldEnabled=false;
+  if(p.version==1&&p.tapBindings!=null&&p.tapBindings.Length==TapButtons.Length)p.tapBindings[Array.IndexOf(TapButtons,"RB")]="cycle_ship_mode";
+  bool reset=false;
+  if(p.layouts!=null&&p.layouts.Length==4&&p.layouts[1]!=null&&!p.layouts[1].SequenceEqual(Sequence(LayoutCaptions[1].Length))){p.layouts[1]=Sequence(LayoutCaptions[1].Length);reset=true;}
+  return reset;
+ }
  static bool LayoutSelfTest(){
   int[][] orders={new[]{2,1,3,4,5,6,7,8},Sequence(7),new[]{4,2,3,1},Sequence(6)};
   string lua=RenderMacroConfig(DefaultMacros,layouts:orders);
@@ -106,7 +114,13 @@ partial class ControllerSetup {
   var roundtrip=new JavaScriptSerializer().Deserialize<WheelProfile>(new JavaScriptSerializer().Serialize(profile));
   ValidateProfile(roundtrip);
   // A version 1 profile still loads and gets the default buttons and axes.
-  if(!roundtrip.tapBindings.SequenceEqual(DefaultTapActions)||!roundtrip.customAxes.SequenceEqual(DefaultCustomAxes))return false;
+  var oldDefaults=(string[])DefaultTapActions.Clone();oldDefaults[Array.IndexOf(TapButtons,"RB")]="cycle_ship_mode";
+  if(!roundtrip.tapBindings.SequenceEqual(oldDefaults)||!roundtrip.customAxes.SequenceEqual(DefaultCustomAxes))return false;
+  if(roundtrip.r3MouseHoldEnabled||roundtrip.rbModeHoldEnabled||roundtrip.l3GunHoldEnabled||roundtrip.lbTorpedoHoldEnabled)return false;
+  // An older profile with a custom Targeting order gets the default order back; the other orders are kept.
+  var custom=new JavaScriptSerializer().Deserialize<WheelProfile>(new JavaScriptSerializer().Serialize(profile));custom.layouts[0]=new[]{2,1,3,4,5,6,7,8};custom.layouts[1]=new[]{7,2,3,4,5,6,1};
+  ValidateProfile(custom);
+  if(!custom.layouts[1].SequenceEqual(Sequence(7))||!custom.layouts[0].SequenceEqual(new[]{2,1,3,4,5,6,7,8}))return false;
   var v2=new JavaScriptSerializer().Deserialize<WheelProfile>(new JavaScriptSerializer().Serialize(profile));v2.version=2;
   v2.tapBindings=new[]{"countermeasure","none","target_next","afterburner","cycle_secondary","cycle_ship_mode","match_speed","target_next_subsystem"};
   v2.customAxes=new[]{"left_x","left_y","right_x","right_y"};v2.customInvert=new[]{false,false,true,false};v2.flightAxes="custom";
@@ -139,7 +153,7 @@ partial class ControllerSetup {
   lookHoldSlider.Value=profile.lookHoldMs/25;disableLook.Checked=!profile.lookEnabled;cameraHold.Checked=profile.cameraEnabled;
   holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;r3MouseHoldEnabled=profile.r3MouseHoldEnabled;rbModeHoldEnabled=profile.rbModeHoldEnabled;l3GunHoldEnabled=profile.l3GunHoldEnabled;lbTorpedoHoldEnabled=profile.lbTorpedoHoldEnabled;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
   if(refreshButtonEditor!=null)refreshButtonEditor();
-  MessageBox.Show("Profile loaded for review. Use Save Wheel to apply wheel and binding settings. Use Apply with Backup on Flight Response to apply calibration.",Text);
+  MessageBox.Show((profile.version<5?"This profile is from an older Flight Control: the new button holds are off and the Targeting wheel order is the default. ":"")+"Profile loaded for review. Use Save Wheel to apply wheel and binding settings. Use Apply with Backup on Flight Response to apply calibration.",Text);
   return true;
  }}
 }
