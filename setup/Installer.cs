@@ -246,8 +246,8 @@ static class Installer {
         string generated = Presets.FromTable(File.ReadAllText(stock), Presets.Sdl3Axes, true);
         var presetSections = Regex.Matches(generated, @"(?ms)^#ControlConfigOverride\b.*?^#End\b");
         if (presetSections.Count != 3) throw new InstallException("Unexpected FotG 2 control presets.");
-        generated = generated.Remove(presetSections[0].Index, presetSections[0].Length)
-            .Insert(presetSections[0].Index, presetSections[1].Value.Replace("$Name: FotG Classic Native", "$Name: default"));
+        generated = Presets.DefaultSectionLast(generated.Remove(presetSections[0].Index, presetSections[0].Length)
+            .Insert(presetSections[0].Index, presetSections[1].Value.Replace("$Name: FotG Classic Native", "$Name: default")));
         string backup = Path.Combine(root, "Flight Control Backups", Stamp());
         var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string data = Path.Combine(source, "data");
@@ -263,8 +263,19 @@ static class Installer {
             && File.Exists(Path.Combine(core, @"data\tables\lua\zzz_fotg_wheel-sct.lua"));
         if (preserve) files.Remove(config);
         if (!preserve) files.Add(table, null);
+        string keptTable = preserve ? File.ReadAllText(table) : null;
+        string reordered = keptTable != null ? Presets.DefaultSectionLast(keptTable) : null;
+        bool fixOrder = reordered != null && reordered != keptTable;
         var written = new List<string>();
         try {
+            if (fixOrder) {
+                string savedTable = Path.Combine(backup, table.Substring(root.Length + 1));
+                Directory.CreateDirectory(Path.GetDirectoryName(savedTable));
+                File.Copy(table, savedTable, true);
+                written.Add(table);
+                File.WriteAllText(table, reordered, Utf8NoBom);
+                log("Reordered the FotG 2 control presets so the pilot's default preset is found. The previous table is in Flight Control Backups.");
+            }
             foreach (var entry in files) {
                 string target = entry.Key;
                 if (File.Exists(target)) {
@@ -395,6 +406,13 @@ static class ConfigMigration {
         // Explicit values saved by a newer Console are never overridden.
         string saved = Migrate("FotGWheelConfig = {\n  r3_mouse_hold_enabled = true,\n  tap_bindings = { A=\"x\", RB=\"cycle_primary\" },\n}\n", new List<string>());
         if (!saved.Contains("r3_mouse_hold_enabled = true,") || !saved.Contains("RB=\"cycle_primary\"") || saved.Contains("r3_mouse_hold_enabled = false")) return false;
+        // FotG 2 preset order: "default" goes last, once, and nothing else moves.
+        string tbl = "#ControlConfigOverride\r\n$Name: default\r\n  $Bind: A\r\n#End\r\n\r\n#ControlConfigOverride\r\n$Name: FotG Classic Native\r\n  $Bind: A\r\n#End\r\n\r\n#ControlConfigOverride\r\n$Name: FotG Classic Inverted\r\n  $Bind: B\r\n#End\r\n";
+        string ordered = Presets.DefaultSectionLast(tbl);
+        if (ordered == tbl || Presets.DefaultSectionLast(ordered) != ordered) return false;
+        if (!(ordered.IndexOf("FotG Classic Native") < ordered.IndexOf("FotG Classic Inverted") && ordered.IndexOf("FotG Classic Inverted") < ordered.IndexOf("$Name: default"))) return false;
+        if (Regex.Matches(ordered, @"#ControlConfigOverride").Count != 3 || Regex.Matches(ordered, @"#End").Count != 3 || !ordered.TrimEnd().EndsWith("#End")) return false;
+        if (Presets.DefaultSectionLast("#ControlConfigOverride\r\n$Name: FotG Classic Native\r\n#End\r\n") != "#ControlConfigOverride\r\n$Name: FotG Classic Native\r\n#End\r\n") return false;   // no default section: untouched
         // Versioned and unrecognised files are left alone.
         string v = "FotGWheelConfig = {\n  config_version = 1,\n}\n";
         if (Migrate(v, new List<string>()) != v || Migrate("not a config", new List<string>()) != "not a config") return false;
@@ -424,6 +442,19 @@ static class Presets {
         return FromTable(File.ReadAllText(stockPath), axisMap);
     }
 
+    // FreeSpace Open treats an override section whose bindings equal an earlier one as a duplicate and renames
+    // that earlier entry. In FotG 2 the "default" section is a copy of Classic Native, so when it comes first the
+    // later "FotG Classic Native" section renames it away, and the pilot's saved preset "default" is "not found"
+    // (plr.cpp warning at start-up). With "default" last every name survives. Unchanged when already in order.
+    public static string DefaultSectionLast(string table) {
+        Match last = null;
+        foreach (Match m in Regex.Matches(table, @"(?ms)^#ControlConfigOverride\b.*?^#End\b"))
+            if (Regex.IsMatch(m.Value, @"(?m)^\$Name:[ \t]*default\b")) last = m;
+        if (last == null || last.Index + last.Length >= table.TrimEnd().Length) return table;
+        string nl = table.Contains("\r\n") ? "\r\n" : "\n";
+        string rest = Regex.Replace(table.Remove(last.Index, last.Length), @"(\r?\n){3,}", nl + nl).TrimEnd();
+        return rest + nl + nl + last.Value + nl;
+    }
     public static string FromTable(string stock, string axisMap, bool myMod = false) {
         // The D-pad is also the engine's native view hat. Keep the keyboard view arrows, but
         // remove the hat in this overlay; the bridge sends the arrows after a hold.

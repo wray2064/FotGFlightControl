@@ -140,7 +140,15 @@ partial class ControllerSetup {
   custom=Regex.Replace(custom,@"(?m)^#End\b",CustomAxisBinds(axes,invert,stick).Replace("$","$$")+"#End");
   string existing=PresetSection(table,presetName);
   if(existing!=null)table=table.Replace(existing,"");
-  return table.TrimEnd()+"\r\n\r\n"+custom.TrimEnd()+"\r\n";
+  return DefaultSectionLast(table.TrimEnd()+"\r\n\r\n"+custom.TrimEnd()+"\r\n");
+ }
+ // Same rule as Presets.DefaultSectionLast in Setup: the engine renames an earlier preset when a later one has
+ // identical bindings, so the "default" section (a copy of Classic Native in FotG 2) must stay last.
+ static string DefaultSectionLast(string table){
+  string d=PresetSection(table,"default");
+  if(d==null||table.TrimEnd().EndsWith(d.TrimEnd()))return table;
+  string rest=Regex.Replace(table.Replace(d,""),@"(\r?\n){3,}","\r\n\r\n").Trim();
+  return rest+"\r\n\r\n"+d.TrimEnd()+"\r\n";
  }
  static string[] customAxesOrDefault(string[] axes){return axes!=null&&axes.Length==4?axes:DefaultCustomAxes;}
  static bool[] invertOrDefault(bool[] invert){return invert!=null&&invert.Length==4?invert:new bool[4];}
@@ -360,6 +368,8 @@ partial class ControllerSetup {
   if(!Regex.IsMatch(custom,@"JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE, INVERTED\s+\$Input: RX_AXIS"))return false;
   if(!Regex.IsMatch(custom,@"JOY_REL_THROTTLE_AXIS\s+\$Primary:\s+\$Controller: CID_JOY0\s+\$Flags: AXIS, RELATIVE, INVERTED\s+\$Input: Y_AXIS"))return false;
   if(PresetSection(twice,"FotG Classic Native")!=PresetSection(table,"FotG Classic Native"))return false;
+  // Saving never leaves the "default" section ahead of a preset with the same bindings.
+  if(twice.IndexOf("$Name: default")<twice.IndexOf("$Name: FotG Classic Native")||twice.IndexOf("$Name: default")<twice.IndexOf("$Name: FotG Custom")||Regex.Matches(twice,@"\$Name: default").Count!=1)return false;
   try{ValidateAxes(new[]{"left_x","left_x","none","none"},new bool[4]);return false;}catch(Exception){}
   // Classic through the custom editor gives the same axis bindings as Classic direct.
   // A recorded stick map other than the SDL3 numbering (here a pad whose right stick is raw axes 3 and 4) is honoured.
