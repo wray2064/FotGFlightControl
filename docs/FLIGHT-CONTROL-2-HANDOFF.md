@@ -1,6 +1,6 @@
 # Flight Control 2 branch handoff
 
-Repository: `C:\Appdev\Flight control\updated\FotGFlightControl` (`https://github.com/wray2064/FotGFlightControl`). Work on `feature/flight-control-2`; tag `v1.1.5` anchors the final Flight Control 1 source. Build outputs under `dist/` are generated and ignored by Git. Keep the final 1.x ZIPs in the sibling `final-1.1.5` folder, outside the working tree.
+Flight Control 2 workspace: `C:\Appdev\Flight control 2`, a separate checkout of `feature/flight-control-2`. Repository remote: `https://github.com/wray2064/FotGFlightControl`. The original 1.x checkout remains at `C:\Appdev\Flight control\updated\FotGFlightControl`; tag `v1.1.5` anchors its final source. Build outputs under `dist/` are generated and ignored by Git. The final 1.x ZIPs remain at `C:\Appdev\Flight control\updated\final-1.1.5`, outside both working trees. This 2.x branch is currently local and has not been pushed.
 
 FotG 2.x was announced November 13, 2026 as a separate game installation. It updates FSO and permits any controller input, including triggers and sticks, to bind to any in-game control. Players must reset devices in Options. The Windows launcher adds a Play tab and a `MyMod` template for custom files, with FotG as a dependency. Saves and control files may be copied manually from 1.x.
 
