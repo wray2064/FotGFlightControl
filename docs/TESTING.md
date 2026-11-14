@@ -43,6 +43,10 @@ launcher available for comparison.
 11. Clean install: on a FotG 1.1.2 folder with only the standard FSO 26.0.1
    (SDL2) engine, confirm Setup names it, Install detects the pad and its stick
    order, and flight, buttons and Custom axes behave as on the SDL3 engine.
+12. Keyboard keys on the standard SDL2 engine: on a clean install, confirm in flight that LT fires
+   secondary, Start pauses, the wheel's response numbers 1-0 reach the game, and in menus Enter
+   confirms. These are keys the bridge sends, and the SDL2 engine ignores keys sent without a scan
+   code. `scripts/SdlKeyTest.cs` checks this against the engine's own SDL2.dll (see its header).
 10. Updates: with a test manifest (FLIGHTCONTROL_UPDATE_URL=file:///...), confirm
    Setup offers the update, refuses a wrong SHA-256, and shows the new Setup.exe
    in File Explorer without starting it.

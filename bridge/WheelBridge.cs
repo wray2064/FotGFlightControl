@@ -164,12 +164,45 @@ static class WinInput {
     }
     public static void Key(ushort vk, bool down) {
         INPUT value = new INPUT(); value.type = 1;
-        // SDL3 recognizes the dedicated arrows by their E0 scan codes. A
-        // virtual-key SendInput event reaches Windows but not FSO's padlock
-        // control, even if the extended-key bit is set.
-        value.data.key.scan = ArrowScan(vk);
-        if (value.data.key.scan == 0) value.data.key.vk = vk;
+        // The engine reads the keyboard by scan code. The standard SDL2 build (FSO 26.0.1, SDL 2.26.5) drops an
+        // injected key that carries only a virtual-key code, so every key the bridge knows is sent as a scan code.
+        // SDL3 also needs E0 scan codes for the dedicated arrows. Unknown keys fall back to a virtual key.
+        bool extended; ushort scan = ScanFor(vk, out extended);
+        if (scan != 0) value.data.key.scan = scan; else value.data.key.vk = vk;
         value.data.key.flags = KeyFlags(vk, down); Send(value);
+    }
+    // Physical (set 1) scan codes, i.e. QWERTY positions: the game's bindings are positions, whatever the layout.
+    // Keys that carry the E0 prefix report extended = true.
+    static readonly ushort[] LetterScans = {
+        0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,   // A-M
+        0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14, 0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C }; // N-Z
+    public static ushort ScanFor(ushort vk, out bool extended) {
+        extended = false;
+        if (vk >= 0x41 && vk <= 0x5A) return LetterScans[vk - 0x41];
+        if (vk >= 0x31 && vk <= 0x39) return (ushort)(0x02 + (vk - 0x31)); // 1-9
+        if (vk == 0x30) return 0x0B;                                        // 0
+        if (vk >= 0x70 && vk <= 0x79) return (ushort)(0x3B + (vk - 0x70)); // F1-F10
+        switch (vk) {
+            case 0x08: return 0x0E; // Backspace
+            case 0x09: return 0x0F; // Tab
+            case 0x0D: return 0x1C; // Enter
+            case 0x10: return 0x2A; // Shift
+            case 0x11: return 0x1D; // Ctrl
+            case 0x12: return 0x38; // Alt
+            case 0x1B: return 0x01; // Esc
+            case 0x20: return 0x39; // Space
+            case 0x7A: return 0x57; // F11
+            case 0x7B: return 0x58; // F12
+            case 0x21: extended = true; return 0x49; // Page Up
+            case 0x22: extended = true; return 0x51; // Page Down
+            case 0x23: extended = true; return 0x4F; // End
+            case 0x24: extended = true; return 0x47; // Home
+            case 0x25: extended = true; return 0x4B; // Left
+            case 0x26: extended = true; return 0x48; // Up
+            case 0x27: extended = true; return 0x4D; // Right
+            case 0x28: extended = true; return 0x50; // Down
+            default: return 0;
+        }
     }
     public static ushort ArrowScan(ushort vk) {
         switch (vk) {
@@ -181,7 +214,8 @@ static class WinInput {
         }
     }
     public static uint KeyFlags(ushort vk, bool down) {
-        return (ArrowScan(vk) != 0 ? 9u : 0u) | (down ? 0u : 2u);
+        bool extended; ushort scan = ScanFor(vk, out extended);
+        return (scan != 0 ? 8u : 0u) | (extended ? 1u : 0u) | (down ? 0u : 2u);
     }
     public static void Scan(ushort scan, bool down, bool extended = false) {
         INPUT value = new INPUT(); value.type = 1; value.data.key.scan = scan;
@@ -761,7 +795,19 @@ static class Program {
         if (WinInput.ArrowScan(0x26)!=0x48 || WinInput.ArrowScan(0x25)!=0x4b ||
             WinInput.ArrowScan(0x27)!=0x4d || WinInput.ArrowScan(0x28)!=0x50 ||
             WinInput.KeyFlags(0x26,true)!=9 || WinInput.KeyFlags(0x26,false)!=11 ||
-            WinInput.KeyFlags(0x41,true)!=0 || WinInput.KeyFlags(0x41,false)!=2) return 10;
+            WinInput.KeyFlags(0x41,true)!=8 || WinInput.KeyFlags(0x41,false)!=10 ||
+            WinInput.KeyFlags(0xFF,true)!=0 || WinInput.KeyFlags(0xFF,false)!=2) return 10;
+        // Every key the bridge sends goes out as a scan code (the SDL2 engine ignores virtual-key-only events).
+        bool ext;
+        if (WinInput.ScanFor(0x09,out ext)!=0x0F || WinInput.ScanFor(0x1B,out ext)!=0x01 || WinInput.ScanFor(0x0D,out ext)!=0x1C ||
+            WinInput.ScanFor(0x08,out ext)!=0x0E || WinInput.ScanFor(0x20,out ext)!=0x39 || WinInput.ScanFor(0x10,out ext)!=0x2A ||
+            WinInput.ScanFor(0x12,out ext)!=0x38 || WinInput.ScanFor(0x31,out ext)!=0x02 || WinInput.ScanFor(0x39,out ext)!=0x0A ||
+            WinInput.ScanFor(0x30,out ext)!=0x0B || WinInput.ScanFor(0x73,out ext)!=0x3E || WinInput.ScanFor(0x7A,out ext)!=0x57 ||
+            WinInput.ScanFor(0x4E,out ext)!=0x31 || WinInput.ScanFor(0x45,out ext)!=0x12 || WinInput.ScanFor(0x51,out ext)!=0x10 ||
+            WinInput.ScanFor(0x5A,out ext)!=0x2C || WinInput.ScanFor(0x57,out ext)!=0x11 || ext) return 15;
+        if (!WinInput.ScanFor(0x23,out ext).Equals((ushort)0x4F) || !ext || WinInput.KeyFlags(0x23,true)!=9 ||
+            WinInput.ScanFor(0x1B,out ext)==0 || ext) return 15;
+        for (ushort digit = 0x30; digit <= 0x39; digit++) if (WinInput.ScanFor(digit,out ext)==0 || ext) return 15;
         DpadGesture gesture = new DpadGesture();
         if (gesture.Update(1,0,250,true,false).Tap!=0 || gesture.Update(1,249,250,true,false).Look!=0 ||
             gesture.Update(0,249,250,true,false).Tap!=1) return 5;
