@@ -406,7 +406,7 @@ internal sealed class WheelSetup : Form {
         if (!File.Exists(path)) throw new FileNotFoundException(name + " is missing. Extract the complete ZIP.");
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
     [STAThread] static void Main(string[] args) {
-        if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() && GameInstall.SelfTest() ? 0 : 1); }
+        if (args.Length > 0 && args[0] == "--self-test") { Environment.Exit(Updater.SelfTest() && GameInstall.SelfTest() && ConfigMigration.SelfTest() ? 0 : 1); }
         if (args.Length > 0 && args[0] == "--install") { Environment.Exit(InstallCli(args)); }
         // Setup.exe --build-presets --game <folder> --game-version <v> --out <file> [--axis-map <map>]
         // writes the Classic presets for a game release, to check a new release before supporting it.

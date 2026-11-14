@@ -179,6 +179,17 @@ static class Installer {
                 configText = configText.Replace("FotGWheelConfig = {", "FotGWheelConfig = {\r\n    flight_axes = \"classic\",");
                 File.WriteAllText(existingConfig, configText, Utf8NoBom);
             }
+            // Settings from Flight Control 1.1.4 or earlier: keep their old behaviour, back up, and say so once.
+            var notes = new List<string>();
+            string migrated = ConfigMigration.Migrate(configText, notes);
+            if (migrated != configText) {
+                File.WriteAllText(existingConfig, migrated, Utf8NoBom);
+                log("Updated your saved settings for this version. Your previous settings are saved in " + snapshot + ".");
+                foreach (string note in notes) log("  " + note);
+                File.WriteAllText(Path.Combine(destination, "migration-notice.txt"),
+                    "Flight Control was updated and kept your settings.\r\n\r\n" + String.Join("\r\n\r\n", notes.ToArray()) +
+                    "\r\n\r\nYour previous settings were saved in:\r\n" + snapshot + "\r\n", Utf8NoBom);
+            }
         }
         string console = Path.Combine(destination, "ControllerSetup", "ControllerSetup.exe");
         // The control table was just regenerated; put back a saved Custom axis layout.
@@ -293,6 +304,101 @@ static class Installer {
             Directory.CreateDirectory(Path.GetDirectoryName(target));
             File.Copy(file, target, true);
         }
+    }
+}
+
+// Settings saved by Flight Control 1.1.4 and earlier carry no config_version. Updating must not change what
+// those players' buttons and wheels do, so the first Install / Repair after the update writes their old
+// behaviour into the config: the new R3/RB/L3/LB holds off, RB's tap on ship mode, and the Targeting order
+// back to the default (its slot 6 changed from "Subsystem in sight" to "Targeting computer", so an old saved
+// order would silently point at a different action). Systems, Macros and Squad orders are kept. Fresh installs
+// ship config_version and the new defaults.
+static class ConfigMigration {
+    static readonly string[] NewHoldKeys = { "r3_mouse_hold_enabled", "rb_mode_hold_enabled", "l3_gun_hold_enabled", "lb_torpedo_hold_enabled" };
+    const string OldTapBindings = "A=\"target_reticle\", B=\"target_attacker\", X=\"target_next\", Y=\"third_gun\", LB=\"cycle_secondary\", RB=\"cycle_ship_mode\", L3=\"match_speed\", R3=\"target_next_subsystem\"";
+    const string DefaultTargeting = "targeting = { 1, 2, 3, 4, 5, 6, 7 }";
+
+    // Returns the config unchanged when it is already versioned (or is not a config we recognise).
+    public static string Migrate(string config, List<string> notes) {
+        if (Regex.IsMatch(config, @"\bconfig_version\s*=")) return config;
+        if (!Regex.IsMatch(config, @"FotGWheelConfig\s*=\s*\{")) return config;
+        string nl = config.Contains("\r\n") ? "\r\n" : "\n";
+        var add = new List<string>();
+
+        foreach (string key in NewHoldKeys)
+            if (!Regex.IsMatch(config, @"\b" + key + @"\s*=")) add.Add("  " + key + " = false,");
+        if (add.Count > 0)
+            notes.Add("The new button holds (R3, RB, L3 and LB) are switched off on this install, so your controls keep working as before. Turn them on in Hangar Bay > Console > Buttons.");
+
+        Match taps = Regex.Match(config, @"\btap_bindings\s*=\s*\{(?<body>[^}]*)\}");
+        if (!taps.Success) {
+            add.Add("  tap_bindings = { " + OldTapBindings + " },");
+            notes.Add("RB still cycles ship mode when you tap it.");
+        } else if (!Regex.IsMatch(taps.Groups["body"].Value, @"\bRB\s*=")) {
+            int at = taps.Groups["body"].Index;
+            config = config.Substring(0, at) + " RB=\"cycle_ship_mode\"," + config.Substring(at);
+            notes.Add("RB still cycles ship mode when you tap it.");
+        }
+
+        Match layouts = Regex.Match(config, @"\blayouts\s*=\s*\{(?<body>(?:[^{}]|\{[^{}]*\})*)\}");
+        if (layouts.Success) {
+            Match t = Regex.Match(layouts.Groups["body"].Value, @"\btargeting\s*=\s*\{(?<order>[^}]*)\}");
+            if (t.Success) {
+                string order = String.Join(",", Regex.Matches(t.Groups["order"].Value, @"\d+").Cast<Match>().Select(m => m.Value).ToArray());
+                if (order != "1,2,3,4,5,6,7") {
+                    int at = layouts.Groups["body"].Index + t.Index;
+                    config = config.Substring(0, at) + DefaultTargeting + config.Substring(at + t.Length);
+                    notes.Add("The Targeting wheel order was set back to the default, because its slot 6 changed (Subsystem in sight became Targeting computer). Your Systems, Macros and Squad orders were kept.");
+                }
+            }
+        }
+
+        Match open = Regex.Match(config, @"FotGWheelConfig\s*=\s*\{");
+        string header = nl + "  config_version = " + BuildInfo.ConfigVersion + "," + String.Concat(add.Select(a => nl + a).ToArray());
+        return config.Insert(open.Index + open.Length, header);
+    }
+
+    public static bool SelfTest() {
+        string legacy = String.Join("\n", new[] {
+            "-- Generated by the Hangar Bay Console. Edit through the Macro Deck tab.",
+            "FotGWheelConfig = {",
+            "  flight_axes = \"classic\",",
+            "  tap_bindings = { A=\"countermeasure\", B=\"none\", X=\"target_next\", Y=\"third_gun\", LB=\"cycle_secondary\", RB=\"cycle_ship_mode\", L3=\"match_speed\", R3=\"target_next_subsystem\" },",
+            "  hold_enabled = true,",
+            "  hold_bindings = { A=\"none\", B=\"none\", X=\"none\", LB=\"afterburner\", RB=\"none\", L3=\"none\", R3=\"none\" },",
+            "  layouts = {",
+            "    systems = { 2, 1, 3, 4, 5, 6, 7, 8 },",
+            "    targeting = { 7, 2, 3, 4, 5, 6, 1 },",
+            "    macros = { 4, 2, 3, 1 },",
+            "    commands = { 1, 2, 3, 4, 5, 6 },",
+            "  },",
+            "  macros = {",
+            "    { label = \"Shields maximum\", action = \"shields_max\", argument = \"\" },",
+            "  }",
+            "}", "" });
+        var notes = new List<string>();
+        string m = Migrate(legacy, notes);
+        if (!m.Contains("config_version = " + BuildInfo.ConfigVersion + ",")) return false;
+        foreach (string key in NewHoldKeys) if (!m.Contains(key + " = false,")) return false;
+        if (!m.Contains("RB=\"cycle_ship_mode\"") || !m.Contains("A=\"countermeasure\"")) return false;      // saved taps kept
+        if (!m.Contains("targeting = { 1, 2, 3, 4, 5, 6, 7 }") || m.Contains("7, 2, 3, 4, 5, 6, 1")) return false;
+        if (!m.Contains("systems = { 2, 1, 3, 4, 5, 6, 7, 8 }") || !m.Contains("macros = { 4, 2, 3, 1 }")) return false;
+        if (!m.Contains("hold_enabled = true,") || !m.Contains("LB=\"afterburner\"")) return false;           // custom holds kept
+        if (notes.Count != 2) return false;
+        var again = new List<string>();
+        if (Migrate(m, again) != m || again.Count != 0) return false;                                          // idempotent
+        // No tap table at all: the 1.1.4 defaults are written, including RB on ship mode.
+        notes = new List<string>();
+        string bare = Migrate("FotGWheelConfig = {\r\n  hold_enabled = false,\r\n  layouts = {\r\n    targeting = { 1, 2, 3, 4, 5, 6, 7 },\r\n  },\r\n}\r\n", notes);
+        if (!bare.Contains("tap_bindings = { " + OldTapBindings + " },") || bare.Contains("\n  config_version") == false || notes.Count != 2) return false;
+        if (notes.Any(n => n.StartsWith("The Targeting"))) return false;                                       // identity order: no reset note
+        // Explicit values saved by a newer Console are never overridden.
+        string saved = Migrate("FotGWheelConfig = {\n  r3_mouse_hold_enabled = true,\n  tap_bindings = { A=\"x\", RB=\"cycle_primary\" },\n}\n", new List<string>());
+        if (!saved.Contains("r3_mouse_hold_enabled = true,") || !saved.Contains("RB=\"cycle_primary\"") || saved.Contains("r3_mouse_hold_enabled = false")) return false;
+        // Versioned and unrecognised files are left alone.
+        string v = "FotGWheelConfig = {\n  config_version = 1,\n}\n";
+        if (Migrate(v, new List<string>()) != v || Migrate("not a config", new List<string>()) != "not a config") return false;
+        return true;
     }
 }
 

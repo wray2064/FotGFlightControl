@@ -18,7 +18,7 @@ partial class ControllerSetup : Form {
  NumericUpDown sensitivity=new NumericUpDown(), deadzone=new NumericUpDown(); Timer timer=new Timer();
  CheckBox useMouse=new CheckBox(); bool calibrating; double drift; string prefs;
  JavaScriptSerializer json=new JavaScriptSerializer {MaxJsonLength=16777216};
- public ControllerSetup() { BuildCockpit(); Shown+=delegate{StartConsoleUpdateCheck();}; }
+ public ControllerSetup() { BuildCockpit(); Shown+=delegate{ShowMigrationNotice();StartConsoleUpdateCheck();}; }
  public void SetEmbedded(){
   if(embeddedCockpit)return;
   embeddedCockpit=true;MinimumSize=Size.Empty;
