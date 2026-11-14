@@ -1,5 +1,5 @@
 -- Editable four-slot macro preset for the Fate of the Galaxy Gamepad Wheel.
--- The Flight Control Console exports this file after validating action types.
+-- The Hangar Bay Console exports this file after validating action types.
 -- The runtime does not execute label or argument text as Lua code.
 FotGWheelConfig = {
     camera_hold_enabled = true,
