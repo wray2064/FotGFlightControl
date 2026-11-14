@@ -1,6 +1,6 @@
 # Flight Control for Fate of the Galaxy
 
-**Version 1.1.4 campaign utilities candidate.** A free, handheld-first controller add-on for the Windows release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**.
+**Version 1.1.5, final Flight Control 1 build.** A free, handheld-first controller add-on for the Windows 1.x release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**. Fate of the Galaxy 2.x uses a newer engine and changed controller bindings; it requires a separate Flight Control 2 compatibility build.
 
 Fate of the Galaxy 1.1.3 passed preset generation, isolated installation, and a practice-mission controller test; see the [compatibility report](docs/COMPATIBILITY-FOTG-1.1.3.md). Additional missions and VR remain to be checked.
 
@@ -11,7 +11,7 @@ Development began so the game could be played on a Legion Go 2 at launch, before
 - **Report a problem:** [GitHub issues](https://github.com/wray2064/FotGFlightControl/issues) or dev@manictrashpanda.dev
 - **Download safety:** [SECURITY.md](SECURITY.md) explains the 1.1.1 Defender alert and the changes in 1.1.2.
 
-> Tested on a Lenovo Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads, with Fate of the Galaxy 1.1.0, 1.1.1 and 1.1.2. Testing has focused extensively on practice missions, refining how the controls feel while flying. The campaign and multiplayer have not yet been tested. Bugs, awkward interactions and ideas for improvement: dev@manictrashpanda.dev.
+> Tested on a Lenovo Legion Go 2, ROG Ally X, Xbox controllers and generic gamepads, with Fate of the Galaxy 1.1.0 through 1.1.3. The Excoriator tutorial was completed with the 1.1.5 local build. Other campaigns and multiplayer remain unverified. Bugs, awkward interactions and ideas for improvement: dev@manictrashpanda.dev.
 >
 > Unofficial fan tool. Not affiliated with or endorsed by the Fate of the Galaxy team, the FreeSpace Source Code Project, Lucasfilm or Disney. The game and engine are separate downloads and are not included here.
 
