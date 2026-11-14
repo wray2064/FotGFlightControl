@@ -249,6 +249,15 @@ function W:publish_state()
     end
 end
 
+local function wheel_stick(input)
+    local rx, ry = input.rx or 0, input.ry or 0
+    local lx, ly = input.lx or 0, input.ly or 0
+    if lx * lx + ly * ly > rx * rx + ry * ry then
+        return lx, ly
+    end
+    return rx, ry
+end
+
 local function read_bridge()
     local file = cf.openFile("fotg-wheel-input.txt", "r", "data/players")
     if not file or not file:isValid() then return nil end
@@ -580,7 +589,8 @@ function W:power_frame(buttons, pressed, dt)
         self:close_panel(false)
         return
     end
-    local x, y = (self.input.rx or 0) / 32768, (self.input.ry or 0) / 32768
+    local raw_x, raw_y = wheel_stick(self.input)
+    local x, y = raw_x / 32768, raw_y / 32768
     if math.abs(y) < 0.28 then self.power_nav_ready = true
     elseif self.power_nav_ready and y > 0.58 then
         self.power_selected = math.min(3, self.power_selected + 1)
@@ -726,7 +736,8 @@ function W:shield_frame(buttons, pressed, dt)
         end
         return
     end
-    local x, y = (self.input.rx or 0) / 32768, (self.input.ry or 0) / 32768
+    local raw_x, raw_y = wheel_stick(self.input)
+    local x, y = raw_x / 32768, raw_y / 32768
     if math.abs(y) < 0.28 then self.shield_nav_ready = true
     elseif self.shield_nav_ready and y > 0.58 then
         self.shield_selected = math.max(1, self.shield_selected - 1)
@@ -839,7 +850,7 @@ end
 function W:wheel_hint()
     if string.sub(self.mode or "", 1, 8) == "mission_" then return "B  Back to macros" end
     if self.mode == "macros" then return "Diagonals: mission commands" end
-    return "Right stick: choose"
+    return "Either stick: choose"
 end
 
 -- A layout is a permutation of visible choices, never executable profile code.
@@ -1283,7 +1294,7 @@ function W:frame()
         elseif self.mode == "systems" and pressed(B_X) then
             self:open_shields()
         else
-            local sector = sector_from_stick(self.input.rx, self.input.ry)
+            local sector = sector_from_stick(wheel_stick(self.input))
             if sector == nil then
                 self.stick_ready = true
             elseif sector ~= 0 and self.stick_ready then
@@ -1531,7 +1542,7 @@ function W:draw()
     local detail = self.mode == "systems" and "Y Manual power   X Shield allocation"
         or self.comm_open_requested and "Opening communications..."
         or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
-            or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose"))
+            or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Either stick: choose"))
     gr.setColor(223, 243, 250, 255)
     gr.drawString(detail, cx - math.floor(gr.getStringWidth(detail) * 0.5), cy + math.floor(2 * scale))
     local hint = "A  Confirm    B  Cancel"
@@ -1675,7 +1686,7 @@ function W:draw_vr(draw, layer)
         centered(self.mode == "systems" and "Y Manual power   X Shield allocation"
             or self.comm_open_requested and "Opening communications..."
             or ((self.mode == "macros" or string.sub(self.mode or "", 1, 8) == "mission_") and self:wheel_hint()
-                or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Right stick: choose")), 4)
+                or (pages > 1 and ("Page " .. page .. "/" .. pages) or "Either stick: choose")), 4)
         centered("A  Confirm    B  Cancel", 32)
     end
     gr.CurrentFont = previous_font
@@ -1773,7 +1784,8 @@ if not IS_STANDALONE then
     engine.addHook("On Dialog Close", function() W:dialog_close() end)
     -- The bridge reads the stick for selection. Suppress flight actions while a
     -- wheel is visible, even if the pilot also bound that physical stick here.
-    for _, action in ipairs({ "JOY_HEADING_AXIS", "JOY_PITCH_AXIS", "JOY_BANK_AXIS" }) do
+    for _, action in ipairs({ "JOY_HEADING_AXIS", "JOY_PITCH_AXIS", "JOY_BANK_AXIS",
+            "JOY_REL_THROTTLE_AXIS", "JOY_ABS_THROTTLE_AXIS" }) do
         local binding = io.Keybinding[action]
         if binding then
             binding:registerHook(function() return W.mode ~= nil end, true, true)

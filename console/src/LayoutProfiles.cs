@@ -47,11 +47,9 @@ partial class ControllerSetup {
     buttons.Controls.Add(ActionButton("Move down",delegate{int pos=list.SelectedIndex;if(pos<0||pos>=draft[index].Length-1)return;int item=draft[index][pos+1];draft[index][pos+1]=draft[index][pos];draft[index][pos]=item;refresh();list.SelectedIndex=pos+1;}),0,1);
     buttons.Controls.Add(ActionButton("Reset panel",delegate{draft[index]=Sequence(LayoutCaptions[index].Length);refresh();}),0,2);
    }
-   var foot=Grid(4,1);for(int i=0;i<4;i++)foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));main.Controls.Add(foot,0,2);
-   foot.Controls.Add(ActionButton("Import profile",delegate{if(ImportProfile()){draft=CopyLayouts(layoutOrders);dialog.DialogResult=DialogResult.Cancel;dialog.Close();}}),0,0);
-   foot.Controls.Add(ActionButton("Export profile",delegate{ExportProfile(draft);}),1,0);
-   foot.Controls.Add(ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;dialog.Close();}),2,0);
-   foot.Controls.Add(ActionButton("Use layout",delegate{for(int i=0;i<draft.Length;i++)layoutOrders[i]=(int[])draft[i].Clone();macroStatus.Text="LAYOUT READY / Save wheel to apply.";dialog.DialogResult=DialogResult.OK;dialog.Close();}),3,0);
+   var foot=Grid(2,1);for(int i=0;i<2;i++)foot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));main.Controls.Add(foot,0,2);
+   foot.Controls.Add(ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;dialog.Close();}),0,0);
+   foot.Controls.Add(ActionButton("Use layout",delegate{for(int i=0;i<draft.Length;i++)layoutOrders[i]=(int[])draft[i].Clone();macroStatus.Text="LAYOUT READY / Save wheel to apply.";dialog.DialogResult=DialogResult.OK;dialog.Close();}),1,0);
    dialog.ShowDialog(this);
   }
  }
@@ -68,9 +66,12 @@ partial class ControllerSetup {
   public string[] holdBindings{get;set;}
   // Version 2 added quick-press actions and Custom axes; versions 3–5 added default hold choices. Older profiles load with those holds enabled.
   public string[] tapBindings{get;set;}public string[] customAxes{get;set;}public bool[] customInvert{get;set;}
+  public string mode{get;set;}
+  public int sensitivity{get;set;}public int deadzone{get;set;}public bool mouseFlight{get;set;}public int controllerSlot{get;set;}
  }
  WheelProfile CurrentProfile(int[][] layouts){return new WheelProfile{
-  version=5,game="FotG 1.1.0",layouts=CopyLayouts(layouts),
+  version=6,game="FotG",layouts=CopyLayouts(layouts),mode=advancedMode.Checked?"advanced":"default",
+  sensitivity=(int)sensitivity.Value,deadzone=(int)deadzone.Value,mouseFlight=useMouse.Checked,controllerSlot=slot.SelectedIndex,
   macros=ReadMacroCards().Select(m=>new ProfileMacro{label=m.Label,action=m.Action,argument=m.Argument}).ToArray(),
   fontSize=wheelFontSize.SelectedIndex==1?"large":"medium",fontBold=wheelFontBold.Checked,
   flightAxes=AxesMode(flightAxes.SelectedIndex),
@@ -78,7 +79,9 @@ partial class ControllerSetup {
   holdEnabled=holdEnabled,holdMs=holdLayerMs,r3MouseHoldEnabled=r3MouseHoldEnabled,rbModeHoldEnabled=rbModeHoldEnabled,l3GunHoldEnabled=l3GunHoldEnabled,lbTorpedoHoldEnabled=lbTorpedoHoldEnabled,holdBindings=(string[])holdActions.Clone(),
   tapBindings=(string[])tapActions.Clone(),customAxes=(string[])customAxes.Clone(),customInvert=(bool[])customInvert.Clone()};}
  static void ValidateProfile(WheelProfile p){
-  if(p==null||(p.version!=1&&p.version!=2&&p.version!=3&&p.version!=4&&p.version!=5)||p.game!="FotG 1.1.0")throw new Exception("This profile is not a Flight Control wheel profile.");
+  if(p==null||p.version<1||p.version>6||p.game!=(p.version==6?"FotG":"FotG 1.1.0"))throw new Exception("This is not a Flight Control profile.");
+  if(p.version==6&&((p.mode!="default"&&p.mode!="advanced")||p.sensitivity<0||p.sensitivity>9||p.deadzone<0||p.deadzone>45||p.controllerSlot<0||p.controllerSlot>3))
+   throw new Exception("Invalid flight response or console mode.");
   if(p.version==1){p.tapBindings=(string[])DefaultTapActions.Clone();p.customAxes=(string[])DefaultCustomAxes.Clone();p.customInvert=new bool[4];}
   if(p.version<3)p.r3MouseHoldEnabled=true;
   if(p.version<4)p.rbModeHoldEnabled=true;
@@ -113,25 +116,30 @@ partial class ControllerSetup {
   roundtrip.layouts[0][1]=2;
   try{ValidateProfile(roundtrip);return false;}catch(Exception){return true;}
  }
- void ExportProfile(int[][] layouts){using(var save=new SaveFileDialog{Filter="Wheel profile (*.json)|*.json",FileName="FotG-Wheel-Profile.json"}){
+ void ExportProfile(int[][] layouts){using(var save=new SaveFileDialog{Filter="Flight Control profile (*.json)|*.json",FileName="Flight-Control-Profile.json"}){
   if(save.ShowDialog(this)!=DialogResult.OK)return;
   var profile=CurrentProfile(layouts);ValidateProfile(profile);
   File.WriteAllText(save.FileName,new JavaScriptSerializer().Serialize(profile),new UTF8Encoding(false));
  }}
- bool ImportProfile(){using(var open=new OpenFileDialog{Filter="Wheel profile (*.json)|*.json"}){
+ bool ImportProfile(){using(var open=new OpenFileDialog{Filter="Flight Control profile (*.json)|*.json"}){
   if(open.ShowDialog(this)!=DialogResult.OK)return false;
   var info=new FileInfo(open.FileName);if(info.Length>65536)throw new Exception("Profile exceeds 64 KB.");
   WheelProfile profile;
   try{profile=new JavaScriptSerializer().Deserialize<WheelProfile>(File.ReadAllText(open.FileName));}
   catch(Exception e){throw new Exception("Invalid profile JSON: "+e.Message);}
   ValidateProfile(profile);
+  advancedMode.Checked=profile.version<6||profile.mode=="advanced";
+  if(profile.version==6){
+   sensitivity.Value=profile.sensitivity;deadzone.Value=profile.deadzone;useMouse.Checked=profile.mouseFlight;slot.SelectedIndex=profile.controllerSlot;
+  }
   for(int i=0;i<4;i++){layoutOrders[i]=(int[])profile.layouts[i].Clone();SetMacro(i,new MacroSpec(profile.macros[i].label,profile.macros[i].action,profile.macros[i].argument));}
   wheelFontSize.SelectedIndex=profile.fontSize=="large"?1:0;wheelFontBold.Checked=profile.fontBold;
   flightAxes.SelectedIndex=AxesIndex(profile.flightAxes);
   Array.Copy(profile.tapBindings,tapActions,TapButtons.Length);Array.Copy(profile.customAxes,customAxes,4);Array.Copy(profile.customInvert,customInvert,4);
   lookHoldSlider.Value=profile.lookHoldMs/25;disableLook.Checked=!profile.lookEnabled;cameraHold.Checked=profile.cameraEnabled;
   holdEnabled=profile.holdEnabled;holdLayerMs=profile.holdMs;r3MouseHoldEnabled=profile.r3MouseHoldEnabled;rbModeHoldEnabled=profile.rbModeHoldEnabled;l3GunHoldEnabled=profile.l3GunHoldEnabled;lbTorpedoHoldEnabled=profile.lbTorpedoHoldEnabled;Array.Copy(profile.holdBindings,holdActions,HoldButtons.Length);
-  macroStatus.Text="PROFILE LOADED / Review and save wheel to apply.";
+  if(refreshButtonEditor!=null)refreshButtonEditor();
+  MessageBox.Show("Profile loaded for review. Use Save Wheel to apply wheel and binding settings. Use Apply with Backup on Flight Response to apply calibration.",Text);
   return true;
  }}
 }

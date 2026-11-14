@@ -28,6 +28,14 @@ static class GameInstall {
 
     static string Bin(string root) { return Path.Combine(root, "kn_portable", "Library", "bin"); }
 
+    internal static string MyModCore(string root) {
+        return Path.Combine(root, "kn_portable", "Library", "FotG_2", "MyMod-1.0.0", "core");
+    }
+
+    internal static bool HasMyMod(string root) {
+        return File.Exists(Path.Combine(MyModCore(root), "..", "mod.json"));
+    }
+
     // FSO version FotG's manifest depends on, or null.
     static string DependencyVersion(string manifest) {
         try {
@@ -63,6 +71,8 @@ static class GameInstall {
     // The engine to launch for this game folder and FotG release, or null.
     public static EngineInfo FindEngine(string root, string gameVersion) {
         try {
+            if (HasMyMod(root))
+                return FromFolder(Path.Combine(Bin(root), "FSO_2601SDL3-26.0.1-1"), "FSO 26.0.1-1");
             var sdl3 = FromFolder(Path.Combine(Bin(root), Sdl3Package), "FSO 26.0.1-SDL3");
             if (sdl3 != null) return sdl3;
             string manifest = Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + gameVersion, "mod.json");

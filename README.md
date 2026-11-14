@@ -1,6 +1,8 @@
 # Flight Control for Fate of the Galaxy
 
-**Version 1.1.5, final Flight Control 1 build.** A free, handheld-first controller add-on for the Windows 1.x release of Fate of the Galaxy: D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a configurable layout. Internally the add-on is called **FotG Gamepad Wheel**. Fate of the Galaxy 2.x uses a newer engine and changed controller bindings; it requires a separate Flight Control 2 compatibility build.
+**Flight Control 2.0.0-preview.1** supports Fate of the Galaxy 2.0.2 through MyMod and retains the Classic install path. On Windows, create a pilot in FotG, close the game, extract the player ZIP, and run Setup.exe. Select the folder containing Knossos and kn_portable. Launch Hangar Bay.exe from that game folder.
+
+See [Help](Help.html), the [preview install guide](docs/INSTALL-FLIGHT-CONTROL-2.md), and the [changelog](CHANGELOG.md). The Classic details below describe the established 1.x install path.
 
 Fate of the Galaxy 1.1.3 passed preset generation, isolated installation, and a practice-mission controller test; see the [compatibility report](docs/COMPATIBILITY-FOTG-1.1.3.md). Additional missions and VR remain to be checked.
 

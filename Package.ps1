@@ -10,7 +10,7 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Controller Setup self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.1.5'
+$version = '2.0.0-preview.1'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-' + $version
@@ -46,7 +46,7 @@ foreach ($item in @('ControllerSetup.exe', 'Build.ps1', 'BuildIcon.ps1', 'Help.h
 }
 Copy-Item -LiteralPath (Join-Path $setup 'src') -Destination (Join-Path $targetSetup 'src') -Recurse
 Copy-Item -LiteralPath (Join-Path $setup 'Assets') -Destination (Join-Path $targetSetup 'Assets') -Recurse
-foreach ($item in @('README.md', 'Help.html', 'About.html', 'LICENSE', 'NOTICE.md', 'ARTWORK-LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md')) {
+foreach ($item in @('README.md', 'CHANGELOG.md', 'Help.html', 'About.html', 'LICENSE', 'NOTICE.md', 'ARTWORK-LICENSE.md', 'CONTRIBUTING.md', 'SECURITY.md')) {
     Copy-Item -LiteralPath (Join-Path $workspace $item) -Destination (Join-Path $stage $item)
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.exe') -Destination (Join-Path $stage 'Setup.exe')
@@ -87,19 +87,30 @@ Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Package: $archive"
 Write-Host "SHA256: $hash"
-# update.json for the product site. Publish it only after the ZIP is live at the URL below.
-# verifiedGameVersions lists, per Flight Control version, game versions checked after release.
-$manifest = [ordered]@{
-    schema = 1
-    latest = [ordered]@{
-        version = $version
-        date = (Get-Date -Format 'yyyy-MM-dd')
-        url = "https://manictrashpanda.dev/games/FotGFlightControl/download/$name.zip"
-        size = (Get-Item -LiteralPath $archive).Length
-        sha256 = $hash
-        notes = "https://github.com/wray2064/FotGFlightControl/releases/tag/v$version"
+
+# Include the current source tree, including pending release edits, with repository layout intact.
+$sourceName = 'FotG-Flight-Control-source-' + $version
+$sourceStage = Join-Path $dist ($sourceName + '-' + [guid]::NewGuid().ToString('N'))
+$sourceRoot = Join-Path $sourceStage $sourceName
+$tracked = @(git -C $workspace -c core.quotepath=false ls-files --cached --others --exclude-standard)
+if ($LASTEXITCODE -ne 0) { throw 'Could not enumerate release sources.' }
+try {
+    foreach ($file in $tracked | Sort-Object -Unique) {
+        $inputFile = Join-Path $workspace $file
+        if (!(Test-Path -LiteralPath $inputFile -PathType Leaf)) { continue }
+        $targetFile = Join-Path $sourceRoot $file
+        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $targetFile))
+        Copy-Item -LiteralPath $inputFile -Destination $targetFile
     }
-    verifiedGameVersions = [ordered]@{ $version = @('1.1.3') }
+    $sourceArchive = Join-Path $dist ($sourceName + '.zip')
+    Compress-Archive -LiteralPath $sourceRoot -DestinationPath $sourceArchive -CompressionLevel Optimal -Force
+} finally {
+    $resolvedSourceStage = [IO.Path]::GetFullPath($sourceStage)
+    if ($resolvedSourceStage.StartsWith([IO.Path]::GetFullPath($dist).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $resolvedSourceStage)) {
+        Remove-Item -LiteralPath $resolvedSourceStage -Recurse -Force
+    }
 }
-[IO.File]::WriteAllText((Join-Path $dist 'update.json'), ($manifest | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
-Write-Host "Update manifest: $(Join-Path $dist 'update.json')"
+@($archive, $sourceArchive) | ForEach-Object {
+    (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($_)
+} | Set-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt') -Encoding Ascii
+Write-Host "Source: $sourceArchive"

@@ -31,6 +31,7 @@ static class Installer {
 
     public static void Run(InstallOptions o, Action<string> log, Action<string> warn) {
         string root = Path.GetFullPath(o.GameRoot).TrimEnd('\\');
+        if (GameInstall.HasMyMod(root)) { InstallMyMod(o, root, log); return; }
         string supportedText = String.Join(", ", SupportedVersions.Reverse());
         bool versionOverridden = false;
         string gameVersion = o.GameVersion;
@@ -211,6 +212,69 @@ static class Installer {
             : "Native pilot A, B, X, Y, LB, RB, Start, L3, R3 and D-pad bindings were reserved with backups where needed.");
     }
 
+    static void InstallMyMod(InstallOptions o, string root, Action<string> log) {
+        if (Running("fs2_open") || Running("WheelBridge") || Running("Hangar Bay"))
+            throw new InstallException("Close the game, WheelBridge, and Hangar Bay before installing.");
+        string prefs = Path.Combine(root, @"kn_portable\HardLightProductions\FreeSpaceOpen");
+        string ini = Path.Combine(prefs, @"data\FotG_2_settings.ini");
+        string players = Path.Combine(prefs, @"data\players");
+        if (!File.Exists(ini) || !Directory.Exists(players) || !Directory.GetFiles(players, "*.json").Any())
+            throw new InstallException("Launch FotG 2 and create a pilot before installing.");
+        if (GameInstall.FindEngine(root, "2.0.2") == null)
+            throw new InstallException("The FotG 2 SDL3 engine is missing.");
+        string source = Path.Combine(o.PackageRoot, "FotG_Gamepad_Wheel");
+        string support = Path.Combine(root, "Flight Control Console");
+        string core = GameInstall.MyModCore(root);
+        string stock = Path.Combine(root, @"kn_portable\Library\FotG_2\FotG_2-2.0.2\FG_Core\data\tables\Controlconfigdefaults.tbl");
+        string table = Path.Combine(core, @"data\tables\Controlconfigdefaults.tbl");
+        string config = Path.Combine(core, @"data\tables\lua\zz_fotg_wheel_config-sct.lua");
+        string generated = Presets.FromTable(File.ReadAllText(stock), Presets.Sdl3Axes, true);
+        var presetSections = Regex.Matches(generated, @"(?ms)^#ControlConfigOverride\b.*?^#End\b");
+        if (presetSections.Count != 3) throw new InstallException("Unexpected FotG 2 control presets.");
+        generated = generated.Remove(presetSections[0].Index, presetSections[0].Length)
+            .Insert(presetSections[0].Index, presetSections[1].Value.Replace("$Name: FotG Classic Native", "$Name: default"));
+        string backup = Path.Combine(root, "Flight Control Backups", Stamp());
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string data = Path.Combine(source, "data");
+        foreach (string file in Directory.GetFiles(data, "*", SearchOption.AllDirectories))
+            files.Add(Path.Combine(core, "data", file.Substring(data.Length + 1)), file);
+        foreach (string file in new[] { "ControllerSetup.exe", "Help.html", "About.html", @"Assets\FlightControl.ico", @"Assets\FlightControl.png" })
+            files.Add(Path.Combine(support, file), Path.Combine(source, "ControllerSetup", file));
+        files.Add(Path.Combine(support, "WheelBridge.exe"), Path.Combine(source, "WheelBridge.exe"));
+        files.Add(Path.Combine(root, "Hangar Bay.exe"), Path.Combine(o.PackageRoot, "Hangar Bay.exe"));
+        foreach (string file in files.Values)
+            if (!File.Exists(file)) throw new InstallException("Package file missing: " + file);
+        bool preserve = File.Exists(config) && File.Exists(table)
+            && File.Exists(Path.Combine(core, @"data\tables\lua\zzz_fotg_wheel-sct.lua"));
+        if (preserve) files.Remove(config);
+        if (!preserve) files.Add(table, null);
+        var written = new List<string>();
+        try {
+            foreach (var entry in files) {
+                string target = entry.Key;
+                if (File.Exists(target)) {
+                    string saved = Path.Combine(backup, target.Substring(root.Length + 1));
+                    Directory.CreateDirectory(Path.GetDirectoryName(saved));
+                    File.Copy(target, saved);
+                }
+                Directory.CreateDirectory(Path.GetDirectoryName(target));
+                written.Add(target);
+                if (entry.Value == null) File.WriteAllText(target, generated, Utf8NoBom);
+                else File.Copy(entry.Value, target, true);
+            }
+            if (!o.SkipPilotReservation && RunConsole(Path.Combine(support, "ControllerSetup.exe"), "--reserve-wheel", root) != 0)
+                throw new InstallException("Could not reserve the pilot's wheel buttons.");
+        } catch {
+            foreach (string target in written) {
+                string saved = Path.Combine(backup, target.Substring(root.Length + 1));
+                if (File.Exists(saved)) File.Copy(saved, target, true);
+                else File.Delete(target);
+            }
+            throw;
+        }
+        log("Installed Flight Control into MyMod. Open Hangar Bay.exe beside Knossos.NET.exe.");
+    }
+
     static bool Running(string prefix) {
         return Process.GetProcesses().Any(p => { try { return p.ProcessName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase); } catch { return false; } });
     }
@@ -250,7 +314,7 @@ static class Presets {
         return FromTable(File.ReadAllText(stockPath), axisMap);
     }
 
-    public static string FromTable(string stock, string axisMap) {
+    public static string FromTable(string stock, string axisMap, bool myMod = false) {
         // The D-pad is also the engine's native view hat. Keep the keyboard view arrows, but
         // remove the hat in this overlay; the bridge sends the arrows after a hold.
         foreach (string action in new[] { "PADLOCK_UP", "PADLOCK_DOWN", "PADLOCK_LEFT", "PADLOCK_RIGHT" }) {
@@ -275,10 +339,11 @@ static class Presets {
         foreach (var c in new[] { Tuple.Create("CYCLE_PRIMARY_WEAPON_SEQUENCE", 4), Tuple.Create("CUSTOM_CONTROL_5", 5), Tuple.Create("SHIELD_EQUALIZE", 7),
                                   Tuple.Create("TARGET_SHIP_IN_RETICLE", 1), Tuple.Create("TARGET_CLOSEST_SHIP_ATTACKING_SELF", 2), Tuple.Create("TARGET_NEXT_CLOSEST_HOSTILE", 3) }) {
             var m = Regex.Match(classic, Bind(Regex.Escape(c.Item1)));
+            if (!m.Success && myMod) continue;
             if (!m.Success) throw new InvalidDataException("Expected control binding was not found: " + c.Item1);
             string edited = Regex.Replace(m.Value, @"(?ms)(\$Secondary:\s*\r?\n)\s*\$Controller:\s*CID_JOY0\s*\r?\n\s*\$Flags:\s*NONE\s*\r?\n\s*\$Input:\s*" + c.Item2 + @"\s*\r?\n",
                 "$1            $Controller: CID_NONE\r\n", RegexOptions.IgnoreCase);
-            if (edited == m.Value) throw new InvalidDataException("Expected joystick binding was not changed: " + c.Item1);
+            if (edited == m.Value && !myMod) throw new InvalidDataException("Expected joystick binding was not changed: " + c.Item1);
             classic = classic.Remove(m.Index, m.Length).Insert(m.Index, edited);
         }
         // FSO treats all four flight axes as relative analog items and warns at startup unless

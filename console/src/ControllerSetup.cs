@@ -13,7 +13,7 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyDescription("Settings for Flight Control: flight response, command wheels, macros, button actions and axes.")]
 [StructLayout(LayoutKind.Sequential)] struct Pad { public ushort buttons; public byte lt,rt; public short lx,ly,rx,ry; }
 [StructLayout(LayoutKind.Sequential)] struct State { public uint packet; public Pad pad; }
-static class ConsoleAsset { public static string File(string name){string local=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,name);if(System.IO.File.Exists(local))return local;return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"GamepadMods","FotG_Gamepad_Wheel","ControllerSetup",name);} }
+static class ConsoleAsset { public static string File(string name){string local=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,name);if(System.IO.File.Exists(local))return local;string support=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Flight Control Console",name);if(System.IO.File.Exists(support))return support;return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"GamepadMods","FotG_Gamepad_Wheel","ControllerSetup",name);} }
 partial class ControllerSetup : Form {
  [DllImport("xinput1_4.dll")] static extern uint XInputGetState(uint slot,out State state);
  TextBox root=new TextBox(), live=new TextBox(); ComboBox pilots=new ComboBox(), slot=new ComboBox();
@@ -31,7 +31,12 @@ partial class ControllerSetup : Form {
  void AddLabel(string text,int x,int y){Label l=new Label();l.Text=text;l.SetBounds(x,y,750,48);Controls.Add(l);l.SendToBack();}
  Button Button(string text,int x,int y,Action act){Button b=new Button();b.Text=text;b.SetBounds(x,y,200,35);b.Click+=delegate{try{act();}catch(Exception e){MessageBox.Show(e.Message,Text);}};Controls.Add(b);return b;}
  string PilotPath(){if(pilots.SelectedItem==null)throw new Exception("Select a native pilot first.");return Path.Combine(prefs,"data","players",pilots.SelectedItem+".json");}
- static string SettingsPath(string prefsRoot){string active=Path.Combine(prefsRoot,"data","GamepadMods_settings.ini");return File.Exists(active)?active:Path.Combine(prefsRoot,"data","FotG_R_settings.ini");}
+ static string SettingsPath(string prefsRoot){
+  string gameRoot=Path.GetFullPath(Path.Combine(prefsRoot,"..","..",".."));
+  if(GameInstall.HasMyMod(gameRoot))return Path.Combine(prefsRoot,"data","FotG_2_settings.ini");
+  string active=Path.Combine(prefsRoot,"data","GamepadMods_settings.ini");
+  return File.Exists(active)?active:Path.Combine(prefsRoot,"data","FotG_R_settings.ini");
+ }
  string SettingsPath(){return SettingsPath(prefs);}
  Dictionary<string,object> Read(string path){return json.Deserialize<Dictionary<string,object>>(File.ReadAllText(path));}
  Dictionary<string,object> Section(Dictionary<string,object> d,string key){return (Dictionary<string,object>)d[key];}
