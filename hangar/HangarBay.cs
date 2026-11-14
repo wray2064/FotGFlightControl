@@ -248,6 +248,8 @@ internal sealed class HangarBay : Form {
   string effects=Path.Combine(core,"data","effects");
   if(Directory.Exists(effects))foreach(string f in Directory.GetFiles(effects,"fotg_vr_*.png"))copy(f,Path.Combine(pkg,"data","effects",Path.GetFileName(f)));
   foreach(string rel in new[]{"ControllerSetup.exe","Help.html","About.html",@"Assets\FlightControl.ico",@"Assets\FlightControl.png"})copy(Path.Combine(support,rel),Path.Combine(pkg,"ControllerSetup",rel));
+  string helpArt=Path.Combine(support,"Assets","help");
+  if(Directory.Exists(helpArt))foreach(string f in Directory.GetFiles(helpArt,"*.png"))copy(f,Path.Combine(pkg,"ControllerSetup","Assets","help",Path.GetFileName(f)));
   copy(Path.Combine(support,"WheelBridge.exe"),Path.Combine(pkg,"WheelBridge.exe"));
  }
  static void CopyTree(string source,string destination){Directory.CreateDirectory(destination);foreach(string file in Directory.GetFiles(source))File.Copy(file,Path.Combine(destination,Path.GetFileName(file)));foreach(string folder in Directory.GetDirectories(source))CopyTree(folder,Path.Combine(destination,Path.GetFileName(folder)));}

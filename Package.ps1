@@ -57,6 +57,8 @@ foreach ($launcherName in @('Play with Gamepad Wheel.exe', 'Play with Gamepad Wh
 New-Item -ItemType Directory -Path (Join-Path $stage 'Assets') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.ico') -Destination (Join-Path $stage 'Assets\FlightControl.ico')
 Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\FlightControl.png') -Destination (Join-Path $stage 'Assets\FlightControl.png')
+# Help.html shows its pictures from Assets\help beside it, at the download root and in the add-on folder.
+Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\help') -Destination (Join-Path $stage 'Assets\help') -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage 'source') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Join-Path $stage 'source\Setup.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
@@ -73,6 +75,8 @@ Get-ChildItem -LiteralPath (Join-Path $workspace 'docs') | Where-Object { $_.Nam
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stage 'docs') -Recurse
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'Help.html') -Destination (Join-Path $targetMod 'Help.html')
+New-Item -ItemType Directory -Path (Join-Path $targetMod 'Assets') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $workspace 'console\Assets\help') -Destination (Join-Path $targetMod 'Assets\help') -Recurse
 Copy-Item -LiteralPath (Join-Path $workspace 'About.html') -Destination (Join-Path $targetMod 'About.html')
 Copy-Item -LiteralPath (Join-Path $workspace 'LICENSE') -Destination (Join-Path $targetMod 'LICENSE')
 Copy-Item -LiteralPath (Join-Path $workspace 'NOTICE.md') -Destination (Join-Path $targetMod 'NOTICE.md')
