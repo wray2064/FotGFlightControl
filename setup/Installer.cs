@@ -15,6 +15,8 @@ using System.Web.Script.Serialization;
 sealed class InstallOptions {
     public string GameRoot, GameVersion, PackageRoot;
     public bool OverrideVersionCheck, SkipPilotReservation;
+    // Repair run from inside Hangar Bay: it is open, so it is neither a blocker nor replaced.
+    public bool KeepHangarBay;
 }
 
 sealed class InstallException : Exception { public InstallException(string m) : base(m) { } }
@@ -213,7 +215,7 @@ static class Installer {
     }
 
     static void InstallMyMod(InstallOptions o, string root, Action<string> log) {
-        if (Running("fs2_open") || Running("WheelBridge") || Running("Hangar Bay"))
+        if (Running("fs2_open") || Running("WheelBridge") || (!o.KeepHangarBay && Running("Hangar Bay")))
             throw new InstallException("Close the game, WheelBridge, and Hangar Bay before installing.");
         string prefs = Path.Combine(root, @"kn_portable\HardLightProductions\FreeSpaceOpen");
         string ini = Path.Combine(prefs, @"data\FotG_2_settings.ini");
@@ -228,6 +230,8 @@ static class Installer {
         string stock = Path.Combine(root, @"kn_portable\Library\FotG_2\FotG_2-2.0.2\FG_Core\data\tables\Controlconfigdefaults.tbl");
         string table = Path.Combine(core, @"data\tables\Controlconfigdefaults.tbl");
         string config = Path.Combine(core, @"data\tables\lua\zz_fotg_wheel_config-sct.lua");
+        if (!File.Exists(stock))
+            throw new InstallException("This Flight Control build supports Fate of the Galaxy 2.0.2 only, and its control table was not found at " + stock + ". Nothing was changed.");
         string generated = Presets.FromTable(File.ReadAllText(stock), Presets.Sdl3Axes, true);
         var presetSections = Regex.Matches(generated, @"(?ms)^#ControlConfigOverride\b.*?^#End\b");
         if (presetSections.Count != 3) throw new InstallException("Unexpected FotG 2 control presets.");
@@ -241,7 +245,7 @@ static class Installer {
         foreach (string file in new[] { "ControllerSetup.exe", "Help.html", "About.html", @"Assets\FlightControl.ico", @"Assets\FlightControl.png" })
             files.Add(Path.Combine(support, file), Path.Combine(source, "ControllerSetup", file));
         files.Add(Path.Combine(support, "WheelBridge.exe"), Path.Combine(source, "WheelBridge.exe"));
-        files.Add(Path.Combine(root, "Hangar Bay.exe"), Path.Combine(o.PackageRoot, "Hangar Bay.exe"));
+        if (!o.KeepHangarBay) files.Add(Path.Combine(root, "Hangar Bay.exe"), Path.Combine(o.PackageRoot, "Hangar Bay.exe"));
         foreach (string file in files.Values)
             if (!File.Exists(file)) throw new InstallException("Package file missing: " + file);
         bool preserve = File.Exists(config) && File.Exists(table)

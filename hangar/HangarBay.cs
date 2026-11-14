@@ -16,12 +16,32 @@ internal static class HangarProgram {
   Application.Run(new HangarBay());
   return 0;
  }
+ // FotG 2 (MyMod) installs keep Flight Control's overlay files in the MyMod core and its programs in
+ // "Flight Control Console". Only files with Flight Control's own names are ever removed.
+ static IEnumerable<string> MyModOwnedFiles(string core){
+  foreach(string rel in new[]{@"data\tables\Controlconfigdefaults.tbl",@"data\tables\zzz_fotg_wheel-hdg.tbm",@"data\tables\lua\zz_fotg_wheel_config-sct.lua",@"data\tables\lua\zzz_fotg_wheel-sct.lua"})yield return Path.Combine(core,rel);
+  string effects=Path.Combine(core,"data","effects");
+  if(Directory.Exists(effects))foreach(string f in Directory.GetFiles(effects,"fotg_vr_*.png"))yield return f;
+ }
+ static void DeleteOne(string file,List<string> left){if(!File.Exists(file))return;try{File.SetAttributes(file,FileAttributes.Normal);File.Delete(file);}catch(IOException){left.Add(file);}catch(UnauthorizedAccessException){left.Add(file);}}
+ static void RemoveMyMod(string root,List<string> left){
+  string core=GameInstall.MyModCore(root);
+  foreach(string f in MyModOwnedFiles(core).ToList())DeleteOne(f,left);
+  foreach(string dir in new[]{Path.Combine(core,"data","effects"),Path.Combine(core,"data","tables","lua")})
+   try{if(Directory.Exists(dir)&&!Directory.EnumerateFileSystemEntries(dir).Any())Directory.Delete(dir);}catch(IOException){}
+  string support=Path.Combine(root,"Flight Control Console");
+  if(Directory.Exists(support)){
+   foreach(string f in Directory.GetFiles(support,"*",SearchOption.AllDirectories))DeleteOne(f,left);
+   if(left.Count==0){try{Directory.Delete(support,true);}catch(IOException){left.Add(support);}}
+  }
+ }
  // Removes the add-on, the launchers and the Setup copy, in this process. Hangar Bay.exe is left:
  // a running program cannot delete its own file, so the player deletes it after Hangar Bay closes.
  // Returns the files that could not be removed.
  internal static List<string> RemoveInstalled(string game){
   string root=Path.GetFullPath(game).TrimEnd('\\');
   if(!Directory.Exists(Path.Combine(root,"kn_portable")))throw new Exception("This is not a Fate of the Galaxy folder; nothing was removed.");
+  if(GameInstall.HasMyMod(root)){var gone=new List<string>();RemoveMyMod(root,gone);return gone;}
   string addon=Path.GetFullPath(Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"));
   string parent=Path.GetFullPath(Path.Combine(root,"GamepadMods"));
   if(!addon.StartsWith(parent+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||Path.GetFileName(addon)!="FotG_Gamepad_Wheel")throw new Exception("The add-on folder did not resolve inside GamepadMods; nothing was removed.");
@@ -187,8 +207,9 @@ internal sealed class HangarBay : Form {
  void Repair(){
   if(Process.GetProcesses().Any(x=>x.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close the game before repairing Flight Control.");
   if(Process.GetProcesses().Any(x=>x.ProcessName=="WheelBridge"||x.ProcessName.StartsWith("ControllerSetup",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close the controller bridge and any open Configure window before repairing.");
+  bool myMod=GameInstall.HasMyMod(root);
   string addon=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"), setup=Path.Combine(root,"Flight Control Setup.exe");
-  if(!Directory.Exists(addon)||!File.Exists(setup))throw new Exception("The installed repair files are missing. Run Setup.exe from the full Flight Control download.");
+  if(myMod?!Directory.Exists(Path.Combine(root,"Flight Control Console")):(!Directory.Exists(addon)||!File.Exists(setup)))throw new Exception("The installed repair files are missing. Run Setup.exe from the full Flight Control download.");
   // The installed files are the repair source, and Install replaces that folder, so copy them aside
   // first. This is data only: the repair runs here, with the same installer code as Setup, and no
   // program is started from the copy. Hangar Bay.exe itself is not copied; it is already in place.
@@ -196,15 +217,18 @@ internal sealed class HangarBay : Form {
   string stage=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Repair-"+Guid.NewGuid().ToString("N"));
   var log=new StringBuilder();
   try{
-   CopyTree(addon,Path.Combine(stage,"FotG_Gamepad_Wheel"));File.Copy(setup,Path.Combine(stage,"Setup.exe"));
-   foreach(string name in new[]{"Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe"}){
-    string file=Path.Combine(root,name);if(File.Exists(file))File.Copy(file,Path.Combine(stage,name));
+   if(myMod)StageMyModRepair(root,stage);
+   else{
+    CopyTree(addon,Path.Combine(stage,"FotG_Gamepad_Wheel"));File.Copy(setup,Path.Combine(stage,"Setup.exe"));
+    foreach(string name in new[]{"Play with Gamepad Wheel.exe","Play with Gamepad Wheel VR.exe","Configure Gamepad Wheel.exe"}){
+     string file=Path.Combine(root,name);if(File.Exists(file))File.Copy(file,Path.Combine(stage,name));
+    }
    }
    Cursor=Cursors.WaitCursor;status.Text="  REPAIRING...";Application.DoEvents();
    // An install made with the version-check override records the game version; repair keeps it.
    string overrideRecord=Path.Combine(addon,"version-override.txt");
-   string overridden=File.Exists(overrideRecord)?File.ReadAllText(overrideRecord).Trim():null;
-   var options=new InstallOptions{GameRoot=root,PackageRoot=stage};
+   string overridden=!myMod&&File.Exists(overrideRecord)?File.ReadAllText(overrideRecord).Trim():null;
+   var options=new InstallOptions{GameRoot=root,PackageRoot=stage,KeepHangarBay=true};
    if(!String.IsNullOrEmpty(overridden)){options.GameVersion=overridden;options.OverrideVersionCheck=true;}
    Installer.Run(options,line=>log.AppendLine(line),line=>log.AppendLine("WARNING: "+line));
   }catch(InstallException e){throw new Exception("Repair failed: "+e.Message+(log.Length>0?"\n\n"+log:""));}
@@ -213,6 +237,19 @@ internal sealed class HangarBay : Form {
  }
  // Close the pages that read files from the add-on folder, so it can be replaced or deleted.
  void ReleaseAddonFiles(){Clear();if(console!=null){console.Dispose();console=null;}GC.Collect();GC.WaitForPendingFinalizers();}
+ // A FotG 2 repair rebuilds the install package from the installed files (data only; nothing is started from it).
+ static void StageMyModRepair(string root,string stage){
+  string core=GameInstall.MyModCore(root),support=Path.Combine(root,"Flight Control Console"),pkg=Path.Combine(stage,"FotG_Gamepad_Wheel");
+  Action<string,string> copy=delegate(string from,string to){
+   if(!File.Exists(from))throw new Exception("An installed Flight Control file is missing: "+from+"\nRun Setup.exe from the full Flight Control download.");
+   Directory.CreateDirectory(Path.GetDirectoryName(to));File.Copy(from,to,true);
+  };
+  foreach(string rel in new[]{@"data\tables\zzz_fotg_wheel-hdg.tbm",@"data\tables\lua\zz_fotg_wheel_config-sct.lua",@"data\tables\lua\zzz_fotg_wheel-sct.lua"})copy(Path.Combine(core,rel),Path.Combine(pkg,rel));
+  string effects=Path.Combine(core,"data","effects");
+  if(Directory.Exists(effects))foreach(string f in Directory.GetFiles(effects,"fotg_vr_*.png"))copy(f,Path.Combine(pkg,"data","effects",Path.GetFileName(f)));
+  foreach(string rel in new[]{"ControllerSetup.exe","Help.html","About.html",@"Assets\FlightControl.ico",@"Assets\FlightControl.png"})copy(Path.Combine(support,rel),Path.Combine(pkg,"ControllerSetup",rel));
+  copy(Path.Combine(support,"WheelBridge.exe"),Path.Combine(pkg,"WheelBridge.exe"));
+ }
  static void CopyTree(string source,string destination){Directory.CreateDirectory(destination);foreach(string file in Directory.GetFiles(source))File.Copy(file,Path.Combine(destination,Path.GetFileName(file)));foreach(string folder in Directory.GetDirectories(source))CopyTree(folder,Path.Combine(destination,Path.GetFileName(folder)));}
  void Remove(){
   if(Process.GetProcesses().Any(x=>x.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)||x.ProcessName=="WheelBridge"))throw new Exception("Close the game and controller bridge before removing Flight Control.");
