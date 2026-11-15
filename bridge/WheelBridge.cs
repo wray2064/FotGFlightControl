@@ -259,12 +259,14 @@ sealed class Bridge : ApplicationContext {
         preferences = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen");
         inputPath = Path.Combine(preferences, "data", "players", "fotg-wheel-input.txt");
         statePath = Path.Combine(preferences, "data", "players", "fotg-wheel-state.txt");
-        string configPath = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "data", "tables", "lua", "zz_fotg_wheel_config-sct.lua");
+        bool myMod = GameInstall.HasMyMod(root);
+        string wheelRoot = myMod ? GameInstall.MyModCore(root) : Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel");
+        string configPath = Path.Combine(wheelRoot, "data", "tables", "lua", "zz_fotg_wheel_config-sct.lua");
         string config = File.Exists(configPath) ? File.ReadAllText(configPath) : "";
         lookHoldMs = ParseLookHoldMs(config);
         lookEnabled = !Regex.IsMatch(config, @"\blook_enabled\s*=\s*false\b");
         cameraHoldEnabled = !Regex.IsMatch(config, @"\bcamera_hold_enabled\s*=\s*false\b");
-        preferredSlot = ReadPreferredSlot(Path.Combine(preferences, "data", "GamepadMods_settings.ini"));
+        preferredSlot = ReadPreferredSlot(Path.Combine(preferences, "data", myMod ? "FotG_2_settings.ini" : "GamepadMods_settings.ini"));
         slot = preferredSlot;
         Directory.CreateDirectory(Path.GetDirectoryName(inputPath));
         tray.Icon = SystemIcons.Application;
@@ -283,6 +285,10 @@ sealed class Bridge : ApplicationContext {
         timer.Start();
     }
     void Launch() {
+        if (GameInstall.HasMyMod(root)) {
+            LaunchMyMod();
+            return;
+        }
         string mod = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "data", "tables", "lua", "zzz_fotg_wheel-sct.lua");
         if (!File.Exists(mod)) throw new FileNotFoundException("Command wheel mod was not found", mod);
         string version = GameVersion(root);
@@ -308,6 +314,28 @@ sealed class Bridge : ApplicationContext {
         info.UseShellExecute = false;
         info.EnvironmentVariables["FSO_PREFERENCES_PATH"] = preferences;
         info.Arguments = "-mod \"" + paths + "\"" + EngineFlags(vrMode);
+        game = Process.Start(info);
+    }
+    void LaunchMyMod() {
+        string library = Path.Combine(root, "kn_portable", "Library");
+        const string wheel = @"FotG_2\MyMod-1.0.0\core";
+        const string basePath = @"FotG_2\FotG_2-2.0.2";
+        if (!File.Exists(Path.Combine(library, wheel, @"data\tables\lua\zzz_fotg_wheel-sct.lua")))
+            throw new FileNotFoundException("The command wheel overlay is missing from MyMod.");
+        EngineInfo engine = GameInstall.FindEngine(root, null);
+        if (engine == null) throw new FileNotFoundException("The FotG 2 SDL3 engine was not found.");
+        var paths = new System.Collections.Generic.List<string> { wheel };
+        if (!String.IsNullOrEmpty(extraMod)) {
+            string selected = Path.GetFullPath(Path.Combine(root, extraMod));
+            if (!selected.StartsWith(library + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(Path.Combine(selected, "mod.json")))
+                throw new InvalidOperationException("Select an installed Knossos mission pack.");
+            paths.AddRange(GameDataFolders(library, selected.Substring(library.Length + 1)));
+        }
+        paths.AddRange(GameDataFolders(library, basePath));
+        var info = new ProcessStartInfo(engine.Exe) { WorkingDirectory = library, UseShellExecute = false };
+        info.EnvironmentVariables["FSO_PREFERENCES_PATH"] = preferences;
+        info.Arguments = "-mod \"" + String.Join(",", paths) + "\"" + EngineFlags(vrMode);
         game = Process.Start(info);
     }
     internal static string EngineFlags(bool vr) {

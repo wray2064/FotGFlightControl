@@ -124,7 +124,7 @@ internal sealed class WheelSetup : Form {
         install.Click += delegate { Install(); };
         play.Text = "PLAY WITH WHEEL";
         StyleButton(play, false);
-        play.Click += delegate { OpenInstalled("Play with Gamepad Wheel.exe"); };
+        play.Click += delegate { OpenInstalled(checkedVersion=="2.0.2"?"Hangar Bay.exe":"Play with Gamepad Wheel.exe"); };
         configure.Text = "CONFIGURE";
         StyleButton(configure, false);
         configure.Click += delegate { OpenInstalled("Configure Gamepad Wheel.exe"); };
@@ -222,7 +222,7 @@ internal sealed class WheelSetup : Form {
     // Game releases this build supports (Installer.cs holds the list; keep WheelBridge.cs in step).
     // Add a release only after the preset builder in Installer.cs accepts its control defaults.
     static readonly string[] SupportedVersions = Installer.SupportedVersions;
-    static string SupportedText() { return String.Join(", ", SupportedVersions.Reverse()); }
+    static string SupportedText() { return String.Join(", ", SupportedVersions.Reverse()) + ", 2.0.2"; }
     // The newest installed release with a manifest, supported or not, for the version override.
     static string NewestInstalledVersion(string root) {
         Version best = null; string bestText = null;
@@ -257,9 +257,12 @@ internal sealed class WheelSetup : Form {
         Check();
     }
     static string GameLibrary(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R"); }
-    static string GameManifest(string root, string version) { return Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json"); }
+    static string GameManifest(string root, string version) {
+        return version=="2.0.2" ? Path.Combine(root, @"kn_portable\Library\FotG_2\FotG_2-2.0.2\mod.json") : Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json");
+    }
     // The newest supported release present, or null.
     static string GameVersion(string root) {
+        if (GameInstall.HasMyMod(root) && File.Exists(GameManifest(root,"2.0.2"))) return "2.0.2";
         foreach (string version in SupportedVersions) if (File.Exists(GameManifest(root, version))) return version;
         return null;
     }
@@ -327,7 +330,7 @@ internal sealed class WheelSetup : Form {
         } catch { verdict.Text = "GAME MANIFEST COULD NOT BE READ"; details.Text = "The game installation may be incomplete."; return; }
         validatedRoot = root;
         string prefs = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen", "data");
-        bool ini = File.Exists(Path.Combine(prefs, "FotG_R_settings.ini"));
+        bool ini = File.Exists(Path.Combine(prefs, version=="2.0.2"?"FotG_2_settings.ini":"FotG_R_settings.ini"));
         string pilots = Path.Combine(prefs, "players");
         bool pilot = false;
         if (Directory.Exists(pilots)) foreach (string file in Directory.GetFiles(pilots, "*.json")) {
@@ -335,8 +338,8 @@ internal sealed class WheelSetup : Form {
                 if (data.ContainsKey("version") && Convert.ToInt32(data["version"]) == 4) { pilot = true; break; } }
             catch { }
         }
-        bool installed = File.Exists(Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "WheelBridge.exe"));
-        play.Enabled = File.Exists(Path.Combine(root, "Play with Gamepad Wheel.exe"));
+        bool installed = version=="2.0.2"?File.Exists(Path.Combine(root,"Hangar Bay.exe")):File.Exists(Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "WheelBridge.exe"));
+        play.Enabled = File.Exists(Path.Combine(root, version=="2.0.2"?"Hangar Bay.exe":"Play with Gamepad Wheel.exe"));
         configure.Enabled = File.Exists(Path.Combine(root, "Configure Gamepad Wheel.exe"));
         if (!ini || !pilot) {
             verdict.Text = "FIRST RUN REQUIRED";

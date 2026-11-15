@@ -126,19 +126,19 @@ partial class ControllerSetup {
  }
  static readonly string[] AllAxisActions={"JOY_HEADING_AXIS","JOY_PITCH_AXIS","JOY_BANK_AXIS","JOY_REL_THROTTLE_AXIS","JOY_ABS_THROTTLE_AXIS"};
  static string PresetSection(string table,string name){
-  var m=Regex.Match(table,@"(?ms)^#ControlConfigOverride[^\r\n]*\r?\n(?:(?!^#End)(?!^#ControlConfigOverride).)*?^\$Name:\s*"+Regex.Escape(name)+@"\s*\r?\n.*?^#End[^\r\n]*\r?\n?");
+  var m=Regex.Match(table,@"(?ms)^#ControlConfigOverride[^\r\n]*\r?\n(?:(?!^#End)(?!^#ControlConfigOverride).)*?^\$Name:[ \t]*"+Regex.Escape(name)+@"[ \t]*(?:;[^\r\n]*)?\r?\n.*?^#End[^\r\n]*\r?\n?");
   return m.Success?m.Value:null;
  }
  // Copies the generated Classic Native preset (its buttons and options), swaps in the
  // custom axis bindings, and replaces any earlier FotG Custom preset in the table.
- static string WithCustomPreset(string table,string[] axes,bool[] invert,Dictionary<string,string> stick=null){
-  string classic=PresetSection(table,"FotG Classic Native");
-  if(classic==null)throw new Exception("The wheel's control table has no FotG Classic Native preset. Run Install / Repair in Setup first.");
-  string custom=Regex.Replace(classic,@"(?m)^\$Name:\s*FotG Classic Native\b[^\r\n]*","$$Name: "+CustomPresetName,RegexOptions.None);
+ static string WithCustomPreset(string table,string[] axes,bool[] invert,Dictionary<string,string> stick=null,string presetName=CustomPresetName){
+  string baseline=PresetSection(table,"FotG Classic Native")??PresetSection(table,"default");
+  if(baseline==null)throw new Exception("The wheel's control table has no baseline preset. Run Install / Repair in Setup first.");
+  string custom=Regex.Replace(baseline,@"(?m)^\$Name:[^\r\n]*","$$Name: "+presetName);
   foreach(string axis in AllAxisActions)
    custom=Regex.Replace(custom,@"(?ms)^[ \t]*\$Bind:\s*"+axis+@"\b.*?(?=^\s*\$Bind:|^#End)","");
   custom=Regex.Replace(custom,@"(?m)^#End\b",CustomAxisBinds(axes,invert,stick).Replace("$","$$")+"#End");
-  string existing=PresetSection(table,CustomPresetName);
+  string existing=PresetSection(table,presetName);
   if(existing!=null)table=table.Replace(existing,"");
   return table.TrimEnd()+"\r\n\r\n"+custom.TrimEnd()+"\r\n";
  }
@@ -156,10 +156,10 @@ partial class ControllerSetup {
   }
  }
  static string ControlTablePath(string modFolder){return Path.Combine(modFolder,"data","tables","Controlconfigdefaults.tbl");}
- static void WriteCustomPreset(string modFolder,string[] axes,bool[] invert){
+ static void WriteCustomPreset(string modFolder,string[] axes,bool[] invert,string presetName=CustomPresetName){
   string path=ControlTablePath(modFolder);
   if(!File.Exists(path))throw new Exception("The wheel's control table was not found. Run Install / Repair in Setup first.");
-  string updated=WithCustomPreset(File.ReadAllText(path),axes,invert,StickAxes(modFolder));
+  string updated=WithCustomPreset(File.ReadAllText(path),axes,invert,StickAxes(modFolder),presetName);
   string folder=Path.Combine(modFolder,"ConfigBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-controls");
   Directory.CreateDirectory(folder);File.Copy(path,Path.Combine(folder,"Controlconfigdefaults.tbl"));
   Atomic(path,updated);
@@ -200,9 +200,9 @@ partial class ControllerSetup {
  }
 
  // --- Dialogs ------------------------------------------------------------------------------
- void EditButtonActions(){
-  using(var dialog=new Form{Text="Button actions",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(820,590),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
-   var layout=Grid(3,15);layout.Padding=new Padding(16);
+ Action refreshButtonEditor;
+ Control BuildButtonEditor(){
+   var layout=Grid(3,15);layout.Padding=new Padding(16);layout.Dock=DockStyle.Top;layout.Height=510;
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,70));
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,55));
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,45));
@@ -253,26 +253,49 @@ partial class ControllerSetup {
    controls.Controls.Add(ActionButton("Reset to defaults",delegate{
     for(int i=0;i<TapButtons.Length;i++){taps[i].SelectedIndex=Array.FindIndex(ButtonActions,a=>a.Id==DefaultTapActions[i]);if(holds[i]!=null)holds[i].SelectedIndex=0;}
     useHolds.Checked=false;r3Default.Checked=true;rbDefault.Checked=true;l3Default.Checked=true;lbDefault.Checked=true;duration.Value=450;}),0,0);
-   controls.Controls.Add(ActionButton("Cancel",delegate{dialog.DialogResult=DialogResult.Cancel;}),1,0);
-   var ok=ActionButton("Use these actions",delegate{dialog.DialogResult=DialogResult.OK;});ok.BackColor=Color.FromArgb(82,66,5);controls.Controls.Add(ok,2,0);
+   controls.Controls.Add(ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();}),1,0);
+   controls.Controls.Add(ActionButton("Save button actions",delegate{SaveMacroConfig();}),2,0);
    layout.Controls.Add(controls,0,14);layout.SetColumnSpan(controls,3);
-   dialog.Controls.Add(layout);refresh();
-   if(dialog.ShowDialog(this)!=DialogResult.OK)return;
-   for(int i=0;i<TapButtons.Length;i++){
-    var tap=(ButtonAction)taps[i].SelectedItem;tapActions[i]=tap.Id;
-    int hi=Array.IndexOf(HoldButtons,TapButtons[i]);
-    if(hi>=0)holdActions[hi]=tap.Held?"none":((ButtonAction)holds[i].SelectedItem).Id;
-   }
-   holdEnabled=useHolds.Checked;r3MouseHoldEnabled=r3Default.Checked;rbModeHoldEnabled=rbDefault.Checked;l3GunHoldEnabled=l3Default.Checked;lbTorpedoHoldEnabled=lbDefault.Checked;holdLayerMs=(int)duration.Value;
-   macroStatus.Text="BUTTONS READY / Save wheel to apply.";
-  }
+   bool loading=false;
+   Action capture=delegate{
+    if(loading)return;
+    for(int i=0;i<TapButtons.Length;i++){
+     var tap=(ButtonAction)taps[i].SelectedItem;tapActions[i]=tap.Id;
+     int hi=Array.IndexOf(HoldButtons,TapButtons[i]);
+     if(hi>=0)holdActions[hi]=tap.Held?"none":((ButtonAction)holds[i].SelectedItem).Id;
+    }
+    holdEnabled=useHolds.Checked;r3MouseHoldEnabled=r3Default.Checked;rbModeHoldEnabled=rbDefault.Checked;
+    l3GunHoldEnabled=l3Default.Checked;lbTorpedoHoldEnabled=lbDefault.Checked;holdLayerMs=(int)duration.Value;
+   };
+   foreach(var combo in taps.Concat(holds).Where(c=>c!=null))combo.SelectedIndexChanged+=delegate{capture();};
+   foreach(var check in new[]{useHolds,r3Default,rbDefault,l3Default,lbDefault})check.CheckedChanged+=delegate{capture();};
+   duration.ValueChanged+=delegate{capture();};
+   refreshButtonEditor=delegate{
+    loading=true;
+    try{
+     for(int i=0;i<TapButtons.Length;i++){
+      taps[i].SelectedIndex=Array.FindIndex(ButtonActions,a=>a.Id==tapActions[i]);
+      if(holds[i]!=null){
+       int hi=Array.IndexOf(HoldButtons,TapButtons[i]);
+       holds[i].SelectedIndex=Math.Max(0,holds[i].Items.Cast<ButtonAction>().ToList().FindIndex(a=>a.Id==holdActions[hi]));
+      }
+     }
+     useHolds.Checked=holdEnabled;r3Default.Checked=r3MouseHoldEnabled;rbDefault.Checked=rbModeHoldEnabled;
+     l3Default.Checked=l3GunHoldEnabled;lbDefault.Checked=lbTorpedoHoldEnabled;duration.Value=holdLayerMs;
+     refresh();refreshDuration();
+    }finally{loading=false;}
+   };
+   refreshButtonEditor();
+   var page=new Panel{Dock=DockStyle.Fill,AutoScroll=true,BackColor=Surface};
+   page.Controls.Add(layout);
+   return page;
  }
  void EditCustomAxes(){
   using(var dialog=new Form{Text="Custom flight axes",FormBorderStyle=FormBorderStyle.FixedDialog,StartPosition=FormStartPosition.CenterParent,MaximizeBox=false,MinimizeBox=false,ClientSize=new Size(640,360),AutoScaleMode=AutoScaleMode.Dpi,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",10)}){
    var layout=Grid(3,8);layout.Padding=new Padding(16);
    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,90));
-   Rows(layout,46,28,36,36,36,36,44,52);
-   var intro=LabelText("Choose the stick axis for each flight axis. The right stick also selects wheel choices; flight axes pause while a wheel is open.",9,Cyan);
+   Rows(layout,68,28,36,36,36,36,44,52);
+   var intro=LabelText("Experimental. Axis behavior depends on the game and controller. Configure your gamepad in Flight Control. Either stick selects wheel choices.",9,Cyan);
    layout.Controls.Add(intro,0,0);layout.SetColumnSpan(intro,3);
    layout.Controls.Add(LabelText("FLIGHT AXIS",9,Ink),0,1);layout.Controls.Add(LabelText("STICK AXIS",9,Ink),1,1);layout.Controls.Add(LabelText("INVERT",9,Ink),2,1);
    var sources=new ComboBox[4];var inverts=new CheckBox[4];

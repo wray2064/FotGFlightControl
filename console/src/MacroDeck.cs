@@ -16,7 +16,7 @@ partial class ControllerSetup {
  Control macroPage;
  TableLayoutPanel macroDeckLayout,macroFoot,macroOptions;
  Control[] macroFootChildren=new Control[5];
- Button macroButtonsEditor;
+ Control macroButtonsEditor;
  bool compactMacroFooter;
  bool macroFooterInitialized;
  Button flightTabButton, deckTabButton;
@@ -70,12 +70,24 @@ partial class ControllerSetup {
   new MacroSpec("MATCH SPEED","match_speed","")
  };
 
- void ShowPage(bool deck){
+ void ShowPage(bool deck,bool profiles=false,bool buttons=false){
   if(flightPage==null||macroPage==null)return;
-  flightPage.Visible=!deck;macroPage.Visible=deck;
-  if(deck)macroPage.BringToFront();else flightPage.BringToFront();
+  flightPage.Visible=!deck&&!profiles&&!buttons;macroPage.Visible=deck;profilePage.Visible=profiles;buttonsPage.Visible=buttons;
+  (buttons?buttonsPage:profiles?profilePage:deck?macroPage:flightPage).BringToFront();
+  if(nativeFooter!=null)nativeFooter.Visible=!deck&&!profiles&&!buttons;
   if(embeddedCockpit)FitCockpit();
-  TabLook(flightTabButton,!deck);TabLook(deckTabButton,deck);
+  TabLook(flightTabButton,!deck&&!profiles&&!buttons);TabLook(deckTabButton,deck);TabLook(profileTab,profiles);TabLook(buttonsTab,buttons);
+ }
+ void UpdateMode(){
+  bool advanced=advancedMode.Checked;
+  advancedMode.Text=advanced?"Advanced (Experimental)":"Default";
+  if(macroFlightRow==null)return;
+  macroFlightRow.Enabled=advanced;
+  macroLookRow.Enabled=advanced;
+  if(buttonsPage!=null)buttonsPage.Enabled=advanced;
+  macroFootChildren[3].Enabled=advanced;
+  macroCards.Enabled=advanced;
+  cameraHold.Enabled=advanced;
  }
  void TabLook(Button b,bool on){if(b==null)return;b.BackColor=on?Color.FromArgb(110,88,8):Color.FromArgb(16,14,3);b.ForeColor=on?Color.White:Color.FromArgb(214,190,70);b.FlatAppearance.BorderSize=on?3:1;b.FlatAppearance.BorderColor=on?Color.FromArgb(255,236,120):Color.FromArgb(120,104,26);b.AccessibleDescription=on?"Selected tab":"Tab";}
  Control BuildMacroDeck(){
@@ -152,8 +164,8 @@ partial class ControllerSetup {
   options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,12));
   macroStatus=LabelText("Find or select the installed wheel mod.",9,Ink);macroStatus.TextAlign=ContentAlignment.MiddleLeft;options.Controls.Add(macroStatus,0,0);
   cameraHold=new CheckBox{Text="Hold Menu cycles camera",Checked=true,Dock=DockStyle.Fill,ForeColor=Ink,BackColor=Surface};options.Controls.Add(cameraHold,1,0);
-  var buttonsEditor=ActionButton("Buttons...",delegate{EditButtonActions();});macroButtonsEditor=buttonsEditor;options.Controls.Add(buttonsEditor,2,0);options.SetColumnSpan(buttonsEditor,2);
-  macroFootChildren[0]=options;macroFootChildren[1]=ActionButton("Browse mod",delegate{BrowseWheelMod();});macroFootChildren[2]=ActionButton("Reserve wheel buttons",delegate{ReserveWheelButtons();});macroFootChildren[3]=ActionButton("ADVANCED",delegate{EditLayouts();});
+  macroButtonsEditor=new Panel{Visible=false};
+  macroFootChildren[0]=options;macroFootChildren[1]=ActionButton("Browse mod",delegate{BrowseWheelMod();});macroFootChildren[2]=new Panel{Visible=false};macroFootChildren[3]=ActionButton("Edit layouts",delegate{EditLayouts();});
   var save=ActionButton("SAVE WHEEL",delegate{SaveMacroConfig();});save.BackColor=Color.FromArgb(110,88,8);save.FlatAppearance.BorderColor=Color.FromArgb(255,236,120);save.Font=new Font("Consolas",11,FontStyle.Bold);macroFootChildren[4]=save;
   for(int i=0;i<5;i++)foot.Controls.Add(macroFootChildren[i],i,0);
   deck.Controls.Add(foot,0,6);
@@ -251,8 +263,14 @@ partial class ControllerSetup {
   UpdateArgumentState(i);
  }
  void RefreshWheelModFolder(){
-  string candidate=Path.Combine(root.Text.Trim(),"GamepadMods",WheelFolderName);
+  string gameRoot=root.Text.Trim();
+  string candidate=GameInstall.HasMyMod(gameRoot)?GameInstall.MyModCore(gameRoot):Path.Combine(gameRoot,"GamepadMods",WheelFolderName);
   wheelModFolder=Directory.Exists(candidate)?candidate:"";
+  if(flightAxes!=null){
+   bool myMod=GameInstall.HasMyMod(gameRoot);
+   flightAxes.Items[0]=myMod?"Default":"Classic direct (tested)";
+   flightAxes.Items[3]=myMod?"Advanced (Experimental)":"Custom axes";
+  }
   if(macroStatus!=null){
    macroStatus.Text=wheelModFolder.Length>0?"WHEEL MOD  "+wheelModFolder:"Wheel mod not found. Install it or choose its folder.";
    if(wheelModFolder.Length>0)LoadMacroConfig();
@@ -294,8 +312,10 @@ partial class ControllerSetup {
   var boldMatch=Regex.Match(source,@"\bfont_bold\s*=\s*(true|false)\b");
   wheelFontBold.Checked=!boldMatch.Success||boldMatch.Groups[1].Value=="true";
   ParseCustomAxes(source,customAxes,customInvert);
+  advancedMode.Checked=Regex.IsMatch(source,@"(?m)^-- console_mode: advanced\s*$");
   var axesMatch=Regex.Match(source,@"\bflight_axes\s*=\s*""(classic|classic_inverted|official|custom)""");
   flightAxes.SelectedIndex=axesMatch.Success?AxesIndex(axesMatch.Groups[1].Value):0;
+  if(GameInstall.HasMyMod(root.Text.Trim())&&flightAxes.SelectedIndex==2)flightAxes.SelectedIndex=0;
   ParseTapBindings(source,tapActions);
   var holdMatch=Regex.Match(source,@"\blook_hold_ms\s*=\s*(\d+)");
   int holdMs;
@@ -316,7 +336,7 @@ partial class ControllerSetup {
    string id=binding.Success?binding.Groups["id"].Value:"none";
    holdActions[i]=IsHoldAction(id)?id:"none";
   }
-  LoadLayouts(source);
+  LoadLayouts(source); if(refreshButtonEditor!=null)refreshButtonEditor();
   UpdateLookTiming();
   macroStatus.Text="WHEEL MOD READY  /  Saved macros loaded.";
  }
@@ -373,9 +393,13 @@ partial class ControllerSetup {
   EnsureClosed();
   string path=MacroConfigPath();
   string mode=AxesMode(flightAxes.SelectedIndex);
-  string text=RenderMacroConfig(ReadMacroCards(),wheelFontSize.SelectedIndex==1?"large":"medium",wheelFontBold.Checked,mode,lookHoldSlider.Value*25,!disableLook.Checked,cameraHold.Checked,holdEnabled,holdLayerMs,holdActions,layoutOrders,tapActions,customAxes,customInvert,r3MouseHoldEnabled,rbModeHoldEnabled,l3GunHoldEnabled,lbTorpedoHoldEnabled);
+  bool myMod=GameInstall.HasMyMod(root.Text.Trim());
+  string text="-- console_mode: "+(advancedMode.Checked?"advanced":"default")+"\r\n"+
+   RenderMacroConfig(ReadMacroCards(),wheelFontSize.SelectedIndex==1?"large":"medium",wheelFontBold.Checked,mode,lookHoldSlider.Value*25,!disableLook.Checked,cameraHold.Checked,holdEnabled,holdLayerMs,holdActions,layoutOrders,tapActions,customAxes,customInvert,r3MouseHoldEnabled,rbModeHoldEnabled,l3GunHoldEnabled,lbTorpedoHoldEnabled);
   // The Custom preset goes into the wheel's control table first, so a failure leaves the config unchanged.
   if(mode=="custom")WriteCustomPreset(wheelModFolder,customAxes,customInvert);
+  if(myMod&&mode=="classic")WriteCustomPreset(wheelModFolder,DefaultCustomAxes,new bool[4],"FotG Classic Native");
+  if(myMod&&mode=="classic_inverted")WriteCustomPreset(wheelModFolder,DefaultCustomAxes,new[]{false,true,false,false},"FotG Classic Inverted");
   if(File.Exists(path)){
    string folder=Path.Combine(wheelModFolder,"ConfigBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
    Directory.CreateDirectory(folder);

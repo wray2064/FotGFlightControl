@@ -23,3 +23,7 @@ Flight Control 1.1.5 is the final 1.x build. Its installer intentionally accepts
 3. Adapt Setup and Hangar Bay detection and launch command construction to the 2.x MyMod pattern. Preserve additional user mods and mission packs.
 4. Validate both sticks, triggers, D-pad tap/hold, face buttons, Menu camera cycle, wheels, campaign prompts, and VR separately. Test a clean install and migrated pilot controls.
 5. Build and label a Flight Control 2 preview independently. Do not change the Flight Control 1 release artifacts or update manifest until compatibility is demonstrated.
+
+## 2.0.0-preview.1 release handoff
+
+See INSTALL-FLIGHT-CONTROL-2.md, CHANGELOG.md and SITE-BUILDER-HANDOFF-2.0.0-PREVIEW.1.md. Package.ps1 builds the preview. Setup installs a root Hangar Bay executable plus its support folder and stages the overlay into MyMod. Game and engine paths are specific to verified FotG 2.0.2. The stable update feed stays on Classic.

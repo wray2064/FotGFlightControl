@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Web.Script.Serialization;
 
@@ -31,6 +32,8 @@ internal static class HangarProgram {
 }
 
 internal sealed class HangarBay : Form {
+ [DllImport("user32.dll")] static extern bool ReleaseCapture();
+ [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam);
  readonly Color ink=Color.FromArgb(240,246,248), muted=Color.FromArgb(170,196,206), cyan=Color.FromArgb(246,201,69), ground=Color.FromArgb(3,9,15);
  readonly Panel host=new Panel { Dock=DockStyle.Fill };
  readonly Label status=new Label { Dock=DockStyle.Bottom,Height=36,TextAlign=ContentAlignment.MiddleLeft };
@@ -45,11 +48,12 @@ internal sealed class HangarBay : Form {
   root=FindGame(); Text="Flight Control | Hangar Bay";
   MinimumSize=new Size(640,440); Size=new Size(1160,790); StartPosition=FormStartPosition.CenterScreen;
   BackColor=ground; ForeColor=ink; Font=new Font("Consolas",10);
-  string icon=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"GamepadMods","FotG_Gamepad_Wheel","ControllerSetup","Assets","FlightControl.ico");
-  if(File.Exists(icon)) Icon=new Icon(icon);
+  FormBorderStyle=FormBorderStyle.None;
+  MaximizedBounds=Screen.FromControl(this).WorkingArea;
+  Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
   var navigation=new Panel {Dock=DockStyle.Left,Width=216,BackColor=Color.FromArgb(6,16,24)};
   navigation.Paint+=delegate(object s,PaintEventArgs e){using(var pen=new Pen(Color.FromArgb(70,104,120),1))e.Graphics.DrawLine(pen,navigation.Width-1,0,navigation.Width-1,navigation.Height);};
-  Controls.Add(host); Controls.Add(navigation); Controls.Add(status);
+  Controls.Add(host); Controls.Add(navigation); Controls.Add(status); Controls.Add(BuildTitleBar());
   status.Padding=new Padding(16,0,0,0);status.ForeColor=muted;status.BackColor=Color.FromArgb(6,16,24);status.Font=new Font("Consolas",10);
   packs.BackColor=Color.FromArgb(10,26,36);packs.ForeColor=ink;packs.Font=new Font("Consolas",11,FontStyle.Bold);
   packs.DrawItem+=delegate(object s,DrawItemEventArgs e){if(e.Index<0)return;bool sel=(e.State&DrawItemState.Selected)!=0;using(var b=new SolidBrush(sel?Color.FromArgb(62,48,10):Color.FromArgb(10,26,36)))e.Graphics.FillRectangle(b,e.Bounds);TextRenderer.DrawText(e.Graphics,Convert.ToString(packs.Items[e.Index]),packs.Font,new Rectangle(e.Bounds.X+8,e.Bounds.Y,e.Bounds.Width-10,e.Bounds.Height),ink,TextFormatFlags.VerticalCenter|TextFormatFlags.Left|TextFormatFlags.EndEllipsis);};
@@ -61,6 +65,46 @@ internal sealed class HangarBay : Form {
   Nav(menu,"01  DEPLOY",Home);Nav(menu,"02  CONSOLE",ShowConsole);Nav(menu,"03  SERVICE",Maintenance);Nav(menu,"04  GUIDE",Help);
   SetSection(0);
   Home();
+ }
+ Control BuildTitleBar(){
+  var bar=new Panel{Dock=DockStyle.Top,Height=42,BackColor=Color.FromArgb(6,16,24)};
+  var title=new Label{Dock=DockStyle.Fill,Text=Text,Padding=new Padding(16,0,0,0),TextAlign=ContentAlignment.MiddleLeft};
+  title.MouseDown+=delegate(object sender,MouseEventArgs e){
+   if(e.Button!=MouseButtons.Left)return;
+   if(e.Clicks==2){ToggleMaximize();return;}
+   ReleaseCapture();SendMessage(Handle,0xA1,new IntPtr(2),IntPtr.Zero);
+  };
+  bar.Controls.Add(title);
+  var minimize=TitleButton("−","Minimize",delegate{WindowState=FormWindowState.Minimized;});
+  var maximize=TitleButton("□","Maximize or restore",ToggleMaximize);
+  var close=TitleButton("×","Close",Close);
+  bar.Controls.Add(minimize);bar.Controls.Add(maximize);bar.Controls.Add(close);
+  Resize+=delegate{maximize.Text=WindowState==FormWindowState.Maximized?"❐":"□";};
+  return bar;
+ }
+ Button TitleButton(string text,string name,Action action){
+  var button=new Button{Dock=DockStyle.Right,Width=48,Text=text,AccessibleName=name,FlatStyle=FlatStyle.Flat,ForeColor=ink,Font=new Font("Segoe UI",14)};
+  button.FlatAppearance.BorderSize=0;
+  button.FlatAppearance.MouseOverBackColor=name=="Close"?Color.FromArgb(125,30,18):Color.FromArgb(22,45,58);
+  button.Click+=delegate{action();};
+  return button;
+ }
+ void ToggleMaximize(){
+  MaximizedBounds=Screen.FromControl(this).WorkingArea;
+  WindowState=WindowState==FormWindowState.Maximized?FormWindowState.Normal:FormWindowState.Maximized;
+ }
+ protected override CreateParams CreateParams{
+  get{var p=base.CreateParams;p.Style|=0x20000|0x10000;return p;}
+ }
+ protected override void WndProc(ref Message m){
+  base.WndProc(ref m);
+  if(m.Msg!=0x84||WindowState!=FormWindowState.Normal||m.Result.ToInt64()!=1)return;
+  long point=m.LParam.ToInt64();
+  Point p=PointToClient(new Point((short)point,(short)(point>>16)));
+  const int edge=7;
+  bool left=p.X<edge,right=p.X>=ClientSize.Width-edge,top=p.Y<edge,bottom=p.Y>=ClientSize.Height-edge;
+  int hit=top?(left?13:right?14:12):bottom?(left?16:right?17:15):left?10:right?11:1;
+  m.Result=new IntPtr(hit);
  }
  void SetSection(int index){for(int i=0;i<navButtons.Count;i++){navButtons[i].Selected=i==index;navButtons[i].Invalidate();}}
  void StyleBackups(){
@@ -93,17 +137,17 @@ internal sealed class HangarBay : Form {
   var order=Note("LOAD ORDER   FLIGHT CONTROL  >  SELECTED PACK  >  FOTG\nCommand wheels stay active in both launch modes.",74,muted);order.Padding=new Padding(0,10,0,0);order.TextAlign=ContentAlignment.TopLeft;content.Controls.Add(order,0,6);
   p.Controls.Add(content);p.Controls.SetChildIndex(content,0);RefreshPacks();
  }
- void RefreshPacks(){packs.Items.Clear();packs.Items.Add(new Pack{Name="Fate of the Galaxy / base game",Path=null});
+ void RefreshPacks(){bool myMod=GameInstall.HasMyMod(root);packs.Items.Clear();packs.Items.Add(new Pack{Name=myMod?"Fate of the Galaxy 2 / MyMod":"Fate of the Galaxy / base game",Path=null});
   string library=Path.Combine(root,"kn_portable","Library");if(Directory.Exists(library))foreach(string manifest in Directory.GetFiles(library,"mod.json",SearchOption.AllDirectories)){
    try{string folder=Path.GetDirectoryName(manifest);if(folder.IndexOf(Path.DirectorySeparatorChar+"bin"+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)>=0)continue;
     var obj=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(manifest));string id=Convert.ToString(obj.ContainsKey("id")?obj["id"]:"");
-    if(id=="FotG_R"||!obj.ContainsKey("parent")||Convert.ToString(obj["parent"])!="FotG_R")continue;
+    if(id=="MyMod"||!obj.ContainsKey("parent")||Convert.ToString(obj["parent"])!=(myMod?"FotG_2":"FotG_R"))continue;
     packs.Items.Add(new Pack{Name=Convert.ToString(obj.ContainsKey("title")?obj["title"]:id)+" / "+Convert.ToString(obj.ContainsKey("version")?obj["version"]:""),Path=folder});
    }catch{} }
   packs.SelectedIndex=0;
  }
  void Launch(bool vr){if(String.IsNullOrEmpty(root))throw new Exception("Game installation not found. Open Hangar Bay from the game folder.");
-  string bridge=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","WheelBridge.exe");if(!File.Exists(bridge))throw new Exception("Controller bridge missing. Open Maintenance to repair the installation.");
+  string bridge=GameInstall.HasMyMod(root)?Path.Combine(root,"Flight Control Console","WheelBridge.exe"):Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","WheelBridge.exe");if(!File.Exists(bridge))throw new Exception("Controller bridge missing. Open Maintenance to repair the installation.");
   var pack=packs.SelectedItem as Pack;var info=new ProcessStartInfo(bridge){WorkingDirectory=root,UseShellExecute=false};
   info.Arguments="--game \""+root+"\""+(vr?" --vr":"")+(pack!=null&&pack.Path!=null?" --extra-mod \""+pack.Path+"\"":"");
   Process.Start(info);status.Text="  STARTING "+(pack==null?"BASE GAME":pack.Name)+(vr?" / VR":"");
@@ -154,7 +198,7 @@ internal sealed class HangarBay : Form {
   string helper=Path.Combine(Path.GetTempPath(),"FotG-Hangar-Remove-"+Guid.NewGuid().ToString("N")+".exe");File.Copy(Application.ExecutablePath,helper);
   Process.Start(new ProcessStartInfo(helper){Arguments="--remove \""+root+"\"",WorkingDirectory=Path.GetTempPath(),UseShellExecute=false,CreateNoWindow=true});Close();
  }
- void Help(){var p=Page("04   /   FIELD GUIDE");string file=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","Help.html");if(!File.Exists(file)){var missing=Note("The guide (Help.html) was not found in the installed Flight Control folder.\nChoose SERVICE > REPAIR SETUP to restore it.",80,muted);missing.Dock=DockStyle.Top;p.Controls.Add(missing);p.Controls.SetChildIndex(missing,0);return;}var web=new WebBrowser{Dock=DockStyle.Fill,ScriptErrorsSuppressed=true};p.Controls.Add(web);p.Controls.SetChildIndex(web,0);web.Navigate(file);}
+ void Help(){var p=Page("04   /   FIELD GUIDE");string file=GameInstall.HasMyMod(root)?Path.Combine(root,"Flight Control Console","Help.html"):Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","Help.html");if(!File.Exists(file)){var missing=Note("The guide (Help.html) was not found in the installed Flight Control folder.\nChoose SERVICE > REPAIR SETUP to restore it.",80,muted);missing.Dock=DockStyle.Top;p.Controls.Add(missing);p.Controls.SetChildIndex(missing,0);return;}var web=new WebBrowser{Dock=DockStyle.Fill,ScriptErrorsSuppressed=true};p.Controls.Add(web);p.Controls.SetChildIndex(web,0);web.Navigate(file);}
 }
 
 internal sealed class TacticalPanel:Panel {
