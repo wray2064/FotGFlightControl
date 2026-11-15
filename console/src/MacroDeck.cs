@@ -512,7 +512,7 @@ partial class ControllerSetup {
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",375,false).Contains("look_enabled = false")&&
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("camera_hold_enabled = false")&&
    RenderMacroConfig(DefaultMacros,"medium",true,"classic",250,true,false,true,600,new[]{"shields_max","none","none","none","none","none","none"}).Contains("A=\"shields_max\"")&&
-   LayoutSelfTest()&&ButtonsAndAxesSelfTest()&&
+   LayoutSelfTest()&&ButtonsAndAxesSelfTest()&&HotasSelfTest()&&
    RenderMacroConfig(DefaultMacros,"medium",true,"custom").Contains("flight_axes = \"custom\"")&&
    RenderMacroConfig(DefaultMacros,tapBindings:new[]{"countermeasure","none","x","third_gun","afterburner","cycle_ship_mode","match_speed","target_next_subsystem"}).Contains("tap_bindings = { A=\"countermeasure\", B=\"none\", X=\"target_next\"");
  }

@@ -13,11 +13,41 @@ sealed class HardwareProfile {
  public List<HardwareDevice> Devices {get;set;}
  public Dictionary<string,FlightAxisBinding> FlightAxes {get;set;}
  public Dictionary<string,FlightAxisBinding> FlightButtons {get;set;}
+ // Flight Control's own controls (wheels, gestures, menus), driven through a virtual gamepad by the bridge.
+ public Dictionary<string,FlightAxisBinding> Virtual {get;set;}
+ public List<DeviceLayout> Layouts {get;set;}
 }
 
+// Version 1 profiles stored the SDL index as AxisIndex for axes and buttons alike.
+// AxisIndex stays readable so they still load; it is never written.
+// Kind names the input: Button, Axis, Hat, or AxisButton (an axis used as a button). Null means the
+// group's default (Axis for FlightAxes, Button for FlightButtons). Direction is a hat direction
+// (1 up, 2 right, 4 down, 8 left) or the +1/-1 side of an axis. Invert flips an axis.
 sealed class FlightAxisBinding {
  public int DeviceIndex {get;set;}
- public int AxisIndex {get;set;}
+ public int InputIndex {get;set;}
+ public string Kind {get;set;}
+ public int Direction {get;set;}
+ public bool Invert {get;set;}
+ [ScriptIgnore] public int AxisIndex {get{return InputIndex;}set{InputIndex=value;}}
+}
+
+// Preview arrangement for one device. Positions and sizes are fractions of the canvas (0-1).
+// BackgroundImage is a local, user-provided path and is not meant to be shared.
+sealed class DeviceLayout {
+ public int DeviceIndex {get;set;}
+ public string BackgroundImage {get;set;}
+ public List<LayoutWidget> Widgets {get;set;}
+}
+
+sealed class LayoutWidget {
+ public string Kind {get;set;}
+ public int Index {get;set;}
+ public double X {get;set;}
+ public double Y {get;set;}
+ public double Width {get;set;}
+ public double Height {get;set;}
+ public string Label {get;set;}
 }
 
 sealed class HardwareDevice {
@@ -133,7 +163,7 @@ static partial class FlightDevices {
 }
 
 sealed class HardwareInspector : Form {
- static readonly string[] FlightActions={"Pitch","Yaw","Roll","Absolute throttle"};
+ static readonly string[] FlightActions=ControllerSetup.HotasAxisNames;
  readonly ComboBox flightActions=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=185};
  readonly Label mapping=new Label{AutoSize=true};
  readonly string gameRoot;
@@ -237,7 +267,7 @@ sealed class HardwareInspector : Form {
  }
 
  void CaptureInventory() {
-  profile=new HardwareProfile{SchemaVersion=1,Backend="SDL3",
+  profile=new HardwareProfile{SchemaVersion=CurrentSchema,Backend="SDL3",
    Devices=session.Devices.Select(device=>device.Inventory).ToList()};
  }
 
@@ -255,13 +285,30 @@ sealed class HardwareInspector : Form {
  void SaveProfile() {
   grid.EndEdit();
   Validate(profile);
+  profile.SchemaVersion=CurrentSchema;
   using(var dialog=new SaveFileDialog{Filter="Hardware profile (*.json)|*.json",FileName="hardware-profile.json"}) {
    if(dialog.ShowDialog(this)==DialogResult.OK)File.WriteAllText(dialog.FileName,json.Serialize(profile));
   }
  }
 
+ internal const int CurrentSchema=2;
+
+ static void ValidateLayouts(HardwareProfile value) {
+  if(value.Layouts==null)return;
+  var seen=new HashSet<int>();
+  foreach(var layout in value.Layouts){
+   if(layout==null||layout.DeviceIndex<0||layout.DeviceIndex>=value.Devices.Count||!seen.Add(layout.DeviceIndex)||layout.Widgets==null)
+    throw new InvalidDataException("The profile contains an invalid preview layout.");
+   var inputs=value.Devices[layout.DeviceIndex].Inputs;
+   foreach(var widget in layout.Widgets)
+    if(widget==null||!inputs.Any(i=>i.Kind==widget.Kind&&i.Index==widget.Index)||
+     !(widget.X>=0&&widget.X<=1&&widget.Y>=0&&widget.Y<=1)||!(widget.Width>0&&widget.Width<=1&&widget.Height>0&&widget.Height<=1))
+     throw new InvalidDataException("The profile contains an invalid preview widget.");
+  }
+ }
+
  internal static void Validate(HardwareProfile value) {
-  if(value==null||value.SchemaVersion!=1||value.Backend!="SDL3"||value.Devices==null||value.Devices.Count==0)
+  if(value==null||value.SchemaVersion<1||value.SchemaVersion>CurrentSchema||value.Backend!="SDL3"||value.Devices==null||value.Devices.Count==0)
    throw new InvalidDataException("Select a nonempty Flight Control SDL3 hardware profile.");
   foreach(var device in value.Devices) {
    if(device==null||String.IsNullOrWhiteSpace(device.Name)||device.Guid==null||
@@ -273,20 +320,8 @@ sealed class HardwareInspector : Form {
      !keys.Add(input.Kind+input.Index))
      throw new InvalidDataException("The hardware profile contains an invalid or duplicate input.");
   }
-  ValidateAssignments(value,value.FlightAxes,FlightActions,"Axis");
-  ValidateAssignments(value,value.FlightButtons,ControllerSetup.HotasButtonActions.Keys,"Button");
- }
-
- static void ValidateAssignments(HardwareProfile value,Dictionary<string,FlightAxisBinding> assignments,
-  IEnumerable<string> actions,string kind) {
-  if(assignments==null)return;
-  foreach(var entry in assignments){
-   var binding=entry.Value;
-   if(!actions.Contains(entry.Key)||binding==null||binding.DeviceIndex<0||
-    binding.DeviceIndex>=value.Devices.Count||
-    !value.Devices[binding.DeviceIndex].Inputs.Any(i=>i.Kind==kind&&i.Index==binding.AxisIndex))
-    throw new InvalidDataException("The profile contains an invalid "+kind.ToLowerInvariant()+" assignment.");
-  }
+  HotasModel.ValidateBindings(value);
+  ValidateLayouts(value);
  }
 
  Dictionary<string,FlightAxisBinding> Assignments(string action) {
@@ -302,14 +337,16 @@ sealed class HardwareInspector : Form {
   var resolved=matches.Select(device=>device!=null&&device.Connected&&
    session.Devices.Count(other=>other.Connected&&String.Equals(other.Inventory.Guid,device.Inventory.Guid,StringComparison.OrdinalIgnoreCase))==1
    ?device.Inventory.Guid:null).ToArray();
-  foreach(var group in new[]{profile.FlightAxes,profile.FlightButtons}){
-   if(group==null)continue;
-   string kind=group==profile.FlightAxes?"Axis":"Button";
-   foreach(var entry in group){
+  foreach(var pair in HotasModel.Groups(profile)){
+   if(pair.Value==null)continue;
+   bool native=pair.Key!=HotasModel.Group.Virtual;
+   foreach(var entry in pair.Value){
     var binding=entry.Value;
-    if(resolved[binding.DeviceIndex]==null)
-     throw new InvalidOperationException("Connect the assigned device for "+entry.Key+". FotG requires a unique GUID for each assigned device.");
-    if(!matches[binding.DeviceIndex].Inventory.Inputs.Any(i=>i.Kind==kind&&i.Index==binding.AxisIndex))
+    string kind=HotasModel.InventoryKind(HotasModel.KindOf(pair.Key,binding));
+    // The game needs a unique GUID for its own bindings; Flight Control reads devices itself, so a twin is fine there.
+    if(native?resolved[binding.DeviceIndex]==null:matches[binding.DeviceIndex]==null||!matches[binding.DeviceIndex].Connected)
+     throw new InvalidOperationException("Connect the assigned device for "+entry.Key+(native?". FotG requires a unique GUID for each assigned device.":"."));
+    if(!matches[binding.DeviceIndex].Inventory.Inputs.Any(i=>i.Kind==kind&&i.Index==binding.InputIndex))
      throw new InvalidOperationException("The assigned input for "+entry.Key+" is unavailable. Capture it again.");
    }
   }
@@ -327,8 +364,8 @@ sealed class HardwareInspector : Form {
   var device=profile.Devices[binding.DeviceIndex];
   var live=binding.DeviceIndex<matches.Count?matches[binding.DeviceIndex]:null;
   string kind=FlightActions.Contains(action)?"Axis":"Button";
-  var axis=live==null?null:live.Inventory.Inputs.Find(i=>i.Kind==kind&&i.Index==binding.AxisIndex);
-  mapping.Text=device.Name+" / "+kind+" "+binding.AxisIndex+
+  var axis=live==null?null:live.Inventory.Inputs.Find(i=>i.Kind==kind&&i.Index==binding.InputIndex);
+  mapping.Text=device.Name+" / "+kind+" "+binding.InputIndex+
    (axis!=null&&live.Connected?" / "+live.Read(axis):" / Offline");
  }
 
@@ -448,7 +485,7 @@ sealed class HardwareInspector : Form {
     else {
      if(kind=="Axis"&&profile.FlightAxes==null)profile.FlightAxes=new Dictionary<string,FlightAxisBinding>();
      if(kind=="Button"&&profile.FlightButtons==null)profile.FlightButtons=new Dictionary<string,FlightAxisBinding>();
-     Assignments(action)[action]=new FlightAxisBinding{DeviceIndex=index,AxisIndex=chosen.Index};
+     Assignments(action)[action]=new FlightAxisBinding{DeviceIndex=index,InputIndex=chosen.Index};
     }
     dialog.Close();
    });

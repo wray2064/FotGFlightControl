@@ -250,6 +250,31 @@ sealed class Bridge : ApplicationContext {
     double moveRemainderX, moveRemainderY;
     bool leftMouse, shift, tab, escape, enter, backspace, wasFocused, modal;
     string mode = "WAIT", latestStatus = "", latestState = "";
+    // Optional HOTAS layer: sticks, throttles and pedals mapped onto the virtual gamepad.
+    HotasMapFile hotasMap;
+    HotasJoysticks hotas;
+    long nextHotasScan;
+    static XPad ToPad(HotasPadState v) {
+        return new XPad { Buttons = v.Buttons, LeftTrigger = v.LeftTrigger, RightTrigger = v.RightTrigger,
+            LeftX = v.LeftX, LeftY = v.LeftY, RightX = v.RightX, RightY = v.RightY };
+    }
+    static HotasPadState FromPad(XPad p) {
+        return new HotasPadState { Buttons = p.Buttons, LeftTrigger = p.LeftTrigger, RightTrigger = p.RightTrigger,
+            LeftX = p.LeftX, LeftY = p.LeftY, RightX = p.RightX, RightY = p.RightY };
+    }
+    void StartHotas(bool myMod) {
+        hotasMap = HotasMapFile.Load(Path.Combine(preferences, "data", "players", HotasMapFile.FileName));
+        if (hotasMap == null) return;
+        try {
+            EngineInfo engine = GameInstall.FindEngine(root, myMod ? null : GameVersion(root));
+            if (engine == null || !engine.Sdl3) throw new InvalidOperationException("HOTAS input needs the FotG SDL3 engine.");
+            hotas = new HotasJoysticks(Path.GetDirectoryName(engine.Exe));
+        } catch (Exception ex) {
+            // Gamepad play keeps working; leave a note for the Console.
+            hotasMap = null;
+            try { File.AppendAllText(Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "bridge-error.log"), DateTime.Now + " HOTAS: " + ex.Message + Environment.NewLine); } catch { }
+        }
+    }
 
     public Bridge(string gameRoot, bool launch, bool vrMode, string extraMod) {
         if (!launch) startedUtc = DateTime.MinValue;
@@ -269,6 +294,7 @@ sealed class Bridge : ApplicationContext {
         preferredSlot = ReadPreferredSlot(Path.Combine(preferences, "data", myMod ? "FotG_2_settings.ini" : "GamepadMods_settings.ini"));
         slot = preferredSlot;
         Directory.CreateDirectory(Path.GetDirectoryName(inputPath));
+        StartHotas(myMod);
         tray.Icon = SystemIcons.Application;
         tray.Visible = true;
         ContextMenuStrip menu = new ContextMenuStrip();
@@ -474,7 +500,7 @@ sealed class Bridge : ApplicationContext {
         string line = String.Format(System.Globalization.CultureInfo.InvariantCulture,
             "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}\n", sequence,
             active ? pad.Buttons : 0, active ? pad.RightX : 0, active ? pad.RightY : 0,
-            active ? pad.LeftX : 0, active ? pad.LeftY : 0, active ? slot : -1,
+            active ? pad.LeftX : 0, active ? pad.LeftY : 0, active ? Math.Max(slot, 0) : -1, // HOTAS-only play has no XInput slot; Lua only needs a valid 0-3
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), tapSequence, tapDirection);
         Atomic(inputPath, line);
     }
@@ -492,6 +518,17 @@ sealed class Bridge : ApplicationContext {
             if (!connected && preferredSlot < 0) {
                 slot = -1;
                 for (uint i=0; i<4; i++) if (WinInput.XInputGetState(i, out state) == 0) { slot=(int)i; connected=true; break; }
+            }
+            bool gamepadConnected = connected;
+            bool hotasUp = false;
+            if (hotas != null) {
+                if (now >= nextHotasScan) { hotas.Attach(hotasMap); nextHotasScan = now + 2000; }
+                hotas.Poll();
+                HotasPadState layer = HotasPad.Compose(hotasMap, hotas, out hotasUp);
+                if (hotasUp) {
+                    state.Pad = ToPad(HotasPad.Merge(gamepadConnected ? FromPad(state.Pad) : new HotasPadState(), layer));
+                    connected = true;
+                }
             }
             bool active = focused && connected;
             // A held fire trigger or confirmation button must not become a
@@ -536,7 +573,7 @@ sealed class Bridge : ApplicationContext {
             // The game can have the state file open at the same instant we replace
             // it. Keep the bridge alive and retry on the next timer tick.
             try { Publish(publishedPad, active, now); } catch (IOException) { }
-            string status = !connected ? (preferredSlot >= 0 ? "Wheel: XInput " + preferredSlot + " disconnected" : "Wheel: controller disconnected") : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / XInput " + slot;
+            string status = !connected ? (preferredSlot >= 0 ? "Wheel: XInput " + preferredSlot + " disconnected" : "Wheel: controller disconnected") : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / " + (gamepadConnected ? "XInput " + slot : "") + (hotasUp ? (gamepadConnected ? " + HOTAS" : "HOTAS") : "");
             if (status != latestStatus) { tray.Text = status; latestStatus = status; }
         } catch (Exception ex) {
             try { Release(); Publish(new XPad(), false, clock.ElapsedMilliseconds+100); } catch { }
@@ -653,6 +690,7 @@ sealed class Bridge : ApplicationContext {
     }
     protected override void ExitThreadCore() {
         timer.Stop(); Release();
+        if (hotas != null) { hotas.Dispose(); hotas = null; }
         try { Publish(new XPad(), false, clock.ElapsedMilliseconds+100); } catch { }
         tray.Visible=false; tray.Dispose();
         base.ExitThreadCore();
@@ -751,6 +789,7 @@ static class Program {
             mission.Read("FLIGHT|missionkey=9|missionseq=0") != 0 ||
             mission.Read("FLIGHT|missionkey=9|missionseq=bad") != 0) return 15;
         if (!SelfTestHyperspace()) return 14;
+        if (!HotasPad.SelfTest()) return 16;
         if (Marshal.SizeOf(typeof(WinInput.INPUT)) != 40) return 1;
         if (Marshal.SizeOf(typeof(XPad)) != 12 || Marshal.SizeOf(typeof(XState)) != 16) return 2;
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;
