@@ -227,6 +227,30 @@ partial class ControllerSetup {
    .AppendLine("            $Input: "+input.ToString(CultureInfo.InvariantCulture));
  }
 
+ // Puts back everything the latest HOTAS apply changed: pilot, settings, control table and the Flight Control map.
+ void RestoreHotas() {
+  EnsureClosed();
+  string parent=Path.Combine(prefs,"ControllerSetupBackups");
+  string backup=Directory.Exists(parent)?Directory.GetDirectories(parent,"*-hotas").OrderByDescending(v=>v).FirstOrDefault():null;
+  if(backup==null)throw new InvalidOperationException("There is no HOTAS backup yet. One is made each time you apply.");
+  string path=PilotPath(),ini=SettingsPath(),table=ControlTablePath(GameInstall.MyModCore(root.Text));
+  string mapPath=Path.Combine(prefs,"data","players",HotasMapFile.FileName);
+  foreach(string file in new[]{path,ini,table})
+   if(!File.Exists(Path.Combine(backup,Path.GetFileName(file))))
+    throw new InvalidOperationException("The newest HOTAS backup was made for a different pilot or installation:"+Environment.NewLine+backup);
+  if(MessageBox.Show(this,"Restore the pilot, settings and control table from the last HOTAS apply?"+Environment.NewLine+backup+
+   Environment.NewLine+Environment.NewLine+"The current files are saved first.",
+   "Restore HOTAS backup",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
+  string undo=Path.Combine(parent,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-before-hotas-restore");
+  Directory.CreateDirectory(undo);
+  foreach(string file in new[]{path,ini,table,mapPath})if(File.Exists(file))File.Copy(file,Path.Combine(undo,Path.GetFileName(file)));
+  foreach(string file in new[]{path,ini,table})Atomic(file,File.ReadAllText(Path.Combine(backup,Path.GetFileName(file))));
+  string savedMap=Path.Combine(backup,HotasMapFile.FileName);
+  if(File.Exists(savedMap))Atomic(mapPath,File.ReadAllText(savedMap));else if(File.Exists(mapPath))File.Delete(mapPath);
+  LoadPilot();
+  MessageBox.Show(this,"Restored from "+backup,"Restore HOTAS backup");
+ }
+
  void ApplyHotas(HardwareProfile profile,string[] guids) {
   EnsureClosed();
   string path=PilotPath();

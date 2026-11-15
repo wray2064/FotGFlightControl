@@ -1,6 +1,7 @@
 # Flight Control HOTAS
 
-Start with docs/HOTAS-HANDOFF.md for hardware checks. The checkout baseline is Flight Control 2.
+Start with docs/HOTAS-BUTTON-HANDOFF.md for the in-game results so far and docs/HOTAS-WORK-LOG-2026-11-15.md for the
+newest work (what was built, what worked, what failed, what still needs a human). The checkout baseline is Flight Control 2.
 
 After committing shared fixes in the sibling Flight Control 2 checkout, sync here:
 
@@ -9,27 +10,47 @@ After committing shared fixes in the sibling Flight Control 2 checkout, sync her
 
 Keep HOTAS-specific work on codex/flight-control-hotas.
 
-## Hardware discovery
+## The HOTAS tab
 
-In the Flight Control Console, select the FotG 2 installation and open **HOTAS mode**.
-Connect the Logitech Freedom 2.4 and PXN9 in the modes you plan to use. Choose
-**New inventory** to capture all SDL3 joystick inputs currently exposed. Select
-each device, move its controls to identify the live rows, enter optional labels,
-and choose **Save profile**. This saves a versioned JSON hardware inventory.
+Select the FotG 2 installation, then open the **HOTAS** tab. It reads joysticks through the engine's own SDL3 library,
+so it sees exactly what the game sees.
 
-Open the saved profile, unplug and reconnect the devices, then choose **Rescan
-connections**. Check that each device still drives its own rows. Identical devices
-without distinct SDL serials may require manual identification and are shown as
-ambiguous in saved profiles. A mode that exposes a new set of inputs needs a new
-inventory. **Open profile** expects Flight Control SDL3 hardware JSON. Existing
-layout profiles and other shared formats require separate inspection.
+1. **Scan controllers.** Every device is listed as a chip with a live dot. Move a control and its widget lights up in the
+   preview, which tells you which physical device is which. A device with new inputs (another mode) is merged in.
+   **Control not listed?** listens for a control and says whether the game can see it at all.
+2. **Pick an action, then press the control.** The list holds game actions (axes, weapons, targeting, throttle, energy,
+   views, squad and mission) and Flight Control actions (wheels, menus, triggers, sticks). Press a button, move an axis
+   (either side of an axis works as a button), or push a hat. It listens across all devices at once, ignores jittery
+   axes, and assigns once the signal is clear. Clicking a control in the preview does the same without the hardware.
+3. **Arrange the preview.** Drag controls into place, choose a background picture of your own device (it stays local and is
+   not shared), or reset. Positions are stored as fractions of the canvas.
+4. **Apply to pilot.** Close the game first. Apply warns about bindings it will remove and refuses an input that has two
+   jobs. **Restore backup** puts back the pilot, settings, control table and Flight Control map from the last apply.
 
-## Flight actions
+The working profile saves itself as `fotg-hotas-profile.json` beside the pilot data. **Open profile** and **Save profile**
+exchange profiles. Numbers are shown from 1, as in Windows' game controller test; profiles keep the engine's zero-based
+index.
 
-Select a device and an action, choose **Capture input**, then confirm the result.
-Axis capture uses the largest movement. Button capture lists responding buttons.
-Use **Save profile** to keep the assignments. **Apply to pilot** updates the
-selected pilot, FotG joystick slots, and the MyMod control table. It saves a copy
-of all three original files under ControllerSetupBackups. Launch Flight Control
-MyMod to test the preset. The native HOTAS preset and device slots are shared
-within the installation, and a later apply replaces them.
+## How the two kinds of action reach the game
+
+- **Game actions** are written to MyMod's default control override as native `CID_JOY` bindings. Supported: buttons 0-127,
+  axes 0-7 (invert supported), an axis side as a button (`AXIS_BTN`), and the first hat's four directions (`HAT`).
+  Only these use the game's four joystick slots.
+- **Flight Control actions** drive a virtual gamepad. The bridge reads the HOTAS through SDL3 (`setup/HotasInput.cs`),
+  maps it onto gamepad buttons, triggers and sticks using `fotg-hotas-virtual.json`, and layers that over XInput. The
+  existing wheels, tap/hold gestures, hyperspace chord and menu navigation run unchanged. These devices need no slot, so
+  pedals or a second stick can be used here freely.
+
+## Diagnostics
+
+The Console exe has read-only helpers: `--hotas-scan <game folder> <out file>` lists what SDL sees,
+`--render-hotas <png> [listen | live "<game folder>"]` renders the tab headlessly, and `--hotas-uitest <out file>` drives
+the assign flow against stand-in controllers. `WheelBridge.exe --hotas-probe <game folder> <map json> <out file>` reads a
+map once and reports the virtual gamepad it would send. `--self-test` on both exes covers the profile, table generation,
+capture and virtual-pad logic.
+
+## Not covered yet
+
+- FotG 1.1.x (classic) has no HOTAS support: the panel and the bridge's HOTAS layer need the SDL3 engine and MyMod's
+  control table.
+- Native hat and action-name details come from FSO's source and have not been confirmed in FotG 2.0.2. See the work log.

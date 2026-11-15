@@ -124,7 +124,7 @@ partial class ControllerSetup {
   footer.Padding=new Padding(0,14,0,0);footer.Visible=false;
   footer.Controls.Add(ActionButton("Open profile",delegate{OpenHotasProfile();}),0,0);
   footer.Controls.Add(ActionButton("Save profile",delegate{SaveHotasProfileAs();}),1,0);
-  footer.Controls.Add(ActionButton("Restore backup",delegate{Restore();}),2,0);
+  footer.Controls.Add(ActionButton("Restore backup",delegate{RestoreHotas();}),2,0);
   footer.Controls.Add(ActionButton("Game / pilot",delegate{hotasShowSetup=!hotasShowSetup;ShowHotasSetup();}),3,0);
   hotasIssues=LabelText("",9,Color.FromArgb(239,101,66));hotasIssues.AutoEllipsis=false;hotasIssues.Padding=new Padding(8,0,8,0);
   footer.Controls.Add(hotasIssues,4,0);
@@ -165,6 +165,12 @@ partial class ControllerSetup {
   ShowHotasSetup();
   hotasTimer.Start();
   if(hotasSession==null)HotasScan();
+ }
+
+ // Closing the window: release the controllers without touching the layout.
+ void CloseHotas() {
+  if(hotasTimer!=null)hotasTimer.Stop();
+  if(hotasSession!=null){hotasSession.Dispose();hotasSession=null;}
  }
 
  void LeaveHotas() {
