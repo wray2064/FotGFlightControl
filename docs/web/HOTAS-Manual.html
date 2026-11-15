@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flight Control: HOTAS guide (preview)</title>
+<style>
+:root{--bg:#000;--panel:#08090a;--ink:#f7dc52;--dim:#b39d4d;--line:#957d13;--green:#66e752;--text:#ece6c4}
+@media (prefers-color-scheme: light){:root{--bg:#fffdf2;--panel:#fff;--ink:#5c4a00;--dim:#7a6a2a;--line:#c9b04a;--green:#2a7d1c;--text:#222}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 "Segoe UI",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+h1,h2{font-family:Consolas,"Courier New",monospace;color:var(--ink);letter-spacing:.02em}
+h1{font-size:1.9rem;border-bottom:1px solid var(--line);padding-bottom:.4em}
+h2{font-size:1.25rem;margin-top:2.2em;border-left:4px solid var(--line);padding-left:.6em}
+a{color:var(--ink)}code{font-family:Consolas,monospace;background:var(--panel);border:1px solid var(--line);padding:.05em .3em;border-radius:3px;color:var(--green)}
+blockquote{margin:1em 0;padding:.6em 1em;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--ink)}
+figure{margin:1.4em 0}figure img{max-width:100%;height:auto;border:1px solid var(--line);display:block}
+figcaption{font-size:.85rem;color:var(--dim);margin-top:.4em}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95rem}th,td{border:1px solid var(--line);padding:.45em .6em;text-align:left;vertical-align:top}
+th{background:var(--panel);color:var(--ink);font-family:Consolas,monospace}
+@media (max-width:600px){table{display:block;overflow-x:auto}}
+</style></head><body><main>
+<h1>Flight Control: HOTAS guide (preview)</h1>
+<p>Fly Fate of the Galaxy 2 with a joystick, throttle and pedals, and keep Flight Control's command wheels. This guide covers the HOTAS tab in the Flight Control Console.</p>
+<blockquote><strong>Preview.</strong> HOTAS support is new and has been tested with a Logitech Freedom 2.4 and a handheld gamepad. Hats, axes used as buttons, rotary encoders and some of the extra game actions have not been tried on many devices yet. Section 12 lists exactly what is and is not confirmed.</blockquote>
+<h2 id="1-what-you-need">1. What you need</h2>
+<ul><li>Fate of the Galaxy <strong>2.0.2</strong>, installed through Flight Control (MyMod). Fate of the Galaxy 1.1.x (classic) does not support HOTAS yet.</li><li>Windows 64-bit, and the Flight Control Console and launcher from this build.</li><li>Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, neither can Flight Control (see section 9).</li><li>Close the game before you press Apply.</li></ul>
+<h2 id="2-quick-start">2. Quick start</h2>
+<ol><li>Open the Flight Control Console and choose the <strong>HOTAS</strong> tab. It scans your controllers straight away.</li><li>Move a control on each device. Its picture lights up, so you can tell which device is which.</li><li>Pick an action on the left, for example <strong>Pitch</strong>, then move the stick. The assignment is made when the signal is clear.</li><li>Repeat for the rest of your controls. Click <strong>Control not listed?</strong> if something does not show up.</li><li>Close the game and press <strong>Apply to pilot</strong>. Launch the game with the Flight Control launcher.</li></ol>
+<figure><img src="screenshots/01-hotas-tab-overview.png" alt="The HOTAS tab with two controllers and their assignments" loading="lazy"><figcaption>The HOTAS tab with two controllers and their assignments</figcaption></figure>
+<p>Your work saves itself. You do not need to save a file to keep it.</p>
+<h2 id="3-the-hotas-tab">3. The HOTAS tab</h2>
+<p><strong>Controllers.</strong> Each connected device has a button along the top, with a dot that is filled while the device is connected. The picture below it shows live values: bars for axes, circles for buttons and a dial for each hat. A device you unplug stays in your profile and comes back when you plug it in again.</p>
+<figure><img src="screenshots/04-second-controller.png" alt="A second controller selected" loading="lazy"><figcaption>A second controller selected</figcaption></figure>
+<p><strong>Actions.</strong> The list has two parts.</p>
+<ul><li><strong>Game</strong> actions are the game's own controls: flight axes, weapons, targeting, throttle and thrust, energy and shields, views, squad and mission commands.</li><li><strong>Flight Control</strong> actions are the command wheels and gamepad-style buttons: wheel D-pad directions, select and cancel, the face buttons, bumpers, stick clicks, triggers and sticks.</li></ul>
+<p>Type in the box above the list to filter it.</p>
+<p><strong>Assigning.</strong> Choose an action, then press the button, move the axis or push the hat on any device. Flight Control listens to all your devices at once and ignores axes that jitter on their own. You can also click a control in the picture to assign it without touching the hardware.</p>
+<figure><img src="screenshots/02-listening-for-a-control.png" alt="Listening for a control" loading="lazy"><figcaption>Listening for a control</figcaption></figure>
+<ul><li>Axes that you want as a button (a throttle lever used as a switch) work: move the axis towards the side you want.</li><li><strong>Invert axis</strong> flips an axis.</li><li><strong>Clear</strong> removes an assignment.</li></ul>
+<h2 id="4-two-kinds-of-action">4. Two kinds of action</h2>
+<table><thead><tr><th></th><th>Game actions</th><th>Flight Control actions</th></tr></thead><tbody><tr><td>What they are</td><td>The game's own bindings</td><td>The wheels, gestures and gamepad-style buttons</td></tr><tr><td>Where they run</td><td>In the game</td><td>In the Flight Control launcher, on a virtual gamepad</td></tr><tr><td>Limits</td><td>Four joystick devices; axes 1 to 8; buttons 1 to 128; only the first hat, four directions</td><td>None of those</td></tr><tr><td>Can share one input</td><td>No, one input has one job</td><td>Yes</td></tr></tbody></table>
+<p>Use game actions for the ship's flying controls and for anything that always does the same thing. Use Flight Control actions for the wheels, and for any button that must do different things at different times.</p>
+<figure><img src="screenshots/05-game-action-on-a-hat.png" alt="A game action on a hat direction" loading="lazy"><figcaption>A game action on a hat direction</figcaption></figure>
+<h2 id="5-one-button-different-jobs">5. One button, different jobs</h2>
+<p>A gamepad button does one thing in flight and another inside a wheel. You can do the same on a joystick.</p>
+<ul><li><strong>Wheel: select</strong> and <strong>Wheel: cancel</strong> act only while a wheel is open.</li><li><strong>Right trigger</strong> and <strong>Left trigger</strong> fire the primary and secondary weapons, and are paused while a wheel is open.</li></ul>
+<p>Assign one physical button to <strong>Right trigger</strong> and <strong>Wheel: select</strong>. In flight it fires. In a wheel it confirms and does not fire. Do the same with another button for <strong>Left trigger</strong> and <strong>Wheel: cancel</strong>.</p>
+<p>A button that you hold through a selection is ignored in flight until you let go, so choosing an entry does not fire a shot as the wheel closes.</p>
+<p>The face buttons, bumpers and stick clicks keep their flight action from the <strong>Buttons</strong> tab, shown under the list when you select one.</p>
+<figure><img src="screenshots/07-flight-meaning-of-a-button.png" alt="What a Flight Control button does in flight" loading="lazy"><figcaption>What a Flight Control button does in flight</figcaption></figure>
+<p><strong>Why not a game action?</strong> The game does not pause its own bindings while a wheel is open, so a button bound to Fire primary in the game would fire while you used the wheel. The HOTAS tab warns you when one input drives both a game action and a Flight Control action.</p>
+<figure><img src="screenshots/03-wheel-roles.png" alt="Wheel roles" loading="lazy"><figcaption>Wheel roles</figcaption></figure>
+<h2 id="6-encoder-wheels">6. Encoder wheels</h2>
+<p>A rotary encoder usually shows up as two buttons, one pulse per click in each direction. Assign <strong>Wheel: step clockwise</strong> and <strong>Wheel: step anticlockwise</strong>, turning the encoder in each direction when asked. While a wheel is open, each click moves the highlight one entry round the wheel and wraps at the ends. <strong>Wheel: select</strong> confirms.</p>
+<p>Fast turning is queued, up to 16 steps, and played back one at a time. Two ordinary buttons work in place of an encoder.</p>
+<h2 id="7-several-devices">7. Several devices</h2>
+<p>Use as many devices as you have: a stick, a throttle, pedals, a button box. Each device is a button along the top of the preview. Identical devices without serial numbers (two of the same pedals) are told apart by the order Windows lists them. Game actions can use up to four devices. Flight Control actions can use any number.</p>
+<p>You can use a gamepad and a HOTAS at the same time. The HOTAS is layered over the gamepad in the launcher.</p>
+<h2 id="8-the-preview">8. The preview</h2>
+<ul><li><strong>Arrange preview</strong> lets you drag each control to where it is on your real device.</li><li><strong>Background image</strong> adds a picture of your device behind the controls. The picture stays on your PC and is never saved into a shared profile.</li><li><strong>Reset layout</strong> returns to the automatic arrangement.</li></ul>
+<figure><img src="screenshots/06-arrange-preview.png" alt="Arranging the preview" loading="lazy"><figcaption>Arranging the preview</figcaption></figure>
+<h2 id="9-when-a-control-is-missing">9. When a control is missing</h2>
+<p>Press <strong>Control not listed?</strong> and use the control. If it lights up, it is listed and ready to assign. If nothing happens, the game cannot see it either. Try another mode on the device, or set the control to a button in the manufacturer's software, then press <strong>Scan controllers</strong>.</p>
+<h2 id="10-applying-backups-and-switching-back">10. Applying, backups and switching back</h2>
+<p><strong>Apply to pilot</strong> writes your assignments for the selected pilot. Close the game first.</p>
+<ul><li>Game actions are written to Flight Control's control table, and your devices are set as the game's joysticks.</li><li>Flight Control actions are written to a small map file that the launcher reads.</li><li>Before anything is changed, a backup is made. <strong>Restore backup</strong> puts back exactly what the last Apply changed.</li><li>If something that was installed is not in your profile any more, Apply tells you before it removes it.</li></ul>
+<p><strong>Gamepad mode</strong> switches the game back to the gamepad: it removes the HOTAS bindings and the map, and puts the pilot's preset and joystick selection back as they were before you first applied HOTAS. Your HOTAS profile is kept, so <strong>Apply to pilot</strong> brings it straight back.</p>
+<p>If you apply gamepad settings on the Flight response tab while HOTAS is applied, you are warned first, because that points the game's first joystick at the gamepad. If it happens, the HOTAS tab tells you the slots no longer match and Apply re-syncs them.</p>
+<p>Applying only Flight Control actions never touches the pilot's preset, the control table or the game's joysticks, so a gamepad setup keeps working beside a HOTAS used only for wheels and buttons.</p>
+<h2 id="11-sharing-profiles">11. Sharing profiles</h2>
+<ul><li><strong>Save profile</strong> writes a <code>.fchotas</code> file. It contains your assignments, device names and layout. It does not contain device serial numbers or any picture path.</li><li><strong>Open profile</strong> loads one. Anything personal is stripped, the file is checked, and your own profile is kept as a backup first.</li><li>A shared profile matches your hardware by device model. For a different model, right-click a device button along the top and choose one of your own devices to use in its place.</li><li>Wheel layouts, macros and button actions live in the <strong>Profiles</strong> tab and are shared separately. A HOTAS setup that relies on a button's quick-press action needs that profile too.</li></ul>
+<h2 id="12-what-is-confirmed">12. What is confirmed</h2>
+<p>Confirmed in the game: joystick axes and buttons as game actions, several devices at once, Flight Control wheels driven from a joystick, one button with different jobs by state.</p>
+<p>Not yet confirmed on many devices: game actions on a hat, axes used as buttons, inverted axes, the extra game actions beyond fire, targeting and weapons, and rotary encoders. If one of these misbehaves, please report it (see below).</p>
+<p>Not available: Fate of the Galaxy 1.1.x, hats other than the first for game actions, and diagonal hat directions for game actions (they work for Flight Control actions).</p>
+<h2 id="13-troubleshooting">13. Troubleshooting</h2>
+<table><thead><tr><th>What you see</th><th>What to do</th></tr></thead><tbody><tr><td>"Select your FotG 2 installation first"</td><td>Use <strong>Game / pilot</strong> at the bottom and pick the game folder and a pilot.</td></tr><tr><td>A button fires while a wheel is open</td><td>That button is bound to a game action. Use <strong>Right trigger</strong> and <strong>Wheel: select</strong> instead (section 5).</td></tr><tr><td>"The game's joystick slots no longer match"</td><td>Press <strong>Apply to pilot</strong> again, with the game closed.</td></tr><tr><td>The picture is empty</td><td>Press <strong>Scan controllers</strong>. Plug in the device first.</td></tr><tr><td>Apply fails</td><td>The Console writes the details to <code>console-error.log</code> next to it. Send that with your report.</td></tr><tr><td>You want the gamepad back</td><td>Press <strong>Gamepad mode</strong>.</td></tr></tbody></table>
+<h2 id="14-reporting-a-problem">14. Reporting a problem</h2>
+<p>Tell us which device, which control, what you assigned, and what happened. Include <code>console-error.log</code> if Apply failed. Send reports to dev@manictrashpanda.dev.</p>
+</main></body></html>
