@@ -50,6 +50,7 @@ partial class ControllerSetup {
    string text=File.ReadAllText(shared);
    if(text.Contains("SN-A-0042")||text.Contains("wray2")||text.Contains("Pictures")||text.Contains(@"C:\\"))return "FAIL: the shared file carries personal details";
    if(!text.Contains("Fire primary")||!text.Contains("Logitech Freedom 2.4")||!text.Contains("\"SchemaVersion\":2"))return "FAIL: the shared file is missing the setup itself";
+   if(!text.Contains("\"Format\":\"FlightControlHotas\""))return "FAIL: the shared file carries no format marker";
    if(text.Length>20000)return "FAIL: the shared file is unexpectedly large ("+text.Length+")";
    if(profile.Devices[0].Serial!="SN-A-0042"||profile.Layouts[0].BackgroundImage==null)return "FAIL: saving changed the player's own profile";
    a.Close();
@@ -76,6 +77,7 @@ partial class ControllerSetup {
    string good=File.ReadAllText(shared);
    var bad=new Dictionary<string,string>{
     {"not-json.json","this is not json {{{"},
+    {"other-format.json",good.Replace("\"FlightControlHotas\"","\"SomethingElse\"")},
     {"wrong-backend.json",good.Replace("\"SDL3\"","\"DirectInput\"")},
     {"bad-action.json",good.Replace("\"Fire primary\"","\"Format C:\"")},
     {"bad-index.json",good.Replace("\"InputIndex\":0","\"InputIndex\":99")},

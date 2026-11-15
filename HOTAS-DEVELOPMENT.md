@@ -76,3 +76,16 @@ capture and virtual-pad logic.
 - `--hotas-sharetest <out file>` has one player save a profile and another load it (different serials, an existing profile of
   their own), checks the saved file for personal details, refuses a set of broken or hostile files without changing anything,
   and confirms the loaded profile survives a restart.
+- Shared profiles use the `.fchotas` extension (JSON inside, with a `"Format":"FlightControlHotas"` marker). Save defaults to it,
+  Open lists it first and still offers earlier `.json` exports; a file with a different marker is refused.
+
+## Proposal: encoder wheel for the command wheels (not built)
+
+A rotary encoder usually shows up as two buttons pulsed once per detent (clockwise, counter-clockwise). Selection in a wheel is
+`W.selected` from the stick angle (`sector_from_stick` in the Lua, sectors 1-8, only some filled). Plan: two new Flight Control
+controls, Wheel step clockwise / counter-clockwise, active only while a wheel is open like Wheel select; the Lua moves
+`selected` to the next filled sector with wrap-around and Wheel select confirms. Needs: two spare bits in the virtual gamepad
+(1024 and 2048 are free), a step method in the Lua guarded so an error can never break the wheel, and pulse counting in the
+bridge. The bridge polls every 25 ms, so a detent pulse of a few milliseconds can be missed; counting SDL button-down events
+between ticks and replaying them as one-tick pulses with a gap tick (about 20 steps per second) fixes that. Two ordinary
+buttons can stand in for an encoder when testing everything except very fast spinning.

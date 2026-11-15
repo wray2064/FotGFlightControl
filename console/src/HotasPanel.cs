@@ -265,7 +265,7 @@ partial class ControllerSetup {
 
  // A profile from someone else: checked, stripped of anything personal or risky, and your own is kept as a backup first.
  void OpenHotasProfile() {
-  using(var dialog=new OpenFileDialog{Filter="Hardware profile (*.json)|*.json"}){
+  using(var dialog=new OpenFileDialog{Filter="Flight Control HOTAS profile (*.fchotas)|*.fchotas|Earlier HOTAS exports (*.json)|*.json",Title="Open a HOTAS profile"}){
    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
    LoadSharedHotasProfile(dialog.FileName);
   }
@@ -278,9 +278,12 @@ partial class ControllerSetup {
   HardwareProfile opened;
   try{opened=new JavaScriptSerializer().Deserialize<HardwareProfile>(File.ReadAllText(file));}
   catch(Exception e){throw new InvalidDataException("That is not a valid HOTAS profile: "+e.Message);}
+  if(opened!=null&&opened.Format!=null&&opened.Format!=ProfileFormat)throw new InvalidDataException("That file is not a Flight Control HOTAS profile.");
   HardwareInspector.Validate(opened);
   return ShareableCopy(opened);
  }
+
+ internal const string ProfileFormat="FlightControlHotas";
 
  internal void LoadSharedHotasProfile(string file) {
   var opened=ReadHotasProfile(file);
@@ -300,7 +303,9 @@ partial class ControllerSetup {
   if(hotasProfile==null)throw new InvalidOperationException("Scan your controllers first.");
   HardwareInspector.Validate(hotasProfile);
   hotasProfile.SchemaVersion=HardwareInspector.CurrentSchema;
-  File.WriteAllText(file,new JavaScriptSerializer().Serialize(ShareableCopy(hotasProfile)),new System.Text.UTF8Encoding(false));
+  var copy=ShareableCopy(hotasProfile);
+  copy.Format=ProfileFormat;
+  File.WriteAllText(file,new JavaScriptSerializer().Serialize(copy),new System.Text.UTF8Encoding(false));
  }
 
  void BackUpHotasWorkingProfile() {
@@ -314,7 +319,7 @@ partial class ControllerSetup {
 
  void SaveHotasProfileAs() {
   if(hotasProfile==null)throw new InvalidOperationException("Scan your controllers first.");
-  using(var dialog=new SaveFileDialog{Filter="Hardware profile (*.json)|*.json",FileName="hardware-profile.json"})
+  using(var dialog=new SaveFileDialog{Filter="Flight Control HOTAS profile (*.fchotas)|*.fchotas",FileName="my-hotas.fchotas",DefaultExt="fchotas",AddExtension=true})
    if(dialog.ShowDialog(this)==DialogResult.OK)WriteHotasProfile(dialog.FileName);
  }
 

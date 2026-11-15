@@ -8,6 +8,8 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 sealed class HardwareProfile {
+ // Marks a file as a Flight Control HOTAS profile so a stray JSON is refused with a clear message. Older exports lack it.
+ public string Format {get;set;}
  public int SchemaVersion {get;set;}
  public string Backend {get;set;}
  public List<HardwareDevice> Devices {get;set;}
