@@ -81,7 +81,7 @@ sealed class HotasCanvas : Control {
    float areaX=0.36f,areaY=hats.Count>0?0.06f+dial/ch+0.06f:0.07f,areaW=0.61f,areaH=0.93f-areaY;
    int cols=Math.Max(1,(int)Math.Ceiling(Math.Sqrt(n*(areaW*cw)/(areaH*ch))));
    int rows=(int)Math.Ceiling(n/(double)cols);
-   float cell=Math.Min(areaW*cw/cols,areaH*ch/rows);
+   float cell=Math.Min(Math.Min(areaW*cw/cols,areaH*ch/rows),0.2f*Math.Min(cw,ch));   // a lone button should not become a huge disc
    for(int i=0;i<n;i++)
     result["Button:"+buttons[i].Index]=new RectangleF(areaX+(i%cols)*cell/cw,areaY+(i/cols)*cell/ch,cell*0.86f/cw,cell*0.86f/ch);
   }

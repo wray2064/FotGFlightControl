@@ -17,8 +17,8 @@ partial class ControllerSetup {
 
  // How the gamepad controls Flight Control reads are described to someone holding a stick.
  static readonly Dictionary<string,string> VirtualLabels=new Dictionary<string,string>{
-  {"Wheel step clockwise","Wheel: step clockwise (encoder)"},{"Wheel step counter-clockwise","Wheel: step counter-clockwise (encoder)"},
-  {"Wheel select","Wheel: select (only while a wheel is open)"},{"Wheel cancel","Wheel: cancel (only while a wheel is open)"},
+  {"Wheel step clockwise","Wheel: step clockwise"},{"Wheel step counter-clockwise","Wheel: step anticlockwise"},
+  {"Wheel select","Wheel: select"},{"Wheel cancel","Wheel: cancel"},
   {"Dpad up","Wheel: D-pad up"},{"Dpad down","Wheel: D-pad down (squad)"},{"Dpad left","Wheel: D-pad left"},{"Dpad right","Wheel: D-pad right (macros)"},
   {"A","Select / confirm (A)"},{"B","Cancel / back (B)"},{"X","X button action"},{"Y","Y button action"},
   {"LB","Left bumper action"},{"RB","Right bumper action"},{"L3","Left stick click (L3)"},{"R3","Right stick click (R3)"},
@@ -73,7 +73,7 @@ partial class ControllerSetup {
   shell.Controls.Add(main,0,1);
 
   // Left: what to assign.
-  var left=Grid(1,5);Rows(left,28,34,-1,56,46);left.Margin=new Padding(0,0,10,0);
+  var left=Grid(1,5);Rows(left,28,34,-1,76,46);left.Margin=new Padding(0,0,10,0);
   left.Controls.Add(LabelText("01 / PICK AN ACTION, THEN PRESS A CONTROL",10,Cyan),0,0);
   hotasFilter=new TextBox{Dock=DockStyle.Fill,BackColor=Night,ForeColor=Ink,Font=new Font("Segoe UI",11),BorderStyle=BorderStyle.FixedSingle};
   hotasFilter.TextChanged+=delegate{RebuildHotasList();};hotasFilter.Tag="filter";
@@ -122,7 +122,7 @@ partial class ControllerSetup {
   main.Controls.Add(right,1,0);
 
   // Footer: profile files, backup and apply.
-  var footer=Grid(7,1);foreach(int w in new[]{112,112,130,116,126})footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,w));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,176));
+  var footer=Grid(7,1);foreach(int w in new[]{124,124,140,120,140})footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,w));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,176));
   footer.Padding=new Padding(0,14,0,0);footer.Visible=false;
   footer.Controls.Add(ActionButton("Open profile",delegate{OpenHotasProfile();}),0,0);
   footer.Controls.Add(ActionButton("Save profile",delegate{SaveHotasProfileAs();}),1,0);
@@ -436,14 +436,14 @@ partial class ControllerSetup {
  // also drive a wheel role, so it behaves differently by state, as on the gamepad.
  string FlightMeaning(HotasRow row) {
   if(row.Group!=HotasModel.Group.Virtual)return "";
-  if(row.Name==HotasPad.WheelSelect||row.Name==HotasPad.WheelCancel)return Environment.NewLine+"also assign Right/Left trigger for a button that fires in flight";
-  if(row.Name==HotasPad.WheelStepCw||row.Name==HotasPad.WheelStepCcw)return Environment.NewLine+"turn an encoder (or press two buttons) to move round an open wheel";
+  if(row.Name==HotasPad.WheelSelect||row.Name==HotasPad.WheelCancel)return Environment.NewLine+"pair with Right/Left trigger to fire";
+  if(row.Name==HotasPad.WheelStepCw||row.Name==HotasPad.WheelStepCcw)return Environment.NewLine+"encoder: one button per direction";
   int i=Array.IndexOf(TapButtons,row.Name);
   if(i<0)return "";
   var tap=Array.Find(ButtonActions,a=>a.Id==tapActions[i]);
   int h=Array.IndexOf(HoldButtons,row.Name);
   var hold=h<0?null:Array.Find(ButtonActions,a=>a.Id==holdActions[h]);
-  return Environment.NewLine+"In flight: "+(tap==null?tapActions[i]:tap.Caption)+(hold!=null&&hold.Id!="none"?", hold: "+hold.Caption:"")+" (Buttons tab)";
+  return Environment.NewLine+"In flight: "+(tap==null?tapActions[i]:tap.Caption)+(hold!=null&&hold.Id!="none"?", hold: "+hold.Caption:"");
  }
 
  static string CanvasKey(FlightAxisBinding binding,HotasModel.Group group) {
@@ -829,7 +829,11 @@ partial class ControllerSetup {
    Virtual=new Dictionary<string,FlightAxisBinding>{
     {"A",new FlightAxisBinding{DeviceIndex=0,InputIndex=4,Kind=HotasModel.Button}},
     {"Dpad right",new FlightAxisBinding{DeviceIndex=0,InputIndex=0,Kind=HotasModel.Hat,Direction=HotasModel.HatRight}},
-    {"Right trigger",new FlightAxisBinding{DeviceIndex=1,InputIndex=1,Kind=HotasModel.Axis}}}};
+    {"Right trigger",new FlightAxisBinding{DeviceIndex=1,InputIndex=1,Kind=HotasModel.Axis}},
+    {"Wheel select",new FlightAxisBinding{DeviceIndex=0,InputIndex=6,Kind=HotasModel.Button}},
+    {"Wheel cancel",new FlightAxisBinding{DeviceIndex=0,InputIndex=7,Kind=HotasModel.Button}},
+    {"Wheel step clockwise",new FlightAxisBinding{DeviceIndex=0,InputIndex=8,Kind=HotasModel.Button}},
+    {"Wheel step counter-clockwise",new FlightAxisBinding{DeviceIndex=0,InputIndex=9,Kind=HotasModel.Button}}}};
   if(!keepPrefs)prefs=null;
   hotasLoading=false;
   hotasNotice=null;
@@ -971,12 +975,27 @@ partial class ControllerSetup {
    form.Location=new Point(-2000,-2000);
    form.ShowInTaskbar=false;
    form.Show();
-   bool live=args.Length>at+3&&args[at+2]=="live";
-   if(live){form.root.Text=args[at+3];form.prefs=null;}   // read-only: a real scan, nothing saved
+   // After the picture name: live "<game folder>" (a real read-only scan), listen, select:<action>, device:<n>, arrange.
+   var tokens=args.Skip(at+2).ToList();
+   bool live=tokens.Count>1&&tokens[0]=="live";
+   if(live){form.root.Text=tokens[1];form.prefs=null;tokens.RemoveRange(0,2);}   // nothing is saved
    else form.HotasDemo();
    form.ShowPage(false,false,false,true);
    form.hotasShowSetup=false;form.ShowHotasSetup();
-   if(args.Length>at+2&&args[at+2]=="listen"){form.hotasList.Items[1].Selected=true;form.StartListening((HotasRow)form.hotasList.Items[1].Tag);}
+   Func<string,bool> pick=delegate(string name){
+    foreach(ListViewItem item in form.hotasList.Items){
+     var row=item.Tag as HotasRow;
+     if(row!=null&&row.Name==name){item.Selected=true;item.EnsureVisible();return true;}
+    }
+    return false;
+   };
+   for(int settle=0;settle<5;settle++){Application.DoEvents();System.Threading.Thread.Sleep(60);}
+   foreach(string token in tokens){
+    if(token=="listen"&&pick("Pitch"))form.StartListening((HotasRow)form.hotasList.SelectedItems[0].Tag);
+    else if(token.StartsWith("select:")){if(pick(token.Substring(7)))form.hotasList.TopItem=form.hotasList.SelectedItems[0];}
+    else if(token.StartsWith("device:")){form.hotasView=Int32.Parse(token.Substring(7));form.BuildHotasDeviceBar();form.ShowHotasDevice();}
+    else if(token=="arrange"){form.hotasCanvas.Arrange=true;form.hotasArrange.Text="Done arranging";form.TabLook(form.hotasArrange,true);}
+   }
    for(int i=0;i<5;i++){Application.DoEvents();System.Threading.Thread.Sleep(60);}
    using(var bitmap=new Bitmap(form.ClientSize.Width,form.ClientSize.Height)){
     form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height));

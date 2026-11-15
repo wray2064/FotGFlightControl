@@ -93,7 +93,7 @@ partial class ControllerSetup {
   macroCards.Enabled=advanced;
   cameraHold.Enabled=advanced;
  }
- void TabLook(Button b,bool on){if(b==null)return;b.BackColor=on?Color.FromArgb(110,88,8):Color.FromArgb(16,14,3);b.ForeColor=on?Color.White:Color.FromArgb(214,190,70);b.FlatAppearance.BorderSize=on?3:1;b.FlatAppearance.BorderColor=on?Color.FromArgb(255,236,120):Color.FromArgb(120,104,26);b.AccessibleDescription=on?"Selected tab":"Tab";}
+ internal void TabLook(Button b,bool on){if(b==null)return;b.BackColor=on?Color.FromArgb(110,88,8):Color.FromArgb(16,14,3);b.ForeColor=on?Color.White:Color.FromArgb(214,190,70);b.FlatAppearance.BorderSize=on?3:1;b.FlatAppearance.BorderColor=on?Color.FromArgb(255,236,120):Color.FromArgb(120,104,26);b.AccessibleDescription=on?"Selected tab":"Tab";}
  Control BuildMacroDeck(){
   var deck=Grid(1,7);macroDeckLayout=deck;deck.BackColor=Surface;TargetingFrame.Apply(deck);deck.Padding=new Padding(12);Rows(deck,34,40,-1,46,46,46,118);
   macroHeading=LabelText("04 / COMMAND WHEEL  ·  MACROS ON CARDINALS / MISSION ON DIAGONALS",12,Cyan);
