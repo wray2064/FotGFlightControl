@@ -73,3 +73,6 @@ capture and virtual-pad logic.
   gamepad, so both can be used at once.
 - **Test modes.** `--hotas-flowtest <game folder> <out file>` runs apply, re-apply, gamepad mode, features-only and restore
   against a throwaway copy of the game files; the real game folder is only read.
+- `--hotas-sharetest <out file>` has one player save a profile and another load it (different serials, an existing profile of
+  their own), checks the saved file for personal details, refuses a set of broken or hostile files without changing anything,
+  and confirms the loaded profile survives a restart.

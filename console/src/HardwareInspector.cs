@@ -173,7 +173,7 @@ static class HardwareInspector {
   if(value.Layouts==null)return;
   var seen=new HashSet<int>();
   foreach(var layout in value.Layouts){
-   if(layout==null||layout.DeviceIndex<0||layout.DeviceIndex>=value.Devices.Count||!seen.Add(layout.DeviceIndex)||layout.Widgets==null)
+   if(layout==null||layout.DeviceIndex<0||layout.DeviceIndex>=value.Devices.Count||!seen.Add(layout.DeviceIndex)||layout.Widgets==null||layout.Widgets.Count>1100)
     throw new InvalidDataException("The profile contains an invalid preview layout.");
    var inputs=value.Devices[layout.DeviceIndex].Inputs;
    foreach(var widget in layout.Widgets)
@@ -186,14 +186,17 @@ static class HardwareInspector {
  internal static void Validate(HardwareProfile value) {
   if(value==null||value.SchemaVersion<1||value.SchemaVersion>CurrentSchema||value.Backend!="SDL3"||value.Devices==null||value.Devices.Count==0)
    throw new InvalidDataException("Select a nonempty Flight Control SDL3 hardware profile.");
+  // A profile may come from anyone: keep every part of it within sane bounds.
+  if(value.Devices.Count>16)throw new InvalidDataException("The hardware profile lists too many devices.");
+  Func<string,int,bool> plain=(text,max)=>text==null||(text.Length<=max&&!text.Any(Char.IsControl));
   foreach(var device in value.Devices) {
-   if(device==null||String.IsNullOrWhiteSpace(device.Name)||device.Guid==null||
-    device.Guid.Length!=32||!device.Guid.All(Uri.IsHexDigit)||device.Inputs==null)
+   if(device==null||String.IsNullOrWhiteSpace(device.Name)||!plain(device.Name,128)||!plain(device.Serial,128)||device.Guid==null||
+    device.Guid.Length!=32||!device.Guid.All(Uri.IsHexDigit)||device.Inputs==null||device.Inputs.Count>1024)
     throw new InvalidDataException("The hardware profile contains an invalid device.");
    var keys=new HashSet<string>();
    foreach(var input in device.Inputs)
-    if(input==null||input.Index<0||(input.Kind!="Axis"&&input.Kind!="Button"&&input.Kind!="Hat")||
-     !keys.Add(input.Kind+input.Index))
+    if(input==null||input.Index<0||input.Index>4095||(input.Kind!="Axis"&&input.Kind!="Button"&&input.Kind!="Hat")||
+     !plain(input.Label,64)||!plain(input.Verification,32)||!keys.Add(input.Kind+input.Index))
      throw new InvalidDataException("The hardware profile contains an invalid or duplicate input.");
   }
   HotasModel.ValidateBindings(value);

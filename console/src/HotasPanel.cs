@@ -267,20 +267,40 @@ partial class ControllerSetup {
  void OpenHotasProfile() {
   using(var dialog=new OpenFileDialog{Filter="Hardware profile (*.json)|*.json"}){
    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
-   if(new FileInfo(dialog.FileName).Length>2*1024*1024)throw new InvalidDataException("That file is too large to be a HOTAS profile.");
-   var opened=new JavaScriptSerializer().Deserialize<HardwareProfile>(File.ReadAllText(dialog.FileName));
-   HardwareInspector.Validate(opened);
-   opened=ShareableCopy(opened);
-   StopListening();
-   BackUpHotasWorkingProfile();
-   hotasProfile=opened;
-   hotasNotice=null;
-   UseHotasSession();
-   int offline=hotasMatches.Count(m=>m==null);
-   hotasNotice="Loaded "+Path.GetFileName(dialog.FileName)+". "+(offline==0?"All its controllers are connected.":offline+" of its controllers are not connected: right-click a controller above to use one of yours instead.")+" Your previous profile was kept as a backup.";
-   SaveHotasWorkingProfile();
-   RefreshHotasStatus();
+   LoadSharedHotasProfile(dialog.FileName);
   }
+ }
+
+ // Reads a profile file from someone else (or an older copy of your own): size, shape and contents are checked,
+ // and anything personal or risky is stripped. Nothing changes if it is refused.
+ internal HardwareProfile ReadHotasProfile(string file) {
+  if(new FileInfo(file).Length>2*1024*1024)throw new InvalidDataException("That file is too large to be a HOTAS profile.");
+  HardwareProfile opened;
+  try{opened=new JavaScriptSerializer().Deserialize<HardwareProfile>(File.ReadAllText(file));}
+  catch(Exception e){throw new InvalidDataException("That is not a valid HOTAS profile: "+e.Message);}
+  HardwareInspector.Validate(opened);
+  return ShareableCopy(opened);
+ }
+
+ internal void LoadSharedHotasProfile(string file) {
+  var opened=ReadHotasProfile(file);
+  StopListening();
+  BackUpHotasWorkingProfile();
+  hotasProfile=opened;
+  hotasNotice=null;
+  UseHotasSession();
+  int offline=hotasMatches.Count(m=>m==null);
+  hotasNotice="Loaded "+Path.GetFileName(file)+". "+(offline==0?"All its controllers are connected.":offline+" of its controllers are not connected: right-click a controller above to use one of yours instead.")+" Your previous profile was kept as a backup.";
+  SaveHotasWorkingProfile();
+  RefreshHotasStatus();
+ }
+
+ // Writes a copy that is safe to share: no device serials, no paths from this PC.
+ internal void WriteHotasProfile(string file) {
+  if(hotasProfile==null)throw new InvalidOperationException("Scan your controllers first.");
+  HardwareInspector.Validate(hotasProfile);
+  hotasProfile.SchemaVersion=HardwareInspector.CurrentSchema;
+  File.WriteAllText(file,new JavaScriptSerializer().Serialize(ShareableCopy(hotasProfile)),new System.Text.UTF8Encoding(false));
  }
 
  void BackUpHotasWorkingProfile() {
@@ -294,11 +314,8 @@ partial class ControllerSetup {
 
  void SaveHotasProfileAs() {
   if(hotasProfile==null)throw new InvalidOperationException("Scan your controllers first.");
-  HardwareInspector.Validate(hotasProfile);
-  hotasProfile.SchemaVersion=HardwareInspector.CurrentSchema;
-  // Shared copies carry no device serials and no paths from this PC.
   using(var dialog=new SaveFileDialog{Filter="Hardware profile (*.json)|*.json",FileName="hardware-profile.json"})
-   if(dialog.ShowDialog(this)==DialogResult.OK)File.WriteAllText(dialog.FileName,new JavaScriptSerializer().Serialize(ShareableCopy(hotasProfile)));
+   if(dialog.ShowDialog(this)==DialogResult.OK)WriteHotasProfile(dialog.FileName);
  }
 
  // Use one of your connected controllers in place of a saved one (a shared profile from another model, or a replaced device).
