@@ -15,10 +15,10 @@ sealed class FlightDevice {
  public override string ToString(){return (Name??"Unknown joystick")+"  /  SDL "+Id+(PlayerIndex>=0?"  /  XInput "+PlayerIndex:"");}
 }
 
-static class FlightDevices {
+static partial class FlightDevices {
  [StructLayout(LayoutKind.Sequential)] struct SdlGuid {public ulong A,B;}
  [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern bool SetDllDirectory(string path);
- [DllImport("SDL3.dll",CallingConvention=CallingConvention.Cdecl,EntryPoint="SDL_Init")] static extern bool S3Init(uint flags);
+ [DllImport("SDL3.dll",CallingConvention=CallingConvention.Cdecl,EntryPoint="SDL_Init")] [return:MarshalAs(UnmanagedType.I1)] static extern bool S3Init(uint flags);
  [DllImport("SDL3.dll",CallingConvention=CallingConvention.Cdecl,EntryPoint="SDL_GetJoysticks")] static extern IntPtr S3List(out int count);
  [DllImport("SDL3.dll",CallingConvention=CallingConvention.Cdecl,EntryPoint="SDL_GetJoystickGUIDForID")] static extern SdlGuid S3Guid(uint id);
  [DllImport("SDL3.dll",CallingConvention=CallingConvention.Cdecl,EntryPoint="SDL_GUIDToString")] static extern void S3GuidText(SdlGuid guid,StringBuilder text,int length);
