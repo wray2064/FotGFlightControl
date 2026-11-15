@@ -54,3 +54,22 @@ capture and virtual-pad logic.
 - FotG 1.1.x (classic) has no HOTAS support: the panel and the bridge's HOTAS layer need the SDL3 engine and MyMod's
   control table.
 - Native hat and action-name details come from FSO's source and have not been confirmed in FotG 2.0.2. See the work log.
+
+## Sharing, switching and where the approaches meet
+
+- **Sharing.** Save profile writes a copy with no device serials and no picture paths; Open profile strips both again, refuses
+  files over 2 MB, and keeps your own profile as `fotg-hotas-profile.hotas.bak-<time>` (last five). A shared profile matches
+  your hardware by SDL GUID (same model = same GUID). For a different model, right-click a controller chip in the HOTAS tab and
+  choose one of your connected controllers; bindings and layout stay. The Profiles tab (wheel layouts, macros, button actions)
+  is separate: a shared HOTAS setup that relies on button quick-press actions needs that profile too.
+- **Gamepad mode** (HOTAS tab) removes the HOTAS block and the Flight Control map, puts the pilot's preset and the game's
+  joystick selection back as they were before HOTAS was first applied (recorded in `fotg-hotas-state.hotas`), and keeps the HOTAS
+  profile. If HOTAS was applied before the record existed, the preset falls back to FotG Classic Native or default and the
+  joystick selection is left for Flight response, APPLY WITH BACKUP. Applying HOTAS again brings it straight back.
+- **Where the two meet.** HOTAS game bindings use the game's joystick slots, and the gamepad's Apply uses slot 0 too. The
+  gamepad's Apply now warns when HOTAS bindings are applied, and the HOTAS tab says when the slots no longer match.
+  Flight Control actions alone (no game bindings) never touch the pilot preset, the control table or the joystick slots, so a
+  gamepad's own axes keep working next to a HOTAS used only for wheels and buttons. The bridge layers the HOTAS over the
+  gamepad, so both can be used at once.
+- **Test modes.** `--hotas-flowtest <game folder> <out file>` runs apply, re-apply, gamepad mode, features-only and restore
+  against a throwaway copy of the game files; the real game folder is only read.

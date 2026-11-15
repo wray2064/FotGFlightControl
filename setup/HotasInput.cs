@@ -21,7 +21,7 @@ sealed class HotasMapFile {
     public List<HotasMapDevice> Devices { get; set; }
     public Dictionary<string, HotasMapBinding> Controls { get; set; }
 
-    public static string FileName { get { return "fotg-hotas-virtual.json"; } }
+    public static string FileName { get { return "fotg-hotas-virtual.map"; } }
 
     public static HotasMapFile Load(string path) {
         try {
@@ -76,8 +76,12 @@ static class HotasPad {
         "Left trigger","Right trigger","Left stick X","Left stick Y","Right stick X","Right stick Y"
     };
 
-    public static IEnumerable<string> VirtualControls { get { return ButtonBits.Keys.Concat(AnalogControls); } }
-    public static bool IsVirtualControl(string name) { return name != null && (ButtonBits.ContainsKey(name) || AnalogControls.Contains(name)); }
+    // Wheel select and cancel act only while a wheel is open, so a button can fire in flight and confirm in a wheel.
+    public const string WheelSelect = "Wheel select", WheelCancel = "Wheel cancel";
+    public static readonly string[] WheelOnlyControls = { WheelSelect, WheelCancel };
+
+    public static IEnumerable<string> VirtualControls { get { return WheelOnlyControls.Concat(ButtonBits.Keys).Concat(AnalogControls); } }
+    public static bool IsVirtualControl(string name) { return name != null && (ButtonBits.ContainsKey(name) || AnalogControls.Contains(name) || WheelOnlyControls.Contains(name)); }
     public static bool IsAnalog(string name) { return AnalogControls.Contains(name); }
 
     const int Half = 16384;
@@ -114,7 +118,9 @@ static class HotasPad {
     }
 
     // Combines every mapped control into one virtual pad. connected is true when at least one mapped device responds.
-    public static HotasPadState Compose(HotasMapFile map, IHotasReader reader, out bool connected) {
+    // wheelOpen switches on the wheel-only controls. guard (optional, kept between calls) remembers controls pressed
+    // while a wheel was open, so the button that made a selection does not also act in flight once the wheel closes.
+    public static HotasPadState Compose(HotasMapFile map, IHotasReader reader, bool wheelOpen, HashSet<string> guard, out bool connected) {
         var state = new HotasPadState();
         connected = false;
         if (map == null) return state;
@@ -126,8 +132,19 @@ static class HotasPad {
             if (!up) continue;
             connected = true;
             string name = entry.Key;
+            if (name == WheelSelect || name == WheelCancel) {
+                if (wheelOpen && Digital(b, reader)) state.Buttons |= (ushort)(name == WheelSelect ? 4096 : 8192);
+                continue;
+            }
             int bit;
-            if (ButtonBits.TryGetValue(name, out bit)) { if (Digital(b, reader)) state.Buttons |= (ushort)bit; continue; }
+            bool isButton = ButtonBits.TryGetValue(name, out bit);
+            bool digitalSource = b.Kind != "Axis" || (!IsAnalog(name));
+            if (guard != null && digitalSource && (isButton || name == "Left trigger" || name == "Right trigger")) {
+                bool active = Digital(b, reader);
+                if (wheelOpen) { if (active) guard.Add(name); }
+                else if (guard.Contains(name)) { if (active) continue; guard.Remove(name); }
+            }
+            if (isButton) { if (Digital(b, reader)) state.Buttons |= (ushort)bit; continue; }
             switch (name) {
                 case "Left trigger": state.LeftTrigger = Trigger(b, reader); break;
                 case "Right trigger": state.RightTrigger = Trigger(b, reader); break;
@@ -138,6 +155,10 @@ static class HotasPad {
             }
         }
         return state;
+    }
+
+    public static HotasPadState Compose(HotasMapFile map, IHotasReader reader, out bool connected) {
+        return Compose(map, reader, false, null, out connected);
     }
 
     // Layers the HOTAS pad over a real gamepad: buttons combine, and the stronger analog value wins.
@@ -213,6 +234,30 @@ static class HotasPad {
         r.Offline.Add(1);
         Compose(map, r, out connected);
         if (connected) return false;
+        // One physical button can fire in flight and confirm in a wheel, without leaking either way.
+        var wmap = new HotasMapFile {
+            Version = 1, Devices = new List<HotasMapDevice> { new HotasMapDevice { Guid = new string('C', 32) } },
+            Controls = new Dictionary<string, HotasMapBinding> {
+                {"Right trigger", new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=0}},
+                {WheelSelect, new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=0}},
+                {WheelCancel, new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=1}}}
+        };
+        if (!HotasMapFile.Check(wmap)) return false;
+        var wr = new FakeReader(); var guard = new HashSet<string>();
+        wr.Values["b0.0"] = 1;
+        var inFlight = Compose(wmap, wr, false, guard, out connected);
+        if (inFlight.RightTrigger != 255 || (inFlight.Buttons & 4096) != 0) return false;   // fires, does not confirm
+        var inWheel = Compose(wmap, wr, true, guard, out connected);
+        if ((inWheel.Buttons & 4096) == 0) return false;                                      // confirms in the wheel
+        wr.Values["b0.1"] = 1;
+        if ((Compose(wmap, wr, true, guard, out connected).Buttons & 8192) == 0) return false; // second button cancels
+        var afterClose = Compose(wmap, wr, false, guard, out connected);
+        if (afterClose.RightTrigger != 0 || afterClose.Buttons != 0) return false;           // still held: no stray shot
+        wr.Values["b0.0"] = 0; wr.Values["b0.1"] = 0;
+        Compose(wmap, wr, false, guard, out connected);
+        wr.Values["b0.0"] = 1;
+        if (Compose(wmap, wr, false, guard, out connected).RightTrigger != 255) return false; // fires again after release
+
         // Layering over a real gamepad keeps both.
         var merged = Merge(new HotasPadState { Buttons = 4096, LeftX = 500, RightX = -20000 },
             new HotasPadState { Buttons = 8192, LeftX = -900, RightX = 100 });

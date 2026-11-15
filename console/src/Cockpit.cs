@@ -59,7 +59,7 @@ partial class ControllerSetup {
  profiles.Controls.Add(profileActions,0,2);profilePage=profiles;contentHost.Controls.Add(profilePage);
  buttonsPage=BuildButtonEditor();contentHost.Controls.Add(buttonsPage);contentHost.Controls.Add(BuildHotasPage());UpdateMode();ShowPage(false);FormClosed+=delegate{CloseHotas();};
  var footer=Grid(3,1);nativeFooter=footer;footer.Padding=new Padding(0,14,0,0);footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,200));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,200));nativeFooterLabel=LabelText("SELECT SLOT, THEN APPLY / BACKUP",9,Ink);footer.Controls.Add(nativeFooterLabel,0,0);nativeRestore=ActionButton("Restore latest backup",delegate{Restore();});footer.Controls.Add(nativeRestore,1,0);var apply=ActionButton("APPLY WITH BACKUP",delegate{Apply();});apply.BackColor=Color.FromArgb(110,88,8);apply.FlatAppearance.BorderColor=Color.FromArgb(255,236,120);apply.Font=new Font("Consolas",11,FontStyle.Bold);nativeApply=apply;footer.Controls.Add(apply,2,0);shell.Controls.Add(footer,0,4);
- root.Text=FindGame();LoadPilots();RefreshWheelModFolder();FitCockpit();timer.Interval=33;timer.Tick+=delegate{Poll();};timer.Start();FormClosed+=delegate{timer.Dispose();};Shown+=delegate{var area=Screen.FromControl(this).WorkingArea;if(Width>area.Width||Height>area.Height){Size=new Size(Math.Min(Width,area.Width),Math.Min(Height,area.Height));Location=new Point(area.Left+(area.Width-Width)/2,area.Top+(area.Height-Height)/2);}};ResumeLayout(true);
+ root.Text=StartGame??FindGame();LoadPilots();RefreshWheelModFolder();FitCockpit();timer.Interval=33;timer.Tick+=delegate{Poll();};timer.Start();FormClosed+=delegate{timer.Dispose();};Shown+=delegate{var area=Screen.FromControl(this).WorkingArea;if(Width>area.Width||Height>area.Height){Size=new Size(Math.Min(Width,area.Width),Math.Min(Height,area.Height));Location=new Point(area.Left+(area.Width-Width)/2,area.Top+(area.Height-Height)/2);}};ResumeLayout(true);
  }
  public void FocusControllerSlot(){ShowPage(false);slot.Focus();}
  static TableLayoutPanel Grid(int cols,int rows){return new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=cols,RowCount=rows,Margin=Padding.Empty};}
@@ -70,7 +70,7 @@ partial class ControllerSetup {
   b.GotFocus+=delegate{b.FlatAppearance.BorderColor=Color.White;b.Invalidate();};b.LostFocus+=delegate{b.FlatAppearance.BorderColor=Color.FromArgb(185,158,37);b.Invalidate();};
   b.EnabledChanged+=delegate{b.ForeColor=b.Enabled?Ink:Color.FromArgb(112,100,52);};
   b.Paint+=delegate(object sender,PaintEventArgs e){var g=e.Graphics;if(b.Enabled){using(var tick=new Pen(Color.FromArgb(255,226,70),2)){g.DrawLine(tick,1,1,10,1);g.DrawLine(tick,1,1,1,10);g.DrawLine(tick,b.Width-2,b.Height-2,b.Width-11,b.Height-2);g.DrawLine(tick,b.Width-2,b.Height-2,b.Width-2,b.Height-11);}}if(b.Focused&&b.Width>12&&b.Height>12){using(var f=new Pen(Color.White,1){DashStyle=System.Drawing.Drawing2D.DashStyle.Dash})g.DrawRectangle(f,4,4,b.Width-9,b.Height-9);}};
-  b.Click+=delegate{try{action();}catch(Exception e){MessageBox.Show(e.Message,Text);}};return b;}
+  b.Click+=delegate{try{action();}catch(Exception e){try{System.IO.File.AppendAllText(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"console-error.log"),DateTime.Now+" ["+b.Text+"] "+e+Environment.NewLine+Environment.NewLine);}catch(Exception){}MessageBox.Show(e.Message,Text);}};return b;}
 }
 
 

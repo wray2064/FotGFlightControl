@@ -194,6 +194,18 @@ partial class ControllerSetup {
   var map=new JavaScriptSerializer().Deserialize<HotasMapFile>(HotasMapJson(profile));
   if(!HotasMapFile.Check(map)||map.Devices.Count!=2||map.Controls["Dpad left"].Direction!=HotasModel.HatLeft)return false;
   if(HotasModel.Overlaps(profile).Count!=0)return false;
+  // Switching back to the gamepad and sharing: helpers that edit files text-wise or strip personal details.
+  if(RemoveHotasBlock(rich)!=table)return false;
+  string iniText="[Input]\r\nJoystick={\"guid\":\"AA\",\"id\":-1}\r\nJoystick1=x\r\n[Other]\r\nJoystick1=keep";
+  if(GetIni(iniText,"Input","Joystick1")!="x"||GetIni(iniText,"Input","Joystick2")!=null)return false;
+  string cleaned=RemoveIni(iniText,"Input","Joystick1");
+  if(GetIni(cleaned,"Input","Joystick1")!=null||GetIni(cleaned,"Other","Joystick1")!="keep"||GetIni(cleaned,"Input","Joystick")==null)return false;
+  stick.Serial="SN-1";
+  profile.Layouts=new List<DeviceLayout>{new DeviceLayout{DeviceIndex=0,BackgroundImage=@"\\server\share\a.png",Widgets=new List<LayoutWidget>()}};
+  var shared=ShareableCopy(profile);
+  if(shared.Devices[0].Serial!=null||shared.Layouts[0].BackgroundImage!=null||stick.Serial!="SN-1"||profile.Layouts[0].BackgroundImage==null)return false;
+  if(shared.Virtual["Dpad left"].Direction!=HotasModel.HatLeft)return false;
+  stick.Serial=null;profile.Layouts=null;
   profile.Virtual["B"]=new FlightAxisBinding{DeviceIndex=0,InputIndex=3,Kind=HotasModel.Button};
   if(HotasModel.Overlaps(profile).Count!=1)return false;
   profile.Virtual.Remove("B");
@@ -227,6 +239,139 @@ partial class ControllerSetup {
    .AppendLine("            $Input: "+input.ToString(CultureInfo.InvariantCulture));
  }
 
+ // A copy that is safe to hand to someone else or to load from someone else: no device serials (they identify a unit)
+ // and no picture paths (a path from a shared file could point at a network location).
+ internal static HardwareProfile ShareableCopy(HardwareProfile profile) {
+  var serializer=new JavaScriptSerializer();
+  var copy=serializer.Deserialize<HardwareProfile>(serializer.Serialize(profile));
+  foreach(var device in copy.Devices)device.Serial=null;
+  if(copy.Layouts!=null)foreach(var layout in copy.Layouts)layout.BackgroundImage=null;
+  return copy;
+ }
+
+ // Dialogs go through here so the file logic can be tested without a person clicking.
+ internal static bool? AutoConfirm;
+ static DialogResult Say(IWin32Window owner,string text,string title,MessageBoxButtons buttons=MessageBoxButtons.OK) {
+  if(AutoConfirm.HasValue)return AutoConfirm.Value?DialogResult.OK:DialogResult.Cancel;
+  return MessageBox.Show(owner,text,title,buttons);
+ }
+
+ // What the game looked like before HOTAS was applied, so switching back to the gamepad is one step.
+ sealed class HotasState {
+  public bool Active {get;set;}
+  public string PreviousPreset {get;set;}
+  public Dictionary<string,string> PreviousJoystick {get;set;}   // null = unknown
+  public List<string> AppliedSlots {get;set;}                     // device GUID per native joystick slot
+ }
+ static readonly string[] JoystickKeys={"Joystick","Joystick1","Joystick2","Joystick3"};
+
+ string HotasStatePath(){return Path.Combine(prefs,"data","players","fotg-hotas-state.hotas");}
+
+ HotasState LoadHotasState() {
+  try{
+   if(String.IsNullOrEmpty(prefs)||!File.Exists(HotasStatePath()))return null;
+   return json.Deserialize<HotasState>(File.ReadAllText(HotasStatePath()));
+  }catch(Exception){return null;}
+ }
+
+ internal static string GetIni(string text,string section,string key) {
+  var lines=text.Replace("\r\n","\n").Split('\n');
+  int start=Array.FindIndex(lines,l=>l.Trim().Equals("["+section+"]",StringComparison.OrdinalIgnoreCase));
+  if(start<0)return null;
+  for(int i=start+1;i<lines.Length&&!lines[i].TrimStart().StartsWith("[");i++){
+   int eq=lines[i].IndexOf('=');
+   if(eq>0&&lines[i].Substring(0,eq).Trim().Equals(key,StringComparison.OrdinalIgnoreCase))return lines[i].Substring(eq+1);
+  }
+  return null;
+ }
+
+ internal static string RemoveIni(string text,string section,string key) {
+  var lines=new List<string>(text.Replace("\r\n","\n").Split('\n'));
+  int start=lines.FindIndex(l=>l.Trim().Equals("["+section+"]",StringComparison.OrdinalIgnoreCase));
+  if(start<0)return text;
+  for(int i=start+1;i<lines.Count&&!lines[i].TrimStart().StartsWith("[");i++){
+   int eq=lines[i].IndexOf('=');
+   if(eq>0&&lines[i].Substring(0,eq).Trim().Equals(key,StringComparison.OrdinalIgnoreCase)){lines.RemoveAt(i);break;}
+  }
+  return String.Join("\r\n",lines);
+ }
+
+ internal static string RemoveHotasBlock(string table) {
+  return Regex.Replace(table,@"(?ms)^"+Regex.Escape(HotasStart)+@"\r?\n.*?^"+Regex.Escape(HotasEnd)+@"\r?\n?","");
+ }
+
+ // The game's joystick slots still point at the devices HOTAS was applied with? (Applying gamepad settings changes them.)
+ string HotasSlotNote() {
+  try{
+   var state=LoadHotasState();
+   if(state==null||!state.Active||state.AppliedSlots==null||state.AppliedSlots.Count==0)return null;
+   string iniPath=SettingsPath();
+   if(!File.Exists(iniPath))return null;
+   string text=File.ReadAllText(iniPath);
+   for(int i=0;i<state.AppliedSlots.Count&&i<JoystickKeys.Length;i++){
+    string raw=GetIni(text,"Input",JoystickKeys[i]);
+    string guid=null;
+    if(raw!=null){var d=json.Deserialize<Dictionary<string,object>>(raw);object g;if(d!=null&&d.TryGetValue("guid",out g))guid=g as string;}
+    if(!String.Equals(guid,state.AppliedSlots[i],StringComparison.OrdinalIgnoreCase))
+     return "The game's joystick slots no longer match your HOTAS (gamepad settings were applied since). Apply to pilot to re-sync.";
+   }
+  }catch(Exception){}
+  return null;
+ }
+
+ // Switches the game back to the gamepad: removes the HOTAS bindings and the Flight Control map, puts the pilot's
+ // preset and the game's joystick selection back as they were before HOTAS. The HOTAS profile is kept for later.
+ void ReturnToGamepad() {
+  EnsureClosed();
+  string path=PilotPath(),ini=SettingsPath(),table=ControlTablePath(GameInstall.MyModCore(root.Text));
+  string mapPath=Path.Combine(prefs,"data","players",HotasMapFile.FileName),statePath=HotasStatePath();
+  if(!File.Exists(ini)||!File.Exists(table))throw new InvalidOperationException("Install Flight Control for FotG 2 first.");
+  var state=LoadHotasState();
+  string tableText=File.ReadAllText(table);
+  if(!tableText.Contains(HotasStart)&&!File.Exists(mapPath)&&(state==null||!state.Active))
+   throw new InvalidOperationException("HOTAS is not applied, so there is nothing to switch back.");
+  var pilot=Read(path);
+  if(Convert.ToInt32(pilot["version"])!=4)throw new InvalidOperationException("This needs an FSO version 4 pilot.");
+  string newTable=RemoveHotasBlock(tableText);
+  string preset=state!=null&&!String.IsNullOrEmpty(state.PreviousPreset)?state.PreviousPreset:
+   (PresetSection(newTable,"FotG Classic Native")!=null?"FotG Classic Native":"default");
+  // Never leave the pilot on a preset that no longer exists.
+  if(preset!="default"&&PresetSection(newTable,preset)==null)preset="default";
+  Section(Section(pilot,"sections"),"controls")["preset"]=preset;
+  string settings=File.ReadAllText(ini);
+  bool joystickKnown=state!=null&&state.PreviousJoystick!=null;
+  if(joystickKnown)foreach(string key in JoystickKeys){
+   string before;
+   state.PreviousJoystick.TryGetValue(key,out before);
+   settings=before==null?RemoveIni(settings,"Input",key):SetIni(settings,"Input",key,before);
+  }
+  if(Say(this,"Switch "+Path.GetFileNameWithoutExtension(path)+" back to the gamepad?\r\n\r\nThis removes the HOTAS game bindings and the Flight Control HOTAS map, and selects the pilot preset \""+preset+"\"."+
+   (joystickKnown?" The game's joystick selection goes back to how it was.":"\r\n\r\nThe previous joystick selection was not recorded: afterwards open Flight response, check the gamepad slot and press APPLY WITH BACKUP.")+
+   "\r\n\r\nYour HOTAS profile is kept; Apply to pilot brings HOTAS back.","Gamepad mode",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
+  EnsureClosed();
+  string backup=Path.Combine(prefs,"ControllerSetupBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-hotas-off");
+  Directory.CreateDirectory(backup);
+  var changes=new List<KeyValuePair<string,string>>{
+   new KeyValuePair<string,string>(table,newTable),new KeyValuePair<string,string>(ini,settings),
+   new KeyValuePair<string,string>(path,json.Serialize(pilot)),
+   new KeyValuePair<string,string>(mapPath,null),new KeyValuePair<string,string>(statePath,null)};
+  foreach(var change in changes)if(File.Exists(change.Key))File.Copy(change.Key,Path.Combine(backup,Path.GetFileName(change.Key)));
+  var written=new List<string>();
+  try{
+   foreach(var change in changes){
+    if(change.Value==null){if(File.Exists(change.Key))File.Delete(change.Key);}else Atomic(change.Key,change.Value);
+    written.Add(change.Key);
+   }
+  }catch{
+   foreach(string file in written){
+    string saved=Path.Combine(backup,Path.GetFileName(file));
+    if(File.Exists(saved))Atomic(file,File.ReadAllText(saved));
+   }
+   throw;
+  }
+  Say(this,"Back to gamepad mode (preset \""+preset+"\"). Launch the game through Flight Control and check the gamepad.\r\nBackup: "+backup,"Gamepad mode");
+ }
+
  // Puts back everything the latest HOTAS apply changed: pilot, settings, control table and the Flight Control map.
  void RestoreHotas() {
   EnsureClosed();
@@ -238,17 +383,46 @@ partial class ControllerSetup {
   foreach(string file in new[]{path,ini,table})
    if(!File.Exists(Path.Combine(backup,Path.GetFileName(file))))
     throw new InvalidOperationException("The newest HOTAS backup was made for a different pilot or installation:"+Environment.NewLine+backup);
-  if(MessageBox.Show(this,"Restore the pilot, settings and control table from the last HOTAS apply?"+Environment.NewLine+backup+
+  if(Say(this,"Restore the pilot, settings and control table from the last HOTAS apply?"+Environment.NewLine+backup+
    Environment.NewLine+Environment.NewLine+"The current files are saved first.",
    "Restore HOTAS backup",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
   string undo=Path.Combine(parent,DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-before-hotas-restore");
   Directory.CreateDirectory(undo);
-  foreach(string file in new[]{path,ini,table,mapPath})if(File.Exists(file))File.Copy(file,Path.Combine(undo,Path.GetFileName(file)));
+  string statePath=HotasStatePath();
+  foreach(string file in new[]{path,ini,table,mapPath,statePath})if(File.Exists(file))File.Copy(file,Path.Combine(undo,Path.GetFileName(file)));
   foreach(string file in new[]{path,ini,table})Atomic(file,File.ReadAllText(Path.Combine(backup,Path.GetFileName(file))));
   string savedMap=Path.Combine(backup,HotasMapFile.FileName);
   if(File.Exists(savedMap))Atomic(mapPath,File.ReadAllText(savedMap));else if(File.Exists(mapPath))File.Delete(mapPath);
+  string savedState=Path.Combine(backup,Path.GetFileName(statePath));
+  if(File.Exists(savedState))Atomic(statePath,File.ReadAllText(savedState));else if(File.Exists(statePath))File.Delete(statePath);
   LoadPilot();
-  MessageBox.Show(this,"Restored from "+backup,"Restore HOTAS backup");
+  Say(this,"Restored from "+backup,"Restore HOTAS backup");
+ }
+
+ // Read-only: builds everything Apply would write for a saved profile and reports any exception.
+ // Usage: --hotas-dryrun <game folder> <profile json> <output file>
+ static int HotasDryRunCli(string[] args) {
+  int at=Array.IndexOf(args,"--hotas-dryrun");
+  if(at<0||at+3>=args.Length)return 1;
+  var text=new StringBuilder();
+  try{
+   var serializer=new JavaScriptSerializer();
+   var profile=serializer.Deserialize<HardwareProfile>(File.ReadAllText(args[at+2]));
+   HardwareInspector.Validate(profile);
+   text.AppendLine("validated; conflicts="+HotasModel.Conflicts(profile).Count);
+   string table=ControlTablePath(GameInstall.MyModCore(args[at+1]));
+   var axes=profile.FlightAxes??new Dictionary<string,FlightAxisBinding>();
+   var buttons=profile.FlightButtons??new Dictionary<string,FlightAxisBinding>();
+   var devices=axes.Values.Concat(buttons.Values).Select(b=>b.DeviceIndex).Distinct().OrderBy(i=>i).ToArray();
+   var slots=new Dictionary<int,int>();
+   for(int i=0;i<devices.Length;i++)slots.Add(devices[i],i);
+   string result=HotasTable(File.ReadAllText(table),profile,slots);
+   text.AppendLine("table ok, "+result.Length+" chars");
+   text.AppendLine("dropped: "+String.Join(", ",HotasDroppedActions(File.ReadAllText(table),profile)));
+   text.AppendLine("map: "+HotasMapJson(profile));
+  }catch(Exception e){text.AppendLine(e.ToString());}
+  File.WriteAllText(args[at+3],text.ToString());
+  return 0;
  }
 
  void ApplyHotas(HardwareProfile profile,string[] guids) {
@@ -277,21 +451,45 @@ partial class ControllerSetup {
   if(devices.Length>4)throw new InvalidOperationException("FotG provides four native joystick slots.");
   var slots=new Dictionary<int,int>();
   string settings=File.ReadAllText(ini);
+  string originalSettings=settings;
+  string originalTable=File.ReadAllText(table);
+  bool nativeInUse=devices.Length>0;
+  // Remember how the game was set up before HOTAS, once, so "Gamepad mode" can put it back.
+  var priorState=LoadHotasState();
+  HotasState state;
+  if(priorState!=null&&priorState.Active&&originalTable.Contains(HotasStart))state=priorState;
+  else{
+   state=new HotasState{Active=true};
+   // If HOTAS bindings were already installed without a record, what came before is unknown; Gamepad mode then falls back.
+   if(!originalTable.Contains(HotasStart)){
+    object preset;
+    var controlsSection=Section(Section(pilot,"sections"),"controls");
+    state.PreviousPreset=controlsSection.TryGetValue("preset",out preset)?Convert.ToString(preset):null;
+    state.PreviousJoystick=new Dictionary<string,string>();
+    foreach(string key in JoystickKeys)state.PreviousJoystick[key]=GetIni(originalSettings,"Input",key);
+   }
+  }
+  state.Active=true;
+  state.AppliedSlots=new List<string>();
   for(int i=0;i<devices.Length;i++){
    slots.Add(devices[i],i);
    string device=json.Serialize(new{guid=guids[devices[i]].ToUpperInvariant(),id=-1});
-   settings=SetIni(settings,"Input",i==0?"Joystick":"Joystick"+i,device);
+   settings=SetIni(settings,"Input",JoystickKeys[i],device);
+   state.AppliedSlots.Add(guids[devices[i]].ToUpperInvariant());
   }
-  string newTable=HotasTable(File.ReadAllText(table),profile,slots);
-  Section(Section(pilot,"sections"),"controls")["preset"]="default";
+  string newTable=HotasTable(originalTable,profile,slots);
+  // Flight Control actions alone leave the gamepad's own axes, preset and joystick selection untouched.
+  if(nativeInUse)Section(Section(pilot,"sections"),"controls")["preset"]="default";
   string pilotData=json.Serialize(pilot);
+  string statePath=HotasStatePath();
+  string stateData=json.Serialize(state);
   string mapPath=Path.Combine(prefs,"data","players",HotasMapFile.FileName);
   string mapData=HotasMapJson(profile);
   var dropped=HotasDroppedActions(File.ReadAllText(table),profile);
   string warning=dropped.Count==0?"":"\r\n\r\nThis replaces the installed HOTAS bindings. These are installed but not in this profile, and will be removed:\r\n"+
    String.Join(", ",dropped);
   string summary=axes.Count+buttons.Count+" game binding(s) on "+devices.Length+" joystick device(s), "+features.Count+" Flight Control binding(s)";
-  if(MessageBox.Show(this,"Apply the HOTAS preset to "+Path.GetFileNameWithoutExtension(path)+": "+summary+"?"+warning,"Apply HOTAS",
+  if(Say(this,"Apply the HOTAS preset to "+Path.GetFileNameWithoutExtension(path)+": "+summary+"?"+warning,"Apply HOTAS",
    MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
   EnsureClosed();
   string backup=Path.Combine(prefs,"ControllerSetupBackups",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+"-hotas");
@@ -301,6 +499,7 @@ partial class ControllerSetup {
    new KeyValuePair<string,string>(table,newTable),new KeyValuePair<string,string>(ini,settings),
    new KeyValuePair<string,string>(path,pilotData)};
   if(mapData!=null||File.Exists(mapPath))changes.Add(new KeyValuePair<string,string>(mapPath,mapData));
+  changes.Add(new KeyValuePair<string,string>(statePath,stateData));
   foreach(var change in changes)if(File.Exists(change.Key))File.Copy(change.Key,Path.Combine(backup,Path.GetFileName(change.Key)));
   var written=new List<string>();
   try {
@@ -315,7 +514,7 @@ partial class ControllerSetup {
    }
    throw;
   }
-  MessageBox.Show(this,"Applied to "+Path.GetFileNameWithoutExtension(path)+
+  Say(this,"Applied to "+Path.GetFileNameWithoutExtension(path)+
    ". Launch FotG through Flight Control MyMod and verify the controls.\r\nBackup: "+backup,"HOTAS preset");
  }
 }

@@ -254,6 +254,7 @@ sealed class Bridge : ApplicationContext {
     HotasMapFile hotasMap;
     HotasJoysticks hotas;
     long nextHotasScan;
+    readonly System.Collections.Generic.HashSet<string> hotasGuard = new System.Collections.Generic.HashSet<string>();
     static XPad ToPad(HotasPadState v) {
         return new XPad { Buttons = v.Buttons, LeftTrigger = v.LeftTrigger, RightTrigger = v.RightTrigger,
             LeftX = v.LeftX, LeftY = v.LeftY, RightX = v.RightX, RightY = v.RightY };
@@ -524,7 +525,7 @@ sealed class Bridge : ApplicationContext {
             if (hotas != null) {
                 if (now >= nextHotasScan) { hotas.Attach(hotasMap); nextHotasScan = now + 2000; }
                 hotas.Poll();
-                HotasPadState layer = HotasPad.Compose(hotasMap, hotas, out hotasUp);
+                HotasPadState layer = HotasPad.Compose(hotasMap, hotas, modal, hotasGuard, out hotasUp);
                 if (hotasUp) {
                     state.Pad = ToPad(HotasPad.Merge(gamepadConnected ? FromPad(state.Pad) : new HotasPadState(), layer));
                     connected = true;

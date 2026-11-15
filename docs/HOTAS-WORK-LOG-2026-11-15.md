@@ -92,3 +92,18 @@ Console, then this record. No other changes were made outside this checkout, and
 - Assign happens automatically when the signal is clear (no confirm dialog); clear and reassign to undo.
 - The HOTAS page hides the game/pilot panel when both are already set.
 - Committed the previously untracked `docs/HOTAS-BUTTON-HANDOFF.md` because the development doc points to it.
+
+## Later the same day: after in-game testing
+
+- In-game: all axes and buttons, multi-device, wheels with Flight Control actions worked. The wheel/underlying-action clash was
+  real: a game binding and a wheel role on one button cannot be gated by state (the engine has no way to pause its own
+  bindings; a Lua override was tried and reverted). Fix: Flight Control actions can share inputs, and new Wheel select /
+  Wheel cancel controls act only while a wheel is open; a button held through a selection is ignored in flight until released.
+- Review of profile sharing, switching and conflicts (this section): background paths and serials are stripped on save and
+  on load (a shared path could point at a network share), loading keeps the previous profile, controller remap added,
+  Gamepad mode added with a recorded pre-HOTAS state, the gamepad's Apply warns when HOTAS is applied, a slot mismatch is
+  reported, and Flight Control-only applies no longer move the pilot to the default preset.
+- Found along the way: the working profile and map were first saved as `.json` in the players folder, so the Console listed
+  them as pilots (fixed by renaming to `.hotas` / `.map`); Apply failed when creating a new file (fixed in the save helper).
+- On this install the pilot preset is already `default` and the table has no FotG Classic Native preset, so Gamepad mode on
+  this install falls back to `default` with the HOTAS block removed.

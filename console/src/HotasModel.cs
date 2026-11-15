@@ -78,8 +78,9 @@ static class HotasModel {
  // Native FotG gives each physical input one job, so a shared input is an error.
  internal static List<string> Conflicts(HardwareProfile value) {
   var found=new List<string>();
-  foreach(var group in new[]{Group.NativeAxis,Group.NativeAction,Group.Virtual}){
-   var set=group==Group.NativeAxis?value.FlightAxes:group==Group.NativeAction?value.FlightButtons:value.Virtual;
+  // Flight Control actions may share an input (a button can select in a wheel and fire a trigger at once), so only the game's own bindings clash.
+  foreach(var group in new[]{Group.NativeAxis,Group.NativeAction}){
+   var set=group==Group.NativeAxis?value.FlightAxes:value.FlightButtons;
    if(set==null)continue;
    foreach(var shared in set.GroupBy(e=>Signal(group,e.Value)).Where(g=>g.Count()>1)){
     var first=shared.First().Value;
@@ -100,7 +101,7 @@ static class HotasModel {
   if(value.Virtual!=null)foreach(var entry in value.Virtual){
    string other;
    if(native.TryGetValue(Signal(Group.Virtual,entry.Value),out other))
-    found.Add(Describe(value,entry.Value,Group.Virtual)+" drives both "+other+" in the game and "+entry.Key+" in Flight Control");
+    found.Add(Describe(value,entry.Value,Group.Virtual)+" drives both "+other+" in the game and "+entry.Key+" in Flight Control. The game does not pause its own bindings while a wheel is open. For one button that acts in flight and in wheels, use Right trigger (fire) or a Flight Control button with a quick-press action instead of the game action");
   }
   return found;
  }

@@ -17,6 +17,7 @@ partial class ControllerSetup {
 
  // How the gamepad controls Flight Control reads are described to someone holding a stick.
  static readonly Dictionary<string,string> VirtualLabels=new Dictionary<string,string>{
+  {"Wheel select","Wheel: select (only while a wheel is open)"},{"Wheel cancel","Wheel: cancel (only while a wheel is open)"},
   {"Dpad up","Wheel: D-pad up"},{"Dpad down","Wheel: D-pad down (squad)"},{"Dpad left","Wheel: D-pad left"},{"Dpad right","Wheel: D-pad right (macros)"},
   {"A","Select / confirm (A)"},{"B","Cancel / back (B)"},{"X","X button action"},{"Y","Y button action"},
   {"LB","Left bumper action"},{"RB","Right bumper action"},{"L3","Left stick click (L3)"},{"R3","Right stick click (R3)"},
@@ -29,6 +30,7 @@ partial class ControllerSetup {
  Panel hotasPage;
  Control hotasFooter;
  bool hotasShowSetup;
+ string hotasSlotNote;
  int hotasBarWidth;
  ListView hotasList;
  TextBox hotasFilter;
@@ -51,7 +53,7 @@ partial class ControllerSetup {
  int hotasStable,hotasListenTicks;
  const int ListenLimit=500; // ticks at 40 ms: about 20 seconds
 
- internal string HotasProfilePath(){return Path.Combine(prefs,"data","players","fotg-hotas-profile.json");}
+ internal string HotasProfilePath(){return Path.Combine(prefs,"data","players","fotg-hotas-profile.hotas");}
 
  Control BuildHotasPage() {
   var page=new Panel{Dock=DockStyle.Fill,BackColor=Surface};
@@ -119,18 +121,18 @@ partial class ControllerSetup {
   main.Controls.Add(right,1,0);
 
   // Footer: profile files, backup and apply.
-  var footer=Grid(6,1);footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,124));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,124));
-  footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,146));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,146));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190));
+  var footer=Grid(7,1);foreach(int w in new[]{112,112,130,116,126})footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,w));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,176));
   footer.Padding=new Padding(0,14,0,0);footer.Visible=false;
   footer.Controls.Add(ActionButton("Open profile",delegate{OpenHotasProfile();}),0,0);
   footer.Controls.Add(ActionButton("Save profile",delegate{SaveHotasProfileAs();}),1,0);
   footer.Controls.Add(ActionButton("Restore backup",delegate{RestoreHotas();}),2,0);
   footer.Controls.Add(ActionButton("Game / pilot",delegate{hotasShowSetup=!hotasShowSetup;ShowHotasSetup();}),3,0);
+  footer.Controls.Add(ActionButton("Gamepad mode",delegate{ReturnToGamepad();hotasSlotNote=HotasSlotNote();RefreshHotasStatus();}),4,0);
   hotasIssues=LabelText("",9,Color.FromArgb(239,101,66));hotasIssues.AutoEllipsis=false;hotasIssues.Padding=new Padding(8,0,8,0);
-  footer.Controls.Add(hotasIssues,4,0);
+  footer.Controls.Add(hotasIssues,5,0);
   var apply=ActionButton("APPLY TO PILOT",delegate{ApplyHotasProfile();});
   apply.BackColor=Color.FromArgb(110,88,8);apply.FlatAppearance.BorderColor=Color.FromArgb(255,236,120);apply.Font=new Font("Consolas",11,FontStyle.Bold);
-  footer.Controls.Add(apply,5,0);
+  footer.Controls.Add(apply,6,0);
   // The page's own action bar takes the footer slot of the Console while this page is showing.
   hotasFooter=footer;
   if(cockpitShell!=null)cockpitShell.Controls.Add(footer,0,4);
@@ -161,6 +163,7 @@ partial class ControllerSetup {
  }
 
  void EnterHotas() {
+  hotasSlotNote=HotasSlotNote();
   hotasShowSetup=String.IsNullOrWhiteSpace(root.Text)||pilots.SelectedItem==null;
   ShowHotasSetup();
   hotasTimer.Start();
@@ -260,25 +263,65 @@ partial class ControllerSetup {
   }catch(Exception e){hotasNotice="Could not save the working profile: "+e.Message;}
  }
 
+ // A profile from someone else: checked, stripped of anything personal or risky, and your own is kept as a backup first.
  void OpenHotasProfile() {
   using(var dialog=new OpenFileDialog{Filter="Hardware profile (*.json)|*.json"}){
    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+   if(new FileInfo(dialog.FileName).Length>2*1024*1024)throw new InvalidDataException("That file is too large to be a HOTAS profile.");
    var opened=new JavaScriptSerializer().Deserialize<HardwareProfile>(File.ReadAllText(dialog.FileName));
    HardwareInspector.Validate(opened);
+   opened=ShareableCopy(opened);
    StopListening();
+   BackUpHotasWorkingProfile();
    hotasProfile=opened;
    hotasNotice=null;
    UseHotasSession();
+   int offline=hotasMatches.Count(m=>m==null);
+   hotasNotice="Loaded "+Path.GetFileName(dialog.FileName)+". "+(offline==0?"All its controllers are connected.":offline+" of its controllers are not connected: right-click a controller above to use one of yours instead.")+" Your previous profile was kept as a backup.";
    SaveHotasWorkingProfile();
+   RefreshHotasStatus();
   }
+ }
+
+ void BackUpHotasWorkingProfile() {
+  try{
+   string path=HotasProfilePath();
+   if(String.IsNullOrEmpty(prefs)||!File.Exists(path))return;
+   File.Copy(path,path+".bak-"+DateTime.Now.ToString("yyyyMMdd-HHmmss"),true);
+   foreach(string old in Directory.GetFiles(Path.GetDirectoryName(path),Path.GetFileName(path)+".bak-*").OrderByDescending(f=>f).Skip(5))File.Delete(old);
+  }catch(Exception){}
  }
 
  void SaveHotasProfileAs() {
   if(hotasProfile==null)throw new InvalidOperationException("Scan your controllers first.");
   HardwareInspector.Validate(hotasProfile);
   hotasProfile.SchemaVersion=HardwareInspector.CurrentSchema;
+  // Shared copies carry no device serials and no paths from this PC.
   using(var dialog=new SaveFileDialog{Filter="Hardware profile (*.json)|*.json",FileName="hardware-profile.json"})
-   if(dialog.ShowDialog(this)==DialogResult.OK)File.WriteAllText(dialog.FileName,new JavaScriptSerializer().Serialize(hotasProfile));
+   if(dialog.ShowDialog(this)==DialogResult.OK)File.WriteAllText(dialog.FileName,new JavaScriptSerializer().Serialize(ShareableCopy(hotasProfile)));
+ }
+
+ // Use one of your connected controllers in place of a saved one (a shared profile from another model, or a replaced device).
+ void RemapHotasDevice(int index,FlightDevices.HardwareSession.Device live) {
+  var saved=hotasProfile.Devices[index];
+  saved.Name=live.Inventory.Name;saved.Guid=live.Inventory.Guid;saved.Serial=live.Inventory.Serial;
+  foreach(var input in live.Inventory.Inputs)
+   if(!saved.Inputs.Any(x=>x.Kind==input.Kind&&x.Index==input.Index))saved.Inputs.Add(new HardwareInput{Kind=input.Kind,Index=input.Index});
+  // The entry added automatically when this controller was first seen is now a duplicate: drop it if nothing uses it.
+  for(int j=hotasProfile.Devices.Count-1;j>=0;j--){
+   if(j==index||!SameHotasDevice(hotasProfile.Devices[j],live.Inventory))continue;
+   if(HotasModel.Groups(hotasProfile).Any(p=>p.Value!=null&&p.Value.Values.Any(b=>b.DeviceIndex==j)))continue;
+   hotasProfile.Devices.RemoveAt(j);
+   foreach(var pair in HotasModel.Groups(hotasProfile))if(pair.Value!=null)foreach(var b in pair.Value.Values)if(b.DeviceIndex>j)b.DeviceIndex--;
+   if(hotasProfile.Layouts!=null){
+    hotasProfile.Layouts.RemoveAll(l=>l.DeviceIndex==j);
+    foreach(var l in hotasProfile.Layouts)if(l.DeviceIndex>j)l.DeviceIndex--;
+   }
+   if(index>j)index--;
+  }
+  hotasView=index;
+  UseHotasSession();
+  SaveHotasWorkingProfile();
  }
 
  // ----- the list of actions -----
@@ -303,7 +346,7 @@ partial class ControllerSetup {
   foreach(string category in HotasCategories)
    foreach(var pair in HotasButtonActions.Where(p=>HotasCategory(p.Key)==category))
     yield return new HotasRow{Group=HotasModel.Group.NativeAction,Name=pair.Key,Label="GAME  /  "+category};
-  foreach(string name in HotasPad.ButtonBits.Keys)
+  foreach(string name in HotasPad.WheelOnlyControls.Concat(HotasPad.ButtonBits.Keys))
    yield return new HotasRow{Group=HotasModel.Group.Virtual,Name=name,Label="FLIGHT CONTROL  /  Wheels, menus and buttons"};
   foreach(string name in HotasPad.AnalogControls)
    yield return new HotasRow{Group=HotasModel.Group.Virtual,Name=name,Label="FLIGHT CONTROL  /  Triggers and sticks"};
@@ -351,7 +394,7 @@ partial class ControllerSetup {
   var row=SelectedHotasRow();
   var binding=row==null?null:HotasBinding(row);
   if(row==null)hotasDetail.Text="Choose an action on the list.";
-  else hotasDetail.Text=HotasRowTitle(row)+"\n"+(binding==null?"Not assigned yet.":HotasModel.Describe(hotasProfile,binding,row.Group));
+  else hotasDetail.Text=HotasRowTitle(row)+"\n"+(binding==null?"Not assigned yet.":HotasModel.Describe(hotasProfile,binding,row.Group))+FlightMeaning(row);
   bool axis=binding!=null&&(HotasModel.KindOf(row.Group,binding)==HotasModel.Axis);
   hotasLoading=true;
   hotasInvert.Enabled=axis;
@@ -364,6 +407,19 @@ partial class ControllerSetup {
    BuildHotasDeviceBar();
    ShowHotasDevice();
   }
+ }
+
+ // What a Flight Control button does in flight (no wheel open), from the Buttons tab. The same physical button can
+ // also drive a wheel role, so it behaves differently by state, as on the gamepad.
+ string FlightMeaning(HotasRow row) {
+  if(row.Group!=HotasModel.Group.Virtual)return "";
+  if(row.Name==HotasPad.WheelSelect||row.Name==HotasPad.WheelCancel)return Environment.NewLine+"also assign Right/Left trigger for a button that fires in flight";
+  int i=Array.IndexOf(TapButtons,row.Name);
+  if(i<0)return "";
+  var tap=Array.Find(ButtonActions,a=>a.Id==tapActions[i]);
+  int h=Array.IndexOf(HoldButtons,row.Name);
+  var hold=h<0?null:Array.Find(ButtonActions,a=>a.Id==holdActions[h]);
+  return Environment.NewLine+"In flight: "+(tap==null?tapActions[i]:tap.Caption)+(hold!=null&&hold.Id!="none"?", hold: "+hold.Caption:"")+" (Buttons tab)";
  }
 
  static string CanvasKey(FlightAxisBinding binding,HotasModel.Group group) {
@@ -410,6 +466,16 @@ partial class ControllerSetup {
    button.AutoSize=false;button.Width=chipWidth;button.Height=32;button.Dock=DockStyle.None;button.Tag=i;
    button.Font=new Font("Consolas",9,FontStyle.Bold);
    TabLook(button,i==hotasView);
+   button.MouseUp+=delegate(object sender,MouseEventArgs e){
+    if(e.Button!=MouseButtons.Right||hotasSession==null)return;
+    var menu=new ContextMenuStrip();
+    foreach(var live in hotasSession.Devices){
+     var chosen=live;
+     menu.Items.Add("Use "+chosen.Inventory.Name+" here",null,delegate{try{RemapHotasDevice(index,chosen);}catch(Exception ex){hotasNotice=ex.Message;RefreshHotasStatus();}});
+    }
+    if(menu.Items.Count==0)menu.Items.Add("No controller connected").Enabled=false;
+    menu.Show(button,e.Location);
+   };
    hotasDeviceBar.Controls.Add(button);
   }
   hotasDeviceBar.ResumeLayout();
@@ -660,6 +726,7 @@ partial class ControllerSetup {
       break;
      }
   }
+  if(hotasSlotNote!=null)problems.Insert(0,hotasSlotNote);
   hotasIssues.Text=String.Join("\n",problems.Distinct().Take(3));
  }
 
@@ -688,6 +755,8 @@ partial class ControllerSetup {
   }
   SaveHotasWorkingProfile();
   ApplyHotas(hotasProfile,guids);
+  hotasSlotNote=HotasSlotNote();
+  RefreshHotasStatus();
  }
 }
 
@@ -702,7 +771,7 @@ partial class ControllerSetup {
  internal readonly Dictionary<string,int> demoValues=new Dictionary<string,int>();
  int DemoValue(int device,HardwareInput input){int v;return demoValues.TryGetValue(device+":"+input.Kind+input.Index,out v)?v:0;}
 
- internal void HotasDemo() {
+ internal void HotasDemo(bool keepPrefs=false) {
   Func<string,string,int,int,HardwareDevice> make=delegate(string name,string guid,int axes,int buttons){
    var d=new HardwareDevice{Name=name,Guid=guid,Inputs=new List<HardwareInput>()};
    for(int i=0;i<axes;i++)d.Inputs.Add(new HardwareInput{Kind="Axis",Index=i});
@@ -730,7 +799,7 @@ partial class ControllerSetup {
     {"A",new FlightAxisBinding{DeviceIndex=0,InputIndex=4,Kind=HotasModel.Button}},
     {"Dpad right",new FlightAxisBinding{DeviceIndex=0,InputIndex=0,Kind=HotasModel.Hat,Direction=HotasModel.HatRight}},
     {"Right trigger",new FlightAxisBinding{DeviceIndex=1,InputIndex=1,Kind=HotasModel.Axis}}}};
-  prefs=null;
+  if(!keepPrefs)prefs=null;
   hotasLoading=false;
   hotasNotice=null;
   UseHotasSession();
@@ -840,6 +909,19 @@ partial class ControllerSetup {
    form.hotasCanvas.ResetLayout();
    if(layout.Widgets.Count!=0)return "FAIL: reset left saved positions";
    form.HotasTick();
+   // 8. A shared profile whose pedals are not the ones plugged in: use the connected pedals in their place.
+   var pedalsLive=form.hotasSession.Devices[1];
+   var otherPedals=new HardwareDevice{Name="Someone else's pedals",Guid=new string('C',32),Inputs=new List<HardwareInput>()};
+   foreach(var input in pedalsLive.Inventory.Inputs)otherPedals.Inputs.Add(new HardwareInput{Kind=input.Kind,Index=input.Index});
+   profile.Devices[1]=otherPedals;
+   form.UseHotasSession();
+   if(profile.Devices.Count!=3||form.hotasMatches[1]!=null)return "FAIL: the unfamiliar device was not treated as missing";
+   int before=profile.FlightAxes.Values.Count(x=>x.DeviceIndex==1)+profile.Virtual.Values.Count(x=>x.DeviceIndex==1);
+   form.RemapHotasDevice(1,pedalsLive);
+   if(profile.Devices.Count!=2||form.hotasMatches[1]==null||profile.Devices[1].Guid!=pedalsLive.Inventory.Guid)return "FAIL: remapping did not take over the connected pedals";
+   int after=profile.FlightAxes.Values.Count(x=>x.DeviceIndex==1)+profile.Virtual.Values.Count(x=>x.DeviceIndex==1);
+   if(before==0||before!=after)return "FAIL: remapping disturbed the bindings";
+   HardwareInspector.Validate(profile);
    form.Close();
   }
   return "PASS";
