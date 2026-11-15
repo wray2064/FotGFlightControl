@@ -209,6 +209,7 @@ partial class ControllerSetup {
   profile.Virtual.Remove("Left stick X");
   if(HotasMapJson(new HardwareProfile{Devices=profile.Devices})!=null)return false;
   if(!HotasPad.SelfTest())return false;
+  if(!InputCapture.SelfTest())return false;
   var read=new JavaScriptSerializer().Deserialize<HardwareProfile>("{\"SchemaVersion\":1,\"FlightButtons\":{\"Fire primary\":{\"DeviceIndex\":0,\"AxisIndex\":7}}}");
   return read.FlightButtons["Fire primary"].InputIndex==7&&!new JavaScriptSerializer().Serialize(read).Contains("AxisIndex");
  }

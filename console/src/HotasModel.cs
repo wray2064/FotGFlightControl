@@ -114,13 +114,16 @@ static class HotasModel {
   return String.Join("-",names);
  }
 
+ internal static string ShortName(string name){return name.Length<=14?name:name.Substring(0,13)+"…";}
+
  internal static string Describe(HardwareProfile profile,FlightAxisBinding b,Group group) {
   string device=b.DeviceIndex>=0&&b.DeviceIndex<profile.Devices.Count?profile.Devices[b.DeviceIndex].Name:"?";
   string kind=KindOf(group,b);
-  string text=kind=="Hat"?"Hat "+b.InputIndex+" "+DirectionName(b.Direction):
-   kind=="AxisButton"?"Axis "+b.InputIndex+(b.Direction<0?" low side":" high side"):
-   kind=="Axis"?"Axis "+b.InputIndex+(b.Direction>0?" high side":b.Direction<0?" low side":"")+(b.Invert?" (inverted)":""):
-   "Button "+b.InputIndex;
-  return device+" / "+text;
+  // Numbers are shown from 1, as in Windows' game controller test; the profile keeps the engine's zero-based index.
+  string text=kind=="Hat"?"Hat "+(b.InputIndex+1)+" "+DirectionName(b.Direction):
+   kind=="AxisButton"?"Axis "+(b.InputIndex+1)+(b.Direction<0?" low side":" high side"):
+   kind=="Axis"?"Axis "+(b.InputIndex+1)+(b.Direction>0?" high side":b.Direction<0?" low side":"")+(b.Invert?" (inverted)":""):
+   "Button "+(b.InputIndex+1);
+  return ShortName(device)+" / "+text;
  }
 }

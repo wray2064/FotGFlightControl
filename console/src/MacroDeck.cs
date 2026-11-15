@@ -70,13 +70,17 @@ partial class ControllerSetup {
   new MacroSpec("MATCH SPEED","match_speed","")
  };
 
- void ShowPage(bool deck,bool profiles=false,bool buttons=false){
+ void ShowPage(bool deck,bool profiles=false,bool buttons=false,bool hotas=false){
   if(flightPage==null||macroPage==null)return;
-  flightPage.Visible=!deck&&!profiles&&!buttons;macroPage.Visible=deck;profilePage.Visible=profiles;buttonsPage.Visible=buttons;
-  (buttons?buttonsPage:profiles?profilePage:deck?macroPage:flightPage).BringToFront();
-  if(nativeFooter!=null)nativeFooter.Visible=!deck&&!profiles&&!buttons;
-  if(embeddedCockpit)FitCockpit();
-  TabLook(flightTabButton,!deck&&!profiles&&!buttons);TabLook(deckTabButton,deck);TabLook(profileTab,profiles);TabLook(buttonsTab,buttons);
+  bool wasHotas=hotasPage!=null&&hotasPage.Visible;
+  flightPage.Visible=!deck&&!profiles&&!buttons&&!hotas;macroPage.Visible=deck;profilePage.Visible=profiles;buttonsPage.Visible=buttons;
+  if(hotasPage!=null)hotasPage.Visible=hotas;
+  if(hotasFooter!=null)hotasFooter.Visible=hotas;
+  (hotas?hotasPage:buttons?buttonsPage:profiles?profilePage:deck?macroPage:flightPage).BringToFront();
+  if(nativeFooter!=null)nativeFooter.Visible=!deck&&!profiles&&!buttons&&!hotas;
+  if(hotasPage!=null){if(hotas&&!wasHotas)EnterHotas();else if(!hotas&&wasHotas)LeaveHotas();}
+  if(embeddedCockpit||hotas||wasHotas)FitCockpit();
+  TabLook(flightTabButton,!deck&&!profiles&&!buttons&&!hotas);TabLook(deckTabButton,deck);TabLook(profileTab,profiles);TabLook(buttonsTab,buttons);TabLook(hotasTab,hotas);
  }
  void UpdateMode(){
   bool advanced=advancedMode.Checked;

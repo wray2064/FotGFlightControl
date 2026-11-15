@@ -37,6 +37,7 @@ New-Item -ItemType Directory -Path (Join-Path $targetMod 'source') -Force | Out-
 Copy-Item -LiteralPath (Join-Path $workspace 'bridge\WheelBridge.cs') -Destination (Join-Path $targetMod 'source\WheelBridge.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'bridge\Build.ps1') -Destination (Join-Path $targetMod 'source\BuildBridge.ps1')
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\GameInstall.cs') -Destination (Join-Path $targetMod 'source\GameInstall.cs')
+Copy-Item -LiteralPath (Join-Path $workspace 'setup\HotasInput.cs') -Destination (Join-Path $targetMod 'source\HotasInput.cs')
 
 $setup = Join-Path $workspace 'console'
 $targetSetup = Join-Path $targetMod 'ControllerSetup'
@@ -62,7 +63,7 @@ Copy-Item -LiteralPath (Join-Path $workspace 'setup\Setup.cs') -Destination (Joi
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Launcher.cs') -Destination (Join-Path $stage 'source\Launcher.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'hangar\HangarBay.cs') -Destination (Join-Path $stage 'source\HangarBay.cs')
 Copy-Item -LiteralPath (Join-Path $workspace 'hangar\Build.ps1') -Destination (Join-Path $stage 'source\BuildHangar.ps1')
-foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer.cs', 'AssemblyInfo.cs')) {
+foreach ($shared in @('BuildInfo.cs', 'Updater.cs', 'GameInstall.cs', 'Installer.cs', 'AssemblyInfo.cs', 'HotasInput.cs')) {
     Copy-Item -LiteralPath (Join-Path $workspace "setup\$shared") -Destination (Join-Path $stage "source\$shared")
 }
 Copy-Item -LiteralPath (Join-Path $workspace 'setup\Build.ps1') -Destination (Join-Path $stage 'source\BuildSetup.ps1')

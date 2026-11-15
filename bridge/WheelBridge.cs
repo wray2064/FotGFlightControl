@@ -714,6 +714,9 @@ static class Program {
                 Console.Out.Flush();
                 return 0;
             }
+            // Diagnostic: read the HOTAS map once and report what the virtual gamepad would send.
+            // Usage: --hotas-probe <game folder> <map json> <output file>
+            if (args.Length > 3 && args[0] == "--hotas-probe") return HotasProbe(NormalizeGameRoot(args[1]), args[2], args[3]);
             string root = null, extraMod = null; bool launch = true, vrMode = false;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
@@ -735,6 +738,25 @@ static class Program {
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }
     }
     // Both Knossos layouts and the override record resolve to the right launch folders.
+    static int HotasProbe(string game, string mapPath, string outPath) {
+        var report = new StringBuilder();
+        try {
+            HotasMapFile map = HotasMapFile.Load(mapPath);
+            if (map == null) { report.AppendLine("The map file is missing or invalid."); return 3; }
+            EngineInfo engine = GameInstall.FindEngine(game, null);
+            if (engine == null || !engine.Sdl3) { report.AppendLine("No SDL3 engine."); return 4; }
+            using (HotasJoysticks joysticks = new HotasJoysticks(Path.GetDirectoryName(engine.Exe))) {
+                joysticks.Attach(map);
+                bool up = false; HotasPadState s = new HotasPadState();
+                for (int i = 0; i < 20; i++) { joysticks.Poll(); s = HotasPad.Compose(map, joysticks, out up); System.Threading.Thread.Sleep(25); }
+                for (int d = 0; d < map.Devices.Count; d++) report.AppendLine("device " + d + " " + map.Devices[d].Guid + " connected=" + joysticks.Connected(d));
+                report.AppendLine("connected=" + up + " buttons=" + s.Buttons + " lt=" + s.LeftTrigger + " rt=" + s.RightTrigger +
+                    " lx=" + s.LeftX + " ly=" + s.LeftY + " rx=" + s.RightX + " ry=" + s.RightY);
+            }
+            return 0;
+        } catch (Exception ex) { report.AppendLine("ERROR: " + ex.Message); return 5; }
+        finally { File.WriteAllText(outPath, report.ToString()); }
+    }
     static bool SelfTestGameLayouts() {
         string temp = Path.Combine(Path.GetTempPath(), "FotGWheelSelfTest-" + Guid.NewGuid().ToString("N"));
         try {
