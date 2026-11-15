@@ -254,7 +254,7 @@ sealed class Bridge : ApplicationContext {
     HotasMapFile hotasMap;
     HotasJoysticks hotas;
     long nextHotasScan;
-    readonly System.Collections.Generic.HashSet<string> hotasGuard = new System.Collections.Generic.HashSet<string>();
+    readonly HotasPadMemory hotasGuard = new HotasPadMemory();
     static XPad ToPad(HotasPadState v) {
         return new XPad { Buttons = v.Buttons, LeftTrigger = v.LeftTrigger, RightTrigger = v.RightTrigger,
             LeftX = v.LeftX, LeftY = v.LeftY, RightX = v.RightX, RightY = v.RightY };
@@ -718,6 +718,8 @@ static class Program {
             // Diagnostic: read the HOTAS map once and report what the virtual gamepad would send.
             // Usage: --hotas-probe <game folder> <map json> <output file>
             if (args.Length > 3 && args[0] == "--hotas-probe") return HotasProbe(NormalizeGameRoot(args[1]), args[2], args[3]);
+            // Diagnostic: queue synthetic button presses for the first mapped device and check they are counted.
+            if (args.Length > 3 && args[0] == "--hotas-pulsetest") return HotasPulseTest(NormalizeGameRoot(args[1]), args[2], args[3]);
             string root = null, extraMod = null; bool launch = true, vrMode = false;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
@@ -739,6 +741,27 @@ static class Program {
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }
     }
     // Both Knossos layouts and the override record resolve to the right launch folders.
+    static int HotasPulseTest(string game, string mapPath, string outPath) {
+        var report = new StringBuilder();
+        try {
+            HotasMapFile map = HotasMapFile.Load(mapPath);
+            EngineInfo engine = GameInstall.FindEngine(game, null);
+            if (map == null || engine == null || !engine.Sdl3) { report.AppendLine("SKIP: no map or no SDL3 engine"); return 3; }
+            using (HotasJoysticks joysticks = new HotasJoysticks(Path.GetDirectoryName(engine.Exe))) {
+                joysticks.Attach(map);
+                if (!joysticks.Connected(0)) { report.AppendLine("SKIP: device 0 is not connected"); return 3; }
+                joysticks.Poll();
+                joysticks.Presses(0, 7);
+                for (int i = 0; i < 3; i++) if (!joysticks.PushTestPress(0, 7)) { report.AppendLine("FAIL: SDL refused the test event"); return 4; }
+                joysticks.PushTestPress(0, 2);
+                joysticks.Poll();
+                int a = joysticks.Presses(0, 7), b = joysticks.Presses(0, 2), again = joysticks.Presses(0, 7);
+                report.AppendLine("button 7 presses=" + a + " button 2 presses=" + b + " after reading=" + again);
+                return a == 3 && b == 1 && again == 0 ? 0 : 5;
+            }
+        } catch (Exception ex) { report.AppendLine("ERROR: " + ex.Message); return 6; }
+        finally { File.WriteAllText(outPath, report.ToString()); }
+    }
     static int HotasProbe(string game, string mapPath, string outPath) {
         var report = new StringBuilder();
         try {

@@ -50,6 +50,8 @@ local W = FotGWheel
 local D_UP, D_DOWN, D_LEFT, D_RIGHT = 1, 2, 4, 8
 local B_L3, B_R3 = 64, 128
 local B_LB, B_RB, B_A, B_B, B_X, B_Y = 256, 512, 4096, 8192, 16384, 32768
+-- An encoder (or any pair of buttons) turned either way moves the highlight round an open wheel.
+local B_STEP_CW, B_STEP_CCW = 1024, 2048
 local HOLD_FLAGS = { A=B_A, B=B_B, X=B_X, LB=B_LB, RB=B_RB, L3=B_L3, R3=B_R3 }
 -- Buttons with a configurable quick-press action, in a fixed order.
 local TAP_BUTTONS = { { "A", B_A }, { "B", B_B }, { "X", B_X }, { "Y", B_Y },
@@ -1121,6 +1123,22 @@ function W:execute(action, argument)
     return true, "Action requested"
 end
 
+-- Moves the highlighted entry one place round the wheel, skipping empty sectors and wrapping at the ends.
+function W:step_selection(direction)
+    local _, entries = self:view()
+    if not entries then return end
+    local filled = {}
+    for _, entry in ipairs(entries) do
+        local sector = entry.sector
+        if sector and sector >= 1 and sector <= SECTORS then filled[sector] = true end
+    end
+    local current = self.selected or (direction > 0 and 0 or 1)
+    for _ = 1, SECTORS do
+        current = (current - 1 + direction) % SECTORS + 1
+        if filled[current] then self.selected = current; return end
+    end
+end
+
 function W:confirm()
     local _, entries = self:view()
     local chosen
@@ -1300,6 +1318,9 @@ function W:frame()
             elseif sector ~= 0 and self.stick_ready then
                 self.selected = sector
             end
+            -- Wrapped so a fault here can never take the wheel down with it.
+            if pressed(B_STEP_CW) then pcall(self.step_selection, self, 1)
+            elseif pressed(B_STEP_CCW) then pcall(self.step_selection, self, -1) end
             if pressed(B_B) and string.sub(self.mode or "", 1, 8) == "mission_" then
                 self.mode = "macros"
                 self.selected, self.stick_ready = nil, false

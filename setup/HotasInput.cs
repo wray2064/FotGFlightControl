@@ -62,6 +62,18 @@ interface IHotasReader {
     int Axis(int device, int index);
     bool Button(int device, int index);
     int Hat(int device, int index);
+    // Button presses since the last call, counted from events so a pulse shorter than a poll interval is not lost.
+    int Presses(int device, int index);
+}
+
+// What the virtual gamepad remembers between polls.
+sealed class HotasPadMemory {
+    // Controls pressed while a wheel was open; ignored in flight until released.
+    public readonly HashSet<string> Guard = new HashSet<string>();
+    // Encoder steps waiting to be sent, one per tick with a quiet tick between so each is a separate press.
+    public readonly Dictionary<string, int> PendingSteps = new Dictionary<string, int>();
+    public readonly HashSet<string> StepGap = new HashSet<string>();
+    public readonly Dictionary<string, bool> WasDown = new Dictionary<string, bool>();
 }
 
 static class HotasPad {
@@ -78,7 +90,10 @@ static class HotasPad {
 
     // Wheel select and cancel act only while a wheel is open, so a button can fire in flight and confirm in a wheel.
     public const string WheelSelect = "Wheel select", WheelCancel = "Wheel cancel";
-    public static readonly string[] WheelOnlyControls = { WheelSelect, WheelCancel };
+    // An encoder turned one way or the other moves the highlight around the wheel (button bits 1024 and 2048).
+    public const string WheelStepCw = "Wheel step clockwise", WheelStepCcw = "Wheel step counter-clockwise";
+    public const int StepCwBit = 1024, StepCcwBit = 2048, MaxPendingSteps = 16;
+    public static readonly string[] WheelOnlyControls = { WheelSelect, WheelCancel, WheelStepCw, WheelStepCcw };
 
     public static IEnumerable<string> VirtualControls { get { return WheelOnlyControls.Concat(ButtonBits.Keys).Concat(AnalogControls); } }
     public static bool IsVirtualControl(string name) { return name != null && (ButtonBits.ContainsKey(name) || AnalogControls.Contains(name) || WheelOnlyControls.Contains(name)); }
@@ -120,7 +135,8 @@ static class HotasPad {
     // Combines every mapped control into one virtual pad. connected is true when at least one mapped device responds.
     // wheelOpen switches on the wheel-only controls. guard (optional, kept between calls) remembers controls pressed
     // while a wheel was open, so the button that made a selection does not also act in flight once the wheel closes.
-    public static HotasPadState Compose(HotasMapFile map, IHotasReader reader, bool wheelOpen, HashSet<string> guard, out bool connected) {
+    public static HotasPadState Compose(HotasMapFile map, IHotasReader reader, bool wheelOpen, HotasPadMemory memory, out bool connected) {
+        HashSet<string> guard = memory == null ? null : memory.Guard;
         var state = new HotasPadState();
         connected = false;
         if (map == null) return state;
@@ -132,6 +148,10 @@ static class HotasPad {
             if (!up) continue;
             connected = true;
             string name = entry.Key;
+            if (name == WheelStepCw || name == WheelStepCcw) {
+                if (memory != null) Step(memory, name, b, reader, wheelOpen, ref state);
+                continue;
+            }
             if (name == WheelSelect || name == WheelCancel) {
                 if (wheelOpen && Digital(b, reader)) state.Buttons |= (ushort)(name == WheelSelect ? 4096 : 8192);
                 continue;
@@ -161,6 +181,27 @@ static class HotasPad {
         return Compose(map, reader, false, null, out connected);
     }
 
+    // Counts this tick's detents (button-down events, or a state edge when no event arrived) and sends at most one step
+    // per tick, with a quiet tick between steps. Steps queued while no wheel is open are dropped.
+    static void Step(HotasPadMemory memory, string name, HotasMapBinding b, IHotasReader reader, bool wheelOpen, ref HotasPadState state) {
+        int count = b.Kind == "Button" ? reader.Presses(b.DeviceIndex, b.Index) : 0;
+        bool now = Digital(b, reader), was;
+        memory.WasDown.TryGetValue(name, out was);
+        memory.WasDown[name] = now;
+        if (count == 0 && now && !was) count = 1;
+        int pending;
+        memory.PendingSteps.TryGetValue(name, out pending);
+        if (!wheelOpen) { memory.PendingSteps[name] = 0; memory.StepGap.Remove(name); return; }
+        pending = Math.Min(MaxPendingSteps, pending + count);
+        if (memory.StepGap.Remove(name)) { memory.PendingSteps[name] = pending; return; }
+        if (pending > 0) {
+            pending--;
+            state.Buttons |= (ushort)(name == WheelStepCw ? StepCwBit : StepCcwBit);
+            memory.StepGap.Add(name);
+        }
+        memory.PendingSteps[name] = pending;
+    }
+
     // Layers the HOTAS pad over a real gamepad: buttons combine, and the stronger analog value wins.
     public static HotasPadState Merge(HotasPadState pad, HotasPadState hotas) {
         pad.Buttons |= hotas.Buttons;
@@ -182,6 +223,7 @@ static class HotasPad {
         public int Axis(int d, int i) { return Get("a" + d + "." + i); }
         public bool Button(int d, int i) { return Get("b" + d + "." + i) != 0; }
         public int Hat(int d, int i) { return Get("h" + d + "." + i); }
+        public int Presses(int d, int i) { int n = Get("p" + d + "." + i); Values["p" + d + "." + i] = 0; return n; }
     }
 
     public static bool SelfTest() {
@@ -243,7 +285,7 @@ static class HotasPad {
                 {WheelCancel, new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=1}}}
         };
         if (!HotasMapFile.Check(wmap)) return false;
-        var wr = new FakeReader(); var guard = new HashSet<string>();
+        var wr = new FakeReader(); var guard = new HotasPadMemory();
         wr.Values["b0.0"] = 1;
         var inFlight = Compose(wmap, wr, false, guard, out connected);
         if (inFlight.RightTrigger != 255 || (inFlight.Buttons & 4096) != 0) return false;   // fires, does not confirm
@@ -257,6 +299,41 @@ static class HotasPad {
         Compose(wmap, wr, false, guard, out connected);
         wr.Values["b0.0"] = 1;
         if (Compose(wmap, wr, false, guard, out connected).RightTrigger != 255) return false; // fires again after release
+
+        // An encoder: pulses become separate steps, only while a wheel is open, none lost to a fast spin.
+        var emap = new HotasMapFile {
+            Version = 1, Devices = new List<HotasMapDevice> { new HotasMapDevice { Guid = new string('D', 32) } },
+            Controls = new Dictionary<string, HotasMapBinding> {
+                {WheelStepCw, new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=10}},
+                {WheelStepCcw, new HotasMapBinding{DeviceIndex=0,Kind="Button",Index=11}}}
+        };
+        if (!HotasMapFile.Check(emap)) return false;
+        var er = new FakeReader(); var emem = new HotasPadMemory();
+        er.Values["p0.10"] = 3;                                               // three clockwise detents inside one poll, button never seen down
+        var e1 = Compose(emap, er, false, emem, out connected);
+        if ((e1.Buttons & (StepCwBit | StepCcwBit)) != 0) return false;       // no wheel open: nothing is sent
+        er.Values["p0.10"] = 3;
+        var e2 = Compose(emap, er, true, emem, out connected);
+        if ((e2.Buttons & StepCwBit) == 0 || (e2.Buttons & StepCcwBit) != 0) return false;
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) != 0) return false;   // quiet tick between steps
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) == 0) return false;   // second detent
+        Compose(emap, er, true, emem, out connected);
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) == 0) return false;   // third detent
+        Compose(emap, er, true, emem, out connected);
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) != 0) return false;   // and no more
+        er.Values["p0.11"] = 1;
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCcwBit) == 0) return false;  // other direction
+        Compose(emap, er, true, emem, out connected);
+        // Without events, a plain press still steps once.
+        er.Values["b0.10"] = 1;
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) == 0) return false;
+        Compose(emap, er, true, emem, out connected);
+        if ((Compose(emap, er, true, emem, out connected).Buttons & StepCwBit) != 0) return false;   // held: no repeat
+        er.Values["p0.10"] = 100;
+        Compose(emap, er, false, emem, out connected);                        // wheel closed: a flood is dropped
+        er.Values["b0.10"] = 0;
+        Compose(emap, er, true, emem, out connected);
+        if (emem.PendingSteps[WheelStepCw] != 0) return false;
 
         // Layering over a real gamepad keeps both.
         var merged = Merge(new HotasPadState { Buttons = 4096, LeftX = 500, RightX = -20000 },
@@ -285,6 +362,12 @@ sealed class HotasJoysticks : IHotasReader, IDisposable {
     [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_PumpEvents")] static extern void Pump();
 
     IntPtr[] handles = new IntPtr[0];
+    uint[] deviceIds = new uint[0];
+    readonly Dictionary<int, int> presses = new Dictionary<int, int>();
+    readonly IntPtr eventBuffer = Marshal.AllocHGlobal(128);
+    [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_PollEvent")] [return: MarshalAs(UnmanagedType.I1)] static extern bool PollEvent(IntPtr e);
+    [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_PushEvent")] [return: MarshalAs(UnmanagedType.I1)] static extern bool PushEvent(IntPtr e);
+    [DllImport("SDL3.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "SDL_GetJoystickID")] static extern uint GetId(IntPtr joystick);
     HotasMapFile map;
     bool started;
 
@@ -302,6 +385,7 @@ sealed class HotasJoysticks : IHotasReader, IDisposable {
         if (handles.Length != newMap.Devices.Count) {
             CloseAll();
             handles = new IntPtr[newMap.Devices.Count];
+            deviceIds = new uint[newMap.Devices.Count];
         }
         int count;
         IntPtr ids = List(out count);
@@ -325,6 +409,7 @@ sealed class HotasJoysticks : IHotasReader, IDisposable {
                     string serial = Marshal.PtrToStringAnsi(Serial(h));
                     if (!String.IsNullOrEmpty(map.Devices[i].Serial) && serial != map.Devices[i].Serial) { Close(h); continue; }
                     handles[i] = h;
+                    deviceIds[i] = GetId(h);
                     taken.Add(id);
                     break;
                 }
@@ -332,7 +417,42 @@ sealed class HotasJoysticks : IHotasReader, IDisposable {
         } finally { Free(ids); }
     }
 
-    public void Poll() { if (started) Pump(); }
+    public void Poll() {
+        if (!started) return;
+        Pump();
+        // Drain the queue and count button presses per device, so a very short pulse (an encoder detent) is not missed.
+        while (PollEvent(eventBuffer)) {
+            if ((uint)Marshal.ReadInt32(eventBuffer, 0) != 0x603) continue;     // SDL_EVENT_JOYSTICK_BUTTON_DOWN
+            uint which = (uint)Marshal.ReadInt32(eventBuffer, 16);
+            int button = Marshal.ReadByte(eventBuffer, 20);
+            for (int d = 0; d < deviceIds.Length; d++)
+                if (deviceIds[d] == which && handles[d] != IntPtr.Zero) {
+                    int key = d * 4096 + button, n;
+                    presses.TryGetValue(key, out n);
+                    presses[key] = Math.Min(n + 1, 64);
+                }
+        }
+    }
+
+    public int Presses(int d, int i) {
+        int key = d * 4096 + i, n;
+        if (!presses.TryGetValue(key, out n)) return 0;
+        presses.Remove(key);
+        return n;
+    }
+
+    // Diagnostic: queue a button-down event for a mapped device, as if it had been pressed, to check event counting.
+    public bool PushTestPress(int device, int button) {
+        IntPtr e = Marshal.AllocHGlobal(128);
+        try {
+            for (int i = 0; i < 128; i += 8) Marshal.WriteInt64(e, i, 0);
+            Marshal.WriteInt32(e, 0, 0x603);
+            Marshal.WriteInt32(e, 16, (int)deviceIds[device]);
+            Marshal.WriteByte(e, 20, (byte)button);
+            Marshal.WriteByte(e, 21, 1);
+            return PushEvent(e);
+        } finally { Marshal.FreeHGlobal(e); }
+    }
     public bool Connected(int d) { return d >= 0 && d < handles.Length && handles[d] != IntPtr.Zero && IsConnected(handles[d]); }
     public int Axis(int d, int i) { return Connected(d) ? GetAxis(handles[d], i) : 0; }
     public bool Button(int d, int i) { return Connected(d) && GetButton(handles[d], i); }
@@ -346,5 +466,6 @@ sealed class HotasJoysticks : IHotasReader, IDisposable {
     public void Dispose() {
         CloseAll();
         if (started) { Quit(); started = false; }
+        Marshal.FreeHGlobal(eventBuffer);
     }
 }

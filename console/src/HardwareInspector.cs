@@ -81,11 +81,17 @@ static partial class FlightDevices {
  [DllImport(Sdl3,CallingConvention=CallingConvention.Cdecl)] [return:MarshalAs(UnmanagedType.I1)]
  static extern bool SDL_JoystickConnected(IntPtr joystick);
  [DllImport(Sdl3,CallingConvention=CallingConvention.Cdecl)] static extern void SDL_PumpEvents();
+ [DllImport(Sdl3,CallingConvention=CallingConvention.Cdecl)] [return:MarshalAs(UnmanagedType.I1)] static extern bool SDL_PollEvent(IntPtr e);
+ [DllImport(Sdl3,CallingConvention=CallingConvention.Cdecl)] static extern uint SDL_GetJoystickID(IntPtr joystick);
 
  internal sealed class HardwareSession : IDisposable {
   internal class Device {
    internal IntPtr Handle;
    internal HardwareDevice Inventory;
+   internal uint InstanceId;
+   internal HardwareSession Owner;
+   // A button pressed within the last moments, even if it has been released again since (an encoder detent).
+   internal virtual bool RecentPulse(HardwareInput input){return Owner!=null&&input.Kind=="Button"&&Owner.PulseRecent(InstanceId,input.Index);}
    internal virtual bool Connected {get{return SDL_JoystickConnected(Handle);}}
    internal virtual int ReadRaw(HardwareInput input) {
     switch(input.Kind) {
@@ -108,6 +114,10 @@ static partial class FlightDevices {
 
   internal readonly List<Device> Devices=new List<Device>();
   bool initialized;
+  readonly Dictionary<long,long> pulseAt=new Dictionary<long,long>();
+  readonly System.Diagnostics.Stopwatch clock=System.Diagnostics.Stopwatch.StartNew();
+  IntPtr eventBuffer=IntPtr.Zero;
+  bool PulseRecent(uint instance,int button){long at;return pulseAt.TryGetValue(((long)instance<<16)|(uint)button,out at)&&clock.ElapsedMilliseconds-at<150;}
 
   internal HardwareSession(string gameRoot) {
    if(!GameInstall.HasMyMod(gameRoot))
@@ -136,7 +146,7 @@ static partial class FlightDevices {
    string name=Marshal.PtrToStringAnsi(S3Name(id))??"Unknown joystick";
    IntPtr handle=SDL_OpenJoystick(id);
    if(handle==IntPtr.Zero)throw new InvalidOperationException("Could not open "+name+". Reconnect it and scan again.");
-   var device=new Device{Handle=handle};
+   var device=new Device{Handle=handle,InstanceId=SDL_GetJoystickID(handle),Owner=this};
    Devices.Add(device);
    var guid=new StringBuilder(33);
    S3GuidText(S3Guid(id),guid,guid.Capacity);
@@ -157,12 +167,22 @@ static partial class FlightDevices {
   // A session over standIn devices, for previews and tests: no SDL involved.
   internal HardwareSession(IEnumerable<Device> standIn){Devices.AddRange(standIn);}
 
-  internal void Poll(){if(initialized)SDL_PumpEvents();}
+  internal void Poll(){
+   if(!initialized)return;
+   SDL_PumpEvents();
+   if(eventBuffer==IntPtr.Zero)eventBuffer=Marshal.AllocHGlobal(128);
+   // Remember when each button last went down, so a pulse shorter than a poll still shows up.
+   while(SDL_PollEvent(eventBuffer)){
+    if((uint)Marshal.ReadInt32(eventBuffer,0)!=0x603)continue;
+    pulseAt[((long)(uint)Marshal.ReadInt32(eventBuffer,16)<<16)|(uint)Marshal.ReadByte(eventBuffer,20)]=clock.ElapsedMilliseconds;
+   }
+  }
 
   public void Dispose() {
    foreach(var device in Devices)if(device.Handle!=IntPtr.Zero)SDL_CloseJoystick(device.Handle);
    Devices.Clear();
    if(initialized){S3Quit();initialized=false;}
+   if(eventBuffer!=IntPtr.Zero){Marshal.FreeHGlobal(eventBuffer);eventBuffer=IntPtr.Zero;}
   }
  }
 }

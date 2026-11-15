@@ -17,6 +17,7 @@ partial class ControllerSetup {
 
  // How the gamepad controls Flight Control reads are described to someone holding a stick.
  static readonly Dictionary<string,string> VirtualLabels=new Dictionary<string,string>{
+  {"Wheel step clockwise","Wheel: step clockwise (encoder)"},{"Wheel step counter-clockwise","Wheel: step counter-clockwise (encoder)"},
   {"Wheel select","Wheel: select (only while a wheel is open)"},{"Wheel cancel","Wheel: cancel (only while a wheel is open)"},
   {"Dpad up","Wheel: D-pad up"},{"Dpad down","Wheel: D-pad down (squad)"},{"Dpad left","Wheel: D-pad left"},{"Dpad right","Wheel: D-pad right (macros)"},
   {"A","Select / confirm (A)"},{"B","Cancel / back (B)"},{"X","X button action"},{"Y","Y button action"},
@@ -436,6 +437,7 @@ partial class ControllerSetup {
  string FlightMeaning(HotasRow row) {
   if(row.Group!=HotasModel.Group.Virtual)return "";
   if(row.Name==HotasPad.WheelSelect||row.Name==HotasPad.WheelCancel)return Environment.NewLine+"also assign Right/Left trigger for a button that fires in flight";
+  if(row.Name==HotasPad.WheelStepCw||row.Name==HotasPad.WheelStepCcw)return Environment.NewLine+"turn an encoder (or press two buttons) to move round an open wheel";
   int i=Array.IndexOf(TapButtons,row.Name);
   if(i<0)return "";
   var tap=Array.Find(ButtonActions,a=>a.Id==tapActions[i]);
@@ -529,7 +531,9 @@ partial class ControllerSetup {
   if(hotasView>=hotasMatches.Count||hotasMatches[hotasView]==null)return 0;
   var live=hotasMatches[hotasView];
   var input=live.Inventory.Inputs.Find(i=>i.Kind==kind&&i.Index==index);
-  return input==null||!live.Connected?0:live.ReadRaw(input);
+  if(input==null||!live.Connected)return 0;
+  int raw=live.ReadRaw(input);
+  return raw==0&&live.RecentPulse(input)?1:raw;
  }
 
  // Which action sits on which control, for the picture.
@@ -630,7 +634,12 @@ partial class ControllerSetup {
   for(int d=0;d<hotasMatches.Count;d++){
    var live=hotasMatches[d];
    if(live==null||!live.Connected)continue;
-   foreach(var input in live.Inventory.Inputs)hotasCapture.Feed(d,input.Kind,input.Index,live.ReadRaw(input));
+   foreach(var input in live.Inventory.Inputs){
+    int raw=live.ReadRaw(input);
+    // An encoder detent can be over before this tick: count a recent press as a press.
+    if(raw==0&&live.RecentPulse(input))raw=1;
+    hotasCapture.Feed(d,input.Kind,input.Index,raw);
+   }
   }
   hotasCapture.Settle();
   var best=hotasCapture.Best();
