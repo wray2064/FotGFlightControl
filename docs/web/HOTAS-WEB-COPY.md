@@ -53,6 +53,7 @@ The HOTAS tab finds every joystick, throttle and pedal set the game can see and 
 | 05-game-action-on-a-hat.png | Optional | A game action assigned to a hat direction |
 | 06-arrange-preview.png | Beside card 06 | The preview in arrange mode, ready to drag controls into place |
 | 07-flight-meaning-of-a-button.png | Optional | A gamepad-style button showing what it does in flight |
+| 08-hotas-switched-off-in-simple.png | Optional, for the setup steps | The Console in Simple mode: the HOTAS tab is greyed out until Controls is set to Advanced |
 
 ## 4. "Tested so far" paragraph (replace the HOTAS part of the existing tested-so-far text)
 
@@ -61,7 +62,7 @@ HOTAS support is a preview. It has been flown with a Logitech Freedom 2.4 and a 
 ## 5. How it works (for the install steps area)
 
 1. Install Flight Control for Fate of the Galaxy 2 as usual and play once.
-2. Open the Flight Control Console and choose the **HOTAS** tab.
+2. Open the Flight Control Console, set **Controls** to **Advanced**, and choose the **HOTAS** tab.
 3. Move your controls to see them light up, then pick an action and use the control to assign it.
 4. Close the game and press **Apply to pilot**.
 5. Start the game from the Flight Control launcher.

@@ -805,6 +805,7 @@ partial class ControllerSetup {
  int DemoValue(int device,HardwareInput input){int v;return demoValues.TryGetValue(device+":"+input.Kind+input.Index,out v)?v:0;}
 
  internal void HotasDemo(bool keepPrefs=false) {
+  advancedMode.Checked=true;
   Func<string,string,int,int,HardwareDevice> make=delegate(string name,string guid,int axes,int buttons){
    var d=new HardwareDevice{Name=name,Guid=guid,Inputs=new List<HardwareInput>()};
    for(int i=0;i<axes;i++)d.Inputs.Add(new HardwareInput{Kind="Axis",Index=i});
@@ -946,11 +947,6 @@ partial class ControllerSetup {
    form.hotasCanvas.ResetLayout();
    if(layout.Widgets.Count!=0)return "FAIL: reset left saved positions";
    form.HotasTick();
-   // 7b. The Controls switch: Simple and Advanced, with the advanced pages following it.
-   form.modeAdvanced.PerformClick();
-   if(!form.advancedMode.Checked||!form.buttonsPage.Enabled)return "FAIL: Advanced did not switch the advanced controls on";
-   form.modeSimple.PerformClick();
-   if(form.advancedMode.Checked||form.buttonsPage.Enabled)return "FAIL: Simple did not switch the advanced controls off";
    // 8. A shared profile whose pedals are not the ones plugged in: use the connected pedals in their place.
    var pedalsLive=form.hotasSession.Devices[1];
    var otherPedals=new HardwareDevice{Name="Someone else's pedals",Guid=new string('C',32),Inputs=new List<HardwareInput>()};
@@ -964,6 +960,11 @@ partial class ControllerSetup {
    int after=profile.FlightAxes.Values.Count(x=>x.DeviceIndex==1)+profile.Virtual.Values.Count(x=>x.DeviceIndex==1);
    if(before==0||before!=after)return "FAIL: remapping disturbed the bindings";
    HardwareInspector.Validate(profile);
+   // 9. The HOTAS tab is unavailable in Simple, and leaves the page if it was open.
+   form.modeSimple.PerformClick();
+   if(form.hotasTab.Enabled||form.hotasPage.Visible||form.advancedMode.Checked)return "FAIL: the HOTAS tab should be unavailable in Simple";
+   form.modeAdvanced.PerformClick();
+   if(!form.hotasTab.Enabled||!form.advancedMode.Checked)return "FAIL: the HOTAS tab should come back with Advanced";
    form.Close();
   }
   return "PASS";
@@ -1001,6 +1002,7 @@ partial class ControllerSetup {
     if(token=="listen"&&pick("Pitch"))form.StartListening((HotasRow)form.hotasList.SelectedItems[0].Tag);
     else if(token.StartsWith("select:")){if(pick(token.Substring(7)))form.hotasList.TopItem=form.hotasList.SelectedItems[0];}
     else if(token.StartsWith("device:")){form.hotasView=Int32.Parse(token.Substring(7));form.BuildHotasDeviceBar();form.ShowHotasDevice();}
+    else if(token=="simple")form.advancedMode.Checked=false;
     else if(token=="arrange"){form.hotasCanvas.Arrange=true;form.hotasArrange.Text="Done arranging";form.TabLook(form.hotasArrange,true);}
    }
    for(int i=0;i<5;i++){Application.DoEvents();System.Threading.Thread.Sleep(60);}

@@ -8,12 +8,13 @@ Fly Fate of the Galaxy 2 with a joystick, throttle and pedals, and keep Flight C
 
 - Fate of the Galaxy **2.0.2**, installed through Flight Control (MyMod). Fate of the Galaxy 1.1.x (classic) does not support HOTAS yet.
 - Windows 64-bit, and the Flight Control Console and launcher from this build.
+- **Controls: Advanced.** HOTAS is an advanced feature, so its tab is greyed out and cannot be clicked until the Controls switch is set to Advanced.
 - Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, neither can Flight Control (see section 9).
 - Close the game before you press Apply.
 
 ## 2. Quick start
 
-1. Open the Flight Control Console and choose the **HOTAS** tab. It scans your controllers straight away.
+1. Open the Flight Control Console and set **Controls** (right end of the tab row) to **Advanced**. The **HOTAS** tab is switched off in Simple. Then choose the **HOTAS** tab. It scans your controllers straight away.
 2. Move a control on each device. Its picture lights up, so you can tell which device is which.
 3. Pick an action on the left, for example **Pitch**, then move the stick. The assignment is made when the signal is clear.
 4. Repeat for the rest of your controls. Click **Control not listed?** if something does not show up.

@@ -85,6 +85,13 @@ partial class ControllerSetup {
  void UpdateMode(){
   bool advanced=advancedMode.Checked;
   advancedMode.Text=advanced?"Advanced (Experimental)":"Default";
+  // HOTAS is an advanced feature: its tab cannot be clicked until Advanced is chosen, and choosing Simple leaves the page.
+  if(hotasTab!=null){
+   hotasTab.Enabled=advanced;
+   if(!advanced&&hotasPage!=null&&hotasPage.Visible)ShowPage(false);
+   else if(advanced)TabLook(hotasTab,hotasPage!=null&&hotasPage.Visible);
+   hotasTab.AccessibleDescription=advanced?"Tab":"Advanced feature: choose Advanced under Controls to use it";
+  }
   if(macroFlightRow==null)return;
   macroFlightRow.Enabled=advanced;
   macroLookRow.Enabled=advanced;
