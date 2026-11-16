@@ -31,7 +31,7 @@ const stages: Record<string, Stage[]> = {
     ]),
     S('01-hotas-tab-overview.png', 0.5, 1, [
       {x: 966, y: 126, w: 136, h: 38, label: 'Advanced', at: 0.1},
-      {x: 668, y: 54, w: 154, h: 56, label: 'HOTAS is available', at: 0.4},
+      {x: 668, y: 110, w: 154, h: 52, label: 'HOTAS is available', at: 0.4},
     ]),
   ],
   scan: [
