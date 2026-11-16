@@ -35,14 +35,14 @@ partial class ControllerSetup {
  var setup=Grid(3,4);setup.BackColor=Surface;TargetingFrame.Apply(setup);setup.Padding=new Padding(12);setup.Margin=new Padding(0,0,0,14);setup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,55));setup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));setup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,20));Rows(setup,26,42,26,42);
  setup.Controls.Add(LabelText("01 / GAME INSTALLATION",9,Cyan),0,0);root.Dock=DockStyle.Fill;root.Font=new Font("Segoe UI",12);root.BackColor=Night;root.ForeColor=Ink;root.Leave+=delegate{LoadPilots();RefreshWheelModFolder();};root.KeyDown+=delegate(object sender,KeyEventArgs e){if(e.KeyCode==Keys.Enter){LoadPilots();RefreshWheelModFolder();e.SuppressKeyPress=true;}};setup.Controls.Add(root,0,1);setup.SetColumnSpan(root,2);setup.Controls.Add(ActionButton("Browse folder",delegate{using(var d=new FolderBrowserDialog()){if(d.ShowDialog()==DialogResult.OK){root.Text=d.SelectedPath;LoadPilots();RefreshWheelModFolder();}}}),2,1);
  setup.Controls.Add(LabelText("ACTIVE PILOT",9,Ink),0,2);setup.Controls.Add(LabelText("FLIGHT GAMEPAD SLOT",9,Ink),1,2);pilots.Font=new Font("Segoe UI",12);pilots.BackColor=Night;pilots.ForeColor=Ink;pilots.FlatStyle=FlatStyle.Flat;pilots.Dock=DockStyle.Fill;pilots.DropDownStyle=ComboBoxStyle.DropDownList;setup.Controls.Add(pilots,0,3);pilots.SelectedIndexChanged+=delegate{LoadPilot();};slot.Font=new Font("Segoe UI",12);slot.BackColor=Night;slot.ForeColor=Ink;slot.FlatStyle=FlatStyle.Flat;slot.Dock=DockStyle.Fill;slot.DropDownStyle=ComboBoxStyle.DropDownList;slot.Items.AddRange(new object[]{0,1,2,3});slot.SelectedIndex=0;setup.Controls.Add(slot,1,3);setup.Controls.Add(ActionButton("Reload pilots",delegate{LoadPilots();}),2,3);cockpitSetup=setup;shell.Controls.Add(setup,0,1);
- var tabs=Grid(6,1);for(int i=0;i<6;i++)tabs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100f/6));
+ var tabs=Grid(6,1);for(int i=0;i<6;i++)tabs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,i<5?15f:25f));tabs.RowStyles.Add(new RowStyle(SizeType.Percent,100));
  flightTabButton=ActionButton("Flight response",delegate{ShowPage(false);});
  deckTabButton=ActionButton("Wheels",delegate{ShowPage(true);});
  buttonsTab=ActionButton("Buttons",delegate{ShowPage(false,false,true);});
  profileTab=ActionButton("Profiles",delegate{ShowPage(false,true);});
  advancedMode.Appearance=Appearance.Button;advancedMode.Dock=DockStyle.Fill;advancedMode.TextAlign=ContentAlignment.MiddleCenter;
  advancedMode.CheckedChanged+=delegate{UpdateMode();};
- tabs.Controls.Add(flightTabButton,0,0);tabs.Controls.Add(deckTabButton,1,0);tabs.Controls.Add(buttonsTab,2,0);tabs.Controls.Add(profileTab,3,0);hotasTab=ActionButton("HOTAS",delegate{ShowPage(false,false,false,true);});tabs.Controls.Add(hotasTab,4,0);tabs.Controls.Add(advancedMode,5,0);shell.Controls.Add(tabs,0,2);
+ tabs.Controls.Add(flightTabButton,0,0);tabs.Controls.Add(deckTabButton,1,0);tabs.Controls.Add(buttonsTab,2,0);tabs.Controls.Add(profileTab,3,0);hotasTab=ActionButton("HOTAS",delegate{ShowPage(false,false,false,true);});tabs.Controls.Add(hotasTab,4,0);tabs.Controls.Add(BuildModeSwitch(),5,0);shell.Controls.Add(tabs,0,2);
  contentHost=new Panel{Dock=DockStyle.Fill};shell.Controls.Add(contentHost,0,3);
  flightPage=Grid(2,1);var body=flightPage;flightBody=body;body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,62));body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,38));contentHost.Controls.Add(body);
  var visual=Grid(1,4);flightVisual=visual;visual.BackColor=Surface;TargetingFrame.Apply(visual);visual.Padding=new Padding(14);visual.Margin=new Padding(0,0,14,0);Rows(visual,30,-1,70,52);visual.Controls.Add(LabelText("02 / CONTROLLER TELEMETRY",10,Cyan),0,0);padView.Dock=DockStyle.Fill;visual.Controls.Add(padView,0,1);selected=LabelText("SELECT A CONTROL\nClick a control or press a button to identify it.",10,Ink);visual.Controls.Add(selected,0,2);padView.Selected+=delegate(string name){selected.Text=name+"\n"+GamepadView.Description(name);};visual.Controls.Add(LabelText("Green: pressed   /   Red: selected\nSticks and triggers show live travel",9,Color.FromArgb(179,157,77)),0,3);body.Controls.Add(visual,0,0);
@@ -60,6 +60,30 @@ partial class ControllerSetup {
  buttonsPage=BuildButtonEditor();contentHost.Controls.Add(buttonsPage);contentHost.Controls.Add(BuildHotasPage());UpdateMode();ShowPage(false);FormClosed+=delegate{CloseHotas();};
  var footer=Grid(3,1);nativeFooter=footer;footer.Padding=new Padding(0,14,0,0);footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,200));footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,200));nativeFooterLabel=LabelText("SELECT SLOT, THEN APPLY / BACKUP",9,Ink);footer.Controls.Add(nativeFooterLabel,0,0);nativeRestore=ActionButton("Restore latest backup",delegate{Restore();});footer.Controls.Add(nativeRestore,1,0);var apply=ActionButton("APPLY WITH BACKUP",delegate{Apply();});apply.BackColor=Color.FromArgb(110,88,8);apply.FlatAppearance.BorderColor=Color.FromArgb(255,236,120);apply.Font=new Font("Consolas",11,FontStyle.Bold);nativeApply=apply;footer.Controls.Add(apply,2,0);shell.Controls.Add(footer,0,4);
  root.Text=StartGame??FindGame();LoadPilots();RefreshWheelModFolder();FitCockpit();timer.Interval=33;timer.Tick+=delegate{Poll();};timer.Start();FormClosed+=delegate{timer.Dispose();};Shown+=delegate{var area=Screen.FromControl(this).WorkingArea;if(Width>area.Width||Height>area.Height){Size=new Size(Math.Min(Width,area.Width),Math.Min(Height,area.Height));Location=new Point(area.Left+(area.Width-Width)/2,area.Top+(area.Height-Height)/2);}};ResumeLayout(true);
+ }
+ // "CONTROLS" with a plain two-way switch, so the advanced view is easy to find. advancedMode still holds the state.
+ Button modeSimple,modeAdvanced;
+ Control BuildModeSwitch(){
+  var box=Grid(1,2);Rows(box,18,-1);box.Margin=new Padding(6,0,0,0);
+  var title=LabelText("CONTROLS",9,Cyan);title.TextAlign=ContentAlignment.BottomLeft;
+  box.Controls.Add(title,0,0);
+  var pair=Grid(2,1);pair.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));pair.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));pair.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+  modeSimple=ActionButton("Simple",delegate{advancedMode.Checked=false;});
+  modeAdvanced=ActionButton("Advanced",delegate{advancedMode.Checked=true;});
+  foreach(var b in new[]{modeSimple,modeAdvanced}){b.Margin=new Padding(1,2,1,0);b.Font=new Font("Consolas",9.5f,FontStyle.Bold);}
+  modeSimple.AccessibleName="Controls: Simple";modeAdvanced.AccessibleName="Controls: Advanced";
+  pair.Controls.Add(modeSimple,0,0);pair.Controls.Add(modeAdvanced,1,0);
+  box.Controls.Add(pair,0,1);
+  var tip=new ToolTip{AutoPopDelay=9000};
+  tip.SetToolTip(modeSimple,"Simple: the recommended, tested settings.");
+  tip.SetToolTip(modeAdvanced,"Advanced (experimental): button actions, custom flight axes, wheel macros and gestures.");
+  advancedMode.CheckedChanged+=delegate{ShowModeSwitch();};
+  ShowModeSwitch();
+  return box;
+ }
+ void ShowModeSwitch(){
+  if(modeSimple==null||modeAdvanced==null)return;
+  TabLook(modeSimple,!advancedMode.Checked);TabLook(modeAdvanced,advancedMode.Checked);
  }
  public void FocusControllerSlot(){ShowPage(false);slot.Focus();}
  static TableLayoutPanel Grid(int cols,int rows){return new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=cols,RowCount=rows,Margin=Padding.Empty};}

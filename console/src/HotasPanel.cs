@@ -946,6 +946,11 @@ partial class ControllerSetup {
    form.hotasCanvas.ResetLayout();
    if(layout.Widgets.Count!=0)return "FAIL: reset left saved positions";
    form.HotasTick();
+   // 7b. The Controls switch: Simple and Advanced, with the advanced pages following it.
+   form.modeAdvanced.PerformClick();
+   if(!form.advancedMode.Checked||!form.buttonsPage.Enabled)return "FAIL: Advanced did not switch the advanced controls on";
+   form.modeSimple.PerformClick();
+   if(form.advancedMode.Checked||form.buttonsPage.Enabled)return "FAIL: Simple did not switch the advanced controls off";
    // 8. A shared profile whose pedals are not the ones plugged in: use the connected pedals in their place.
    var pedalsLive=form.hotasSession.Devices[1];
    var otherPedals=new HardwareDevice{Name="Someone else's pedals",Guid=new string('C',32),Inputs=new List<HardwareInput>()};
