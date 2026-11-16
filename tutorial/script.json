@@ -1,0 +1,79 @@
+[
+ {
+  "id": "intro",
+  "title": "Welcome",
+  "text": "Welcome to the Flight Control HOTAS tutorial. In the next few minutes you will connect a joystick, throttle, pedals or even an encoder knob, assign every control, tune your flight axes, and share the result. Nothing here changes your game until you press Apply, and you can always go back.",
+  "dur": 18.96,
+  "n": 1
+ },
+ {
+  "id": "advanced",
+  "title": "Turn on Advanced",
+  "text": "Open the Flight Control console. At the top you will find the Controls switch. The HOTAS tab stays greyed out in Simple mode. Slide Controls to Advanced, and the tab becomes available. Simple mode is still the right choice if you only use a gamepad.",
+  "dur": 16.4,
+  "n": 2
+ },
+ {
+  "id": "scan",
+  "title": "Scan your devices",
+  "text": "On the HOTAS tab, press Scan. Every connected stick, throttle and pedal set appears as a chip, with a live dot that lights when you touch it. Two identical devices are numbered, so you can tell them apart. Move a control now, and you will see the preview react.",
+  "dur": 17.6,
+  "n": 3
+ },
+ {
+  "id": "assign",
+  "title": "Press to assign",
+  "text": "Pick an action from the list, then simply press the control you want. Flight Control watches every device at once, chooses the axis that moved the most, and assigns it. You can also click a control in the preview. If two inputs move together, it tells you, so you can try again. One physical input does one job, and conflicts are shown right away.",
+  "dur": 22.16,
+  "n": 4
+ },
+ {
+  "id": "kinds",
+  "title": "Game and Flight Control actions",
+  "text": "There are two kinds of actions. Game actions, like fire, targeting and weapons, are written into the game's own control table. Flight Control actions drive the radial wheels and gamepad features, such as selecting an option or stepping through a dial. Because the game only supports one hat, and four joystick slots, extra devices can still be used for Flight Control actions.",
+  "dur": 24.56,
+  "n": 5
+ },
+ {
+  "id": "wheels",
+  "title": "One button, different jobs",
+  "text": "Here is the clever part. While a wheel is open, the same button can mean something else. Wheel select and Wheel cancel only act while a wheel is open, so your trigger can fire in flight, and choose a wheel option when the wheel appears. The button that opened the wheel is ignored until you let go, so nothing fires by accident.",
+  "dur": 21.2,
+  "n": 6
+ },
+ {
+  "id": "encoder",
+  "title": "Encoders and dials",
+  "text": "Prefer a rotary encoder over pointing? Assign Step clockwise and Step anticlockwise to the two directions of the knob. Each click moves one slot around the wheel, and Wheel select confirms. It works with any encoder that shows up as two buttons.",
+  "dur": 16.96,
+  "n": 7
+ },
+ {
+  "id": "axes",
+  "title": "Flight axes",
+  "text": "Press Axes to tune pitch, yaw, roll and throttle. In Game mode, the engine handles the axes, with one dead zone for all of them. Calibrate measures an axis for you, and can set that dead zone. In Precision mode, which is experimental, each axis gets its own dead zone, full deflection point, curve and invert. Calibration takes two steps. First leave the stick alone, then sweep it through its whole range. A throttle needs only the sweep.",
+  "dur": 31.28,
+  "n": 8
+ },
+ {
+  "id": "apply",
+  "title": "Apply and go back",
+  "text": "When you are happy, press Apply. Flight Control writes the controls, and keeps a backup of what was there. If you change your mind, Restore undoes the last apply, and Gamepad mode returns to your pre-HOTAS setup. Start the game from the Flight Control launcher after applying, so the bridge can see your map.",
+  "dur": 19.04,
+  "n": 9
+ },
+ {
+  "id": "share",
+  "title": "Save and share",
+  "text": "Your work saves automatically as a working profile. To share it, export a dot F C hotas file. Serial numbers and picture paths are removed, so it is safe to send. When you load someone else's profile, Flight Control keeps a backup of yours first, and shows you what would be dropped before anything changes.",
+  "dur": 20.72,
+  "n": 10
+ },
+ {
+  "id": "outro",
+  "title": "If something is missing",
+  "text": "If a control does not appear, use Control not listed, to probe it. Remember that Precision flight axes and a few game actions are still experimental, so check each one in the game. That is everything. Happy flying, and fly safe.",
+  "dur": 15.44,
+  "n": 11
+ }
+]
