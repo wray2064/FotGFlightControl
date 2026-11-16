@@ -10,10 +10,10 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Console self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '2.0.0-preview.1'
+$version = '1.2.0'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
-$name = 'FotG-Flight-Control-' + $version
+$name = 'FotG-Flight-Control-HOTAS-' + $version
 $dist = Join-Path $workspace 'dist'
 $stage = Join-Path $dist $name
 if (Test-Path -LiteralPath $stage) {
@@ -94,8 +94,25 @@ $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvar
 Write-Host "Package: $archive"
 Write-Host "SHA256: $hash"
 
+# update.json for the HOTAS (experimental) page. It is separate from the main update.json on purpose, so players on the
+# experimental build are never offered the regular download (which has no HOTAS) as an "update".
+$manifest = [ordered]@{
+    schema = 1
+    latest = [ordered]@{
+        version = $version
+        date = (Get-Date -Format 'yyyy-MM-dd')
+        url = "https://manictrashpanda.dev/games/FotGFlightControl/hotas/download/$name.zip"
+        size = (Get-Item -LiteralPath $archive).Length
+        sha256 = $hash
+        notes = "https://manictrashpanda.dev/games/FotGFlightControl/hotas/"
+    }
+    verifiedGameVersions = [ordered]@{ $version = @('2.0.2') }
+}
+[IO.File]::WriteAllText((Join-Path $dist 'update.json'), ($manifest | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+Write-Host "Update manifest: $(Join-Path $dist 'update.json')"
+
 # Include the current source tree, including pending release edits, with repository layout intact.
-$sourceName = 'FotG-Flight-Control-source-' + $version
+$sourceName = 'FotG-Flight-Control-HOTAS-source-' + $version
 $sourceStage = Join-Path $dist ($sourceName + '-' + [guid]::NewGuid().ToString('N'))
 $sourceRoot = Join-Path $sourceStage $sourceName
 $tracked = @(git -C $workspace -c core.quotepath=false ls-files --cached --others --exclude-standard)

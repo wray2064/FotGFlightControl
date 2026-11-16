@@ -7,6 +7,6 @@ using System.Reflection;
 [assembly: AssemblyProduct("Flight Control for Fate of the Galaxy")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 Manic Trash Panda. MIT License.")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.0.0.0")]
+[assembly: AssemblyVersion(BuildInfo.Version + ".0")]
+[assembly: AssemblyFileVersion(BuildInfo.Version + ".0")]
 [assembly: AssemblyInformationalVersion(BuildInfo.Version)]
