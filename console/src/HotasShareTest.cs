@@ -48,7 +48,7 @@ partial class ControllerSetup {
     Widgets=new List<LayoutWidget>{new LayoutWidget{Kind="Button",Index=0,X=0.2,Y=0.3,Width=0.1,Height=0.1}}}};
    a.WriteHotasProfile(shared);
    string text=File.ReadAllText(shared);
-   if(text.Contains("SN-A-0042")||text.Contains("wray2")||text.Contains("Pictures")||text.Contains(@"C:\\"))return "FAIL: the shared file carries personal details";
+   if(text.Contains("SN-A-0042")||text.Contains("someone")||text.Contains("Pictures")||text.Contains(@"C:\\"))return "FAIL: the shared file carries personal details";
    if(!text.Contains("Fire primary")||!text.Contains("Logitech Freedom 2.4")||!text.Contains("\"SchemaVersion\":2"))return "FAIL: the shared file is missing the setup itself";
    if(!text.Contains("\"Format\":\"FlightControlHotas\""))return "FAIL: the shared file carries no format marker";
    if(text.Length>20000)return "FAIL: the shared file is unexpectedly large ("+text.Length+")";

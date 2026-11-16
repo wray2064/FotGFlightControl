@@ -28,6 +28,8 @@ sealed class HotasCanvas : Control {
  string backgroundPath;
  List<Widget> widgets=new List<Widget>();
  Widget dragging;
+ readonly ToolTip hover=new ToolTip{InitialDelay=250,ReshowDelay=100,AutoPopDelay=8000};
+ string hoverText;
  PointF grabOffset;
 
  public HotasCanvas() {
@@ -78,7 +80,8 @@ sealed class HotasCanvas : Control {
   for(int i=0;i<hats.Count;i++)result["Hat:"+hats[i].Index]=new RectangleF(0.36f+i*(dial/cw+0.025f),0.06f,dial/cw,dial/ch);
   int n=buttons.Count;
   if(n>0){
-   float areaX=0.36f,areaY=hats.Count>0?0.06f+dial/ch+0.06f:0.07f,areaW=0.61f,areaH=0.93f-areaY;
+   bool sideBySide=axes.Count>0;
+   float areaX=sideBySide?0.36f:0.03f,areaY=hats.Count>0?0.06f+dial/ch+0.06f:0.07f,areaW=sideBySide?0.61f:0.94f,areaH=0.93f-areaY;
    int cols=Math.Max(1,(int)Math.Ceiling(Math.Sqrt(n*(areaW*cw)/(areaH*ch))));
    int rows=(int)Math.Ceiling(n/(double)cols);
    float cell=Math.Min(Math.Min(areaW*cw/cols,areaH*ch/rows),0.2f*Math.Min(cw,ch));   // a lone button should not become a huge disc
@@ -153,8 +156,10 @@ sealed class HotasCanvas : Control {
   var c=new RectangleF(r.X+(r.Width-d)/2,r.Y+(r.Height-d)/2,d,d);
   using(var fill=new SolidBrush(down?Green:Color.FromArgb(110,24,12)))g.FillEllipse(fill,c);
   using(var pen=new Pen(highlight?Color.White:assigned?Color.FromArgb(120,255,240):Color.FromArgb(226,72,45),highlight||assigned?2.4f:1.4f))g.DrawEllipse(pen,c);
-  var sf=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center};
-  using(var brush=new SolidBrush(down?Color.Black:Color.White))g.DrawString((index+1).ToString(),d>=22?small:tiny,brush,c,sf);
+  var sf=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap};
+  // Three-digit numbers and tiny circles: shrink, then drop the number (hover shows it).
+  string number=(index+1).ToString();
+  if(d>=8+5*number.Length)using(var brush=new SolidBrush(down?Color.Black:Color.White))using(var fit=new Font("Consolas",Math.Max(5f,Math.Min(d>=22&&number.Length<3?8.5f:7.5f,(d-2)/number.Length/0.62f*0.75f)),FontStyle.Bold))g.DrawString(number,fit,brush,new RectangleF(c.X-6,c.Y,c.Width+12,c.Height),sf);
   if(assigned&&d>=22)using(var brush=new SolidBrush(Color.FromArgb(120,255,240)))g.DrawString(Short(label,Math.Max(4,(int)(r.Width/6.5f))),tiny,brush,new RectangleF(r.X-6,c.Bottom,r.Width+12,14),new StringFormat{Alignment=StringAlignment.Center});
  }
 
@@ -198,7 +203,21 @@ sealed class HotasCanvas : Control {
 
  protected override void OnMouseMove(MouseEventArgs e) {
   base.OnMouseMove(e);
-  if(dragging==null){Cursor=Arrange&&HitTest(e.Location)!=null?Cursors.SizeAll:!Arrange&&HitTest(e.Location)!=null?Cursors.Hand:Cursors.Default;return;}
+  if(dragging==null){
+   var under=HitTest(e.Location);
+   Cursor=Arrange&&under!=null?Cursors.SizeAll:!Arrange&&under!=null?Cursors.Hand:Cursors.Default;
+   string text=null;
+   if(under!=null){
+    string name=under.Kind+" "+(under.Index+1);
+    string label;
+    var parts=new List<string>();
+    if(under.Kind=="Hat"){foreach(int bit in new[]{1,2,4,8}){string one;if(Labels.TryGetValue("Hat:"+under.Index+":"+bit,out one))parts.Add(one);}label=String.Join(", ",parts);}
+    else label=Labels.TryGetValue(under.Kind+":"+under.Index,out label)?label:"";
+    text=name+(String.IsNullOrEmpty(label)?"":" - "+label);
+   }
+   if(text!=hoverText){hoverText=text;hover.SetToolTip(this,text);}
+   return;
+  }
   float x=(e.X-grabOffset.X)/ClientSize.Width,y=(e.Y-grabOffset.Y)/ClientSize.Height;
   var r=dragging.Rect;
   dragging.Rect=new RectangleF(Math.Max(0,Math.Min(1-r.Width,x)),Math.Max(0,Math.Min(1-r.Height,y)),r.Width,r.Height);
@@ -237,5 +256,5 @@ sealed class HotasCanvas : Control {
   Rebuild();
  }
 
- protected override void Dispose(bool disposing){if(disposing&&background!=null)background.Dispose();base.Dispose(disposing);}
+ protected override void Dispose(bool disposing){if(disposing){if(background!=null)background.Dispose();hover.Dispose();}base.Dispose(disposing);}
 }
