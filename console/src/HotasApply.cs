@@ -85,6 +85,12 @@ partial class ControllerSetup {
   var text=new StringBuilder();
   text.AppendLine(HotasStart);
   var axes=profile.FlightAxes??new Dictionary<string,FlightAxisBinding>();
+  // Precision axes are shaped and applied by Flight Control, so the game's own axis bindings are cleared to stop it also
+  // acting on the same axes (it would otherwise use its default joystick axes).
+  if(profile.AxisMode=="Precision"&&axes.Count>0){
+   foreach(string id in HotasAxisActions.Values)AppendHotasUnbound(text,id);
+   axes=new Dictionary<string,FlightAxisBinding>();
+  }
   foreach(var entry in axes){
    bool absolute=entry.Key=="Absolute throttle";
    var binding=entry.Value;
@@ -128,6 +134,7 @@ partial class ControllerSetup {
   var kept=new HashSet<string>((profile.FlightAxes??new Dictionary<string,FlightAxisBinding>()).Keys
    .Select(k=>HotasAxisActions[k]).Concat((profile.FlightButtons??new Dictionary<string,FlightAxisBinding>()).Keys
    .Select(k=>HotasButtonActions[k])));
+  if(profile.AxisMode=="Precision"&&profile.FlightAxes!=null&&profile.FlightAxes.Count>0)foreach(string id in HotasAxisActions.Values)kept.Add(id);
   bool absoluteOnly=kept.Contains("JOY_ABS_THROTTLE_AXIS")&&!kept.Contains("JOY_REL_THROTTLE_AXIS");
   foreach(Match bind in Regex.Matches(block.Value,@"(?im)^\s*\$Bind:\s*(\w+)")){
    string id=bind.Groups[1].Value;
@@ -140,16 +147,31 @@ partial class ControllerSetup {
 
  // The bridge's copy of the Flight Control (virtual gamepad) bindings; null when there are none.
  internal static string HotasMapJson(HardwareProfile profile) {
-  if(profile.Virtual==null||profile.Virtual.Count==0)return null;
-  var devices=profile.Virtual.Values.Select(b=>b.DeviceIndex).Distinct().OrderBy(i=>i).ToList();
+  bool precision=profile.AxisMode=="Precision"&&profile.FlightAxes!=null&&profile.FlightAxes.Count>0;
+  bool features=profile.Virtual!=null&&profile.Virtual.Count>0;
+  if(!features&&!precision)return null;
+  var used=new List<int>();
+  if(features)used.AddRange(profile.Virtual.Values.Select(b=>b.DeviceIndex));
+  if(precision)used.AddRange(profile.FlightAxes.Values.Select(b=>b.DeviceIndex));
+  var devices=used.Distinct().OrderBy(i=>i).ToList();
   var map=new HotasMapFile{Version=1,Devices=new List<HotasMapDevice>(),Controls=new Dictionary<string,HotasMapBinding>()};
   foreach(int index in devices)
    map.Devices.Add(new HotasMapDevice{Guid=profile.Devices[index].Guid.ToUpperInvariant(),Serial=profile.Devices[index].Serial});
-  foreach(var entry in profile.Virtual){
+  if(features)foreach(var entry in profile.Virtual){
    var b=entry.Value;
    string kind=HotasModel.KindOf(HotasModel.Group.Virtual,b);
    map.Controls[entry.Key]=new HotasMapBinding{DeviceIndex=devices.IndexOf(b.DeviceIndex),Kind=kind,Index=b.InputIndex,
-    Direction=b.Direction,Invert=b.Invert};
+    Direction=b.Direction,Invert=b.Invert,Shape=b.Shape==null?null:b.Shape.Copy()};
+  }
+  if(precision){
+   map.Flight=new Dictionary<string,HotasFlightAxis>();
+   foreach(var entry in profile.FlightAxes){
+    var b=entry.Value;
+    // A throttle lever starts with a smaller dead zone than a stick.
+    var shape=b.Shape!=null?b.Shape.Copy():new HotasAxisSettings{Deadzone=entry.Key.EndsWith("throttle")?0.02:0.05};
+    shape.Invert=b.Invert;
+    map.Flight[entry.Key]=new HotasFlightAxis{DeviceIndex=devices.IndexOf(b.DeviceIndex),Index=b.InputIndex,Shape=shape};
+   }
   }
   if(!HotasMapFile.Check(map))throw new InvalidDataException("The Flight Control bindings are not valid.");
   return new JavaScriptSerializer().Serialize(map);
@@ -209,6 +231,29 @@ partial class ControllerSetup {
   profile.Virtual["B"]=new FlightAxisBinding{DeviceIndex=0,InputIndex=3,Kind=HotasModel.Button};
   if(HotasModel.Overlaps(profile).Count!=1)return false;
   profile.Virtual.Remove("B");
+  // Precision axes: the game's own axis bindings are cleared, and Flight Control gets the axes with their settings.
+  profile.FlightAxes["Pitch"]=new FlightAxisBinding{DeviceIndex=0,InputIndex=1,Shape=new HotasAxisSettings{Deadzone=0.12,Curve=0.3}};
+  profile.AxisMode="Precision";
+  HardwareInspector.Validate(profile);
+  string precisionTable=HotasTable(table,profile,slots);
+  if(Regex.IsMatch(precisionTable,@"^\s*\$Flags: AXIS\s*(,|$)",RegexOptions.Multiline))return false;
+  if(Regex.Matches(precisionTable,@"\$Bind: JOY_\w+_AXIS").Count!=5)return false;
+  if(!Regex.IsMatch(precisionTable,@"\$Bind: JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_NONE"))return false;
+  if(!precisionTable.Contains("$Bind: AFTERBURNER"))return false;                     // game buttons are untouched
+  if(HotasDroppedActions(precisionTable,profile).Count!=0)return false;
+  var precisionMap=new JavaScriptSerializer().Deserialize<HotasMapFile>(HotasMapJson(profile));
+  if(!HotasMapFile.Check(precisionMap)||precisionMap.Flight==null||precisionMap.Flight.Count!=2)return false;
+  if(precisionMap.Flight["Pitch"].Shape.Deadzone!=0.12||precisionMap.Flight["Pitch"].Shape.Curve!=0.3||!precisionMap.Flight["Yaw"].Shape.Invert)return false;
+  if(precisionMap.Flight["Yaw"].DeviceIndex<0||precisionMap.Flight["Yaw"].DeviceIndex>=precisionMap.Devices.Count)return false;
+  profile.AxisMode="Game";
+  if(HotasMapJson(profile).Contains("\"Flight\":{"))return false;                     // Game mode sends no flight axes
+  profile.FlightAxes["Pitch"].Shape=new HotasAxisSettings{Deadzone=0.95};
+  try{HardwareInspector.Validate(profile);return false;}catch(InvalidDataException){}
+  profile.FlightAxes["Pitch"].Shape=null;
+  profile.AxisMode="Sideways";
+  try{HardwareInspector.Validate(profile);return false;}catch(InvalidDataException){}
+  profile.AxisMode=null;
+  profile.FlightAxes.Remove("Pitch");
   // Bad bindings are refused: native hats beyond the first, no direction, an axis for a button.
   profile.FlightButtons["Afterburner"].Direction=0;
   try{HardwareInspector.Validate(profile);return false;}catch(InvalidDataException){}
@@ -230,6 +275,11 @@ partial class ControllerSetup {
   var defaults=Regex.Match(table,@"(?ims)^#ControlConfigOverride[^\r\n]*\r?\n(?:(?!^#End\b).)*");
   return Regex.IsMatch(defaults.Value,@"(?im)^\s*\$Bind:\s*"+Regex.Escape(action)+
    @"[ \t]*(?:;[^\r\n]*)?\r?\n\s*\$Primary:\s*\$Controller:\s*CID_NONE\b");
+ }
+
+ static void AppendHotasUnbound(StringBuilder text,string action) {
+  text.AppendLine("    $Bind: "+action).AppendLine("        $Primary:").AppendLine("            $Controller: CID_NONE")
+   .AppendLine("        $Secondary:").AppendLine("            $Controller: CID_NONE");
  }
 
  static void AppendHotasBinding(StringBuilder text,string action,string position,int slot,string flags,int input) {
@@ -439,7 +489,8 @@ partial class ControllerSetup {
   var buttons=profile.FlightButtons??new Dictionary<string,FlightAxisBinding>();
   var features=profile.Virtual??new Dictionary<string,FlightAxisBinding>();
   if(axes.Count+buttons.Count+features.Count==0)throw new InvalidOperationException("Assign at least one control before applying.");
-  if(axes.Values.Any(binding=>binding.InputIndex>=8)||
+  bool precision=profile.AxisMode=="Precision"&&axes.Count>0;
+  if((!precision&&axes.Values.Any(binding=>binding.InputIndex>=8))||
    buttons.Values.Any(binding=>HotasModel.KindOf(HotasModel.Group.NativeAction,binding)==HotasModel.Button&&binding.InputIndex>=128)||
    buttons.Values.Any(binding=>HotasModel.KindOf(HotasModel.Group.NativeAction,binding)==HotasModel.AxisButton&&binding.InputIndex>=8))
    throw new InvalidOperationException("FotG supports native axes 0–7 and buttons 0–127.");
@@ -447,13 +498,13 @@ partial class ControllerSetup {
   if(conflicts.Count>0)
    throw new InvalidOperationException("Give each physical input one action before applying:\r\n"+String.Join("\r\n",conflicts));
   // Only the game's own bindings use its four joystick slots; Flight Control features read their devices directly.
-  var devices=axes.Values.Concat(buttons.Values).Select(binding=>binding.DeviceIndex).Distinct().OrderBy(i=>i).ToArray();
+  var devices=(precision?buttons.Values:axes.Values.Concat(buttons.Values)).Select(binding=>binding.DeviceIndex).Distinct().OrderBy(i=>i).ToArray();
   if(devices.Length>4)throw new InvalidOperationException("FotG provides four native joystick slots.");
   var slots=new Dictionary<int,int>();
   string settings=File.ReadAllText(ini);
   string originalSettings=settings;
   string originalTable=File.ReadAllText(table);
-  bool nativeInUse=devices.Length>0;
+  bool nativeInUse=devices.Length>0||precision;   // precision still writes the (empty) axis bindings into the default preset
   // Remember how the game was set up before HOTAS, once, so "Gamepad mode" can put it back.
   var priorState=LoadHotasState();
   HotasState state;
@@ -488,7 +539,8 @@ partial class ControllerSetup {
   var dropped=HotasDroppedActions(File.ReadAllText(table),profile);
   string warning=dropped.Count==0?"":"\r\n\r\nThis replaces the installed HOTAS bindings. These are installed but not in this profile, and will be removed:\r\n"+
    String.Join(", ",dropped);
-  string summary=axes.Count+buttons.Count+" game binding(s) on "+devices.Length+" joystick device(s), "+features.Count+" Flight Control binding(s)";
+  string summary=(precision?buttons.Count:axes.Count+buttons.Count)+" game binding(s) on "+devices.Length+" joystick device(s), "+features.Count+" Flight Control binding(s)"+
+   (precision?", and "+axes.Count+" flight axes processed by Flight Control (precision)":"");
   if(Say(this,"Apply the HOTAS preset to "+Path.GetFileNameWithoutExtension(path)+": "+summary+"?"+warning,"Apply HOTAS",
    MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
   EnsureClosed();

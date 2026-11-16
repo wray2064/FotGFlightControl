@@ -23,7 +23,7 @@ FotGWheel = {
     hold_elapsed = {},
     hold_fired = {},
     input_age = 10,
-    input = { buttons = 0, rx = 0, ry = 0, lx = 0, ly = 0 },
+    input = { buttons = 0, rx = 0, ry = 0, lx = 0, ly = 0, axis_mask = 0 },
     comm_open_requested = false,
     comm_wait = 0,
     comm_signature = nil,
@@ -52,6 +52,12 @@ local B_L3, B_R3 = 64, 128
 local B_LB, B_RB, B_A, B_B, B_X, B_Y = 256, 512, 4096, 8192, 16384, 32768
 -- An encoder (or any pair of buttons) turned either way moves the highlight round an open wheel.
 local B_STEP_CW, B_STEP_CCW = 1024, 2048
+-- Flight Control's own axis processing ("precision" flight axes): the bridge shapes the axes (calibration, dead zone,
+-- curve) and this script steers the ship with the result. The mask says which axes are valid right now.
+local A_PITCH, A_YAW, A_ROLL, A_ABS, A_REL = 1, 2, 4, 8, 16
+local CM_NORMAL = FLIGHT_CONTROL_NORMAL or NORMAL_CONTROLS
+local CM_STEERING = FLIGHT_CONTROL_LUA_STEERING or LUA_STEERING_CONTROLS
+local CM_FULL = FLIGHT_CONTROL_LUA_FULL or LUA_FULL_CONTROLS
 local HOLD_FLAGS = { A=B_A, B=B_B, X=B_X, LB=B_LB, RB=B_RB, L3=B_L3, R3=B_R3 }
 -- Buttons with a configurable quick-press action, in a fixed order.
 local TAP_BUTTONS = { { "A", B_A }, { "B", B_B }, { "X", B_X }, { "Y", B_Y },
@@ -278,8 +284,19 @@ local function read_bridge()
         and tap_direction ~= D_LEFT and tap_direction ~= D_RIGHT then return nil end
     if math.abs(rx) > 32768 or math.abs(ry) > 32768
         or math.abs(lx) > 32768 or math.abs(ly) > 32768 then return nil end
-    return { sequence = seq, buttons = buttons, rx = rx, ry = ry, lx = lx, ly = ly,
-        tap_sequence = tap_seq, tap_direction = tap_direction }
+    local value = { sequence = seq, buttons = buttons, rx = rx, ry = ry, lx = lx, ly = ly,
+        tap_sequence = tap_seq, tap_direction = tap_direction, axis_mask = 0 }
+    -- Optional tail from a newer bridge: shaped flight axes in thousandths, then the mask of valid axes.
+    local ap, ay, ar, at, am = string.match(body,
+        "^%d+|%d+|[%-]?%d+|[%-]?%d+|[%-]?%d+|[%-]?%d+|%d+|%d+|%d+|%d+|([%-]?%d+)|([%-]?%d+)|([%-]?%d+)|([%-]?%d+)|(%d+)")
+    if am then
+        ap, ay, ar, at, am = tonumber(ap), tonumber(ay), tonumber(ar), tonumber(at), tonumber(am)
+        if am >= 0 and am <= 31 and math.abs(ap) <= 1000 and math.abs(ay) <= 1000
+            and math.abs(ar) <= 1000 and math.abs(at) <= 1000 then
+            value.axis_pitch, value.axis_yaw, value.axis_roll, value.axis_throttle, value.axis_mask = ap, ay, ar, at, am
+        end
+    end
+    return value
 end
 
 function W:poll_input(dt)
@@ -298,7 +315,7 @@ function W:poll_input(dt)
     else
         self.input_age = self.input_age + dt
     end
-    self.input = { buttons = 0, rx = 0, ry = 0, lx = 0, ly = 0 }
+    self.input = { buttons = 0, rx = 0, ry = 0, lx = 0, ly = 0, axis_mask = 0 }
 end
 
 function W:notice(message)
@@ -446,6 +463,7 @@ end
 -- System popups run their own loop without entering a new game state. In VR
 -- the simulation hook can stop altogether, so publish from dialog hooks too.
 function W:dialog_open()
+    self:precision_release()
     self.dialog_depth = self.dialog_depth + 1
     self:close_panel(false)
     self.pending_actions = {}
@@ -1232,6 +1250,72 @@ local function sector_from_stick(rx, ry)
     return math.floor((angle + PI / 8) / (PI / 4)) % 8 + 1, magnitude
 end
 
+local function has_axis(mask, flag)
+    return math.floor(mask / flag) % 2 == 1
+end
+
+-- Hands steering back to the engine. Safe to call at any time.
+function W:precision_release()
+    if self.precision_mode and CM_NORMAL then
+        pcall(function() ba.setControlMode(CM_NORMAL) end)
+    end
+    self.precision_mode = nil
+    self.precision_throttle = nil
+end
+
+-- One step of precision flight axes. Pitch, heading and bank come straight from the shaped axes; with a throttle axis the
+-- script also owns the throttle, taking the engine's own result each frame (keys, match speed) unless the lever moved.
+-- The signs and the bank factor follow the game's own joystick handling.
+function W:precision_step(dt)
+    local input = self.input or {}
+    local mask = input.axis_mask or 0
+    local throttle_axis = has_axis(mask, A_ABS) or has_axis(mask, A_REL)
+    local wanted = throttle_axis and CM_FULL or CM_STEERING
+    if not wanted or not CM_NORMAL then return false end
+    if self.precision_mode ~= wanted then
+        ba.setControlMode(wanted)
+        self.precision_mode = wanted
+    end
+    local ci = ba.getControlInfo()
+    if not ci then return false end
+    if has_axis(mask, A_PITCH) then ci.Pitch = -(input.axis_pitch or 0) / 1000 end
+    if has_axis(mask, A_YAW) then ci.Heading = (input.axis_yaw or 0) / 1000 end
+    if has_axis(mask, A_ROLL) then ci.Bank = -(input.axis_roll or 0) / 1000 * 1.5 end
+    if throttle_axis then
+        local engine_value = ci.ForwardCruise or 0
+        local value = engine_value
+        if has_axis(mask, A_ABS) then
+            local target = (input.axis_throttle or 0) / 10
+            -- Like the game's own absolute throttle: the lever wins only when it has moved.
+            if self.precision_throttle == nil or math.abs(target - self.precision_throttle) > 1.5 then
+                value = target
+                self.precision_throttle = target
+            end
+        else
+            value = engine_value + (input.axis_throttle or 0) / 1000 * 100 * dt
+            self.precision_throttle = nil
+        end
+        ci.ForwardCruise = clipped(value, 0, 100)
+    end
+    return true
+end
+
+function W:precision_frame(dt)
+    local mask = self.input and self.input.axis_mask or 0
+    if self.precision_failed or mask == 0 or not is_flight_state(self.state)
+        or self.dialog_depth > 0 or self.input_age > 0.35 then
+        self:precision_release()
+        return
+    end
+    local ok = pcall(self.precision_step, self, dt)
+    if not ok then
+        -- Never leave the player without control: give steering back and stay off for this mission.
+        self.precision_failed = true
+        self:precision_release()
+        self:notice("Precision axes unavailable")
+    end
+end
+
 function W:frame()
     if self.dialog_depth > 0 then return end
     local dt = clipped(ba.getRealFrametime() or 0.016, 0, 0.2)
@@ -1248,6 +1332,7 @@ function W:frame()
         self.power_pending = nil
         self:close_panel(true)
         self.prior_buttons = 0
+        self:precision_release()
         self:flush_action()
         return
     end
@@ -1277,6 +1362,7 @@ function W:frame()
         end
     end
     self:poll_input(dt)
+    self:precision_frame(dt)
     if self.input_age > 0.35 then self:close_panel(true) end
     self:refresh_comm()
     local buttons = self.input.buttons or 0
@@ -1787,6 +1873,8 @@ function W:mission_start()
 end
 
 function W:mission_end()
+    self:precision_release()
+    self.precision_failed = nil
     self:close_panel(false)
     self.shield_pending = nil
     self.power_pending = nil

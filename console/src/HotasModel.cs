@@ -54,6 +54,7 @@ static class HotasModel {
     var b=entry.Value;
     if(b==null||!KnownAction(pair.Key,entry.Key)||b.DeviceIndex<0||b.DeviceIndex>=value.Devices.Count)
      throw new InvalidDataException("The profile contains an invalid assignment for "+entry.Key+".");
+    if(b.Shape!=null&&!b.Shape.Valid())throw new InvalidDataException("The axis settings for "+entry.Key+" are out of range.");
     string kind=KindOf(pair.Key,b);
     if(!Allowed(pair.Key,kind)||
      !value.Devices[b.DeviceIndex].Inputs.Any(i=>i.Kind==InventoryKind(kind)&&i.Index==b.InputIndex))

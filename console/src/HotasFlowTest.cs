@@ -105,6 +105,21 @@ partial class ControllerSetup {
    form.ApplyHotas(form.hotasProfile,guids);
    form.RestoreHotas();
    if(File.ReadAllText(table)!=clean||presetNow()!="FotG Classic Native"||File.Exists(mapPath)||File.Exists(statePath))return "FAIL: restore did not undo the last apply";
+   // 8. Precision axes: the game's own axis bindings are cleared, the map carries the flight axes, and going back restores everything.
+   form.hotasProfile.AxisMode="Precision";
+   form.ApplyHotas(form.hotasProfile,guids);
+   string precisionTable=File.ReadAllText(table);
+   if(!System.Text.RegularExpressions.Regex.IsMatch(precisionTable,@"\$Bind: JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_NONE"))return "FAIL: precision did not clear the game's pitch axis";
+   if(System.Text.RegularExpressions.Regex.IsMatch(precisionTable,@"^\s*\$Flags: AXIS\s*(,|$)",System.Text.RegularExpressions.RegexOptions.Multiline))return "FAIL: precision left a native axis binding";
+   var precisionMap=serializer.Deserialize<HotasMapFile>(File.ReadAllText(mapPath));
+   if(precisionMap.Flight==null||!precisionMap.Flight.ContainsKey("Pitch")||!precisionMap.Flight.ContainsKey("Roll")||!HotasMapFile.Check(precisionMap))return "FAIL: the map lacks the flight axes";
+   if(presetNow()!="default")return "FAIL: precision needs the default preset";
+   form.hotasProfile.AxisMode="Game";
+   form.ApplyHotas(form.hotasProfile,guids);
+   if(serializer.Deserialize<HotasMapFile>(File.ReadAllText(mapPath)).Flight!=null)return "FAIL: Game mode still sends flight axes";
+   if(!File.ReadAllText(table).Contains("$Flags: AXIS, RELATIVE"))return "FAIL: Game mode did not restore the native axes";
+   form.ReturnToGamepad();
+   if(File.ReadAllText(table)!=clean||File.Exists(mapPath))return "FAIL: switching back after precision left something behind";
    form.Close();
   }
   return "PASS";

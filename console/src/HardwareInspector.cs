@@ -10,6 +10,9 @@ using System.Windows.Forms;
 sealed class HardwareProfile {
  // Marks a file as a Flight Control HOTAS profile so a stray JSON is refused with a clear message. Older exports lack it.
  public string Format {get;set;}
+ // How the four flight axes are handled: Game (the engine's own, with one global dead zone and sensitivity) or Precision
+ // (Flight Control shapes each axis and steers through the game script). Null means Game.
+ public string AxisMode {get;set;}
  public int SchemaVersion {get;set;}
  public string Backend {get;set;}
  public List<HardwareDevice> Devices {get;set;}
@@ -31,6 +34,8 @@ sealed class FlightAxisBinding {
  public string Kind {get;set;}
  public int Direction {get;set;}
  public bool Invert {get;set;}
+ // Dead zone, saturation, curve and calibration for this axis. Null means the defaults. Used by precision axes and shaped Flight Control axes.
+ public HotasAxisSettings Shape {get;set;}
  [ScriptIgnore] public int AxisIndex {get{return InputIndex;}set{InputIndex=value;}}
 }
 
@@ -221,6 +226,7 @@ static class HardwareInspector {
      !plain(input.Label,64)||!plain(input.Verification,32)||!keys.Add(input.Kind+input.Index))
      throw new InvalidDataException("The hardware profile contains an invalid or duplicate input.");
   }
+  if(value.AxisMode!=null&&value.AxisMode!="Game"&&value.AxisMode!="Precision")throw new InvalidDataException("The hardware profile has an unknown axis mode.");
   HotasModel.ValidateBindings(value);
   ValidateLayouts(value);
  }

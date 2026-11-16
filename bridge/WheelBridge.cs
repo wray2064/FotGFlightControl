@@ -255,6 +255,7 @@ sealed class Bridge : ApplicationContext {
     HotasJoysticks hotas;
     long nextHotasScan;
     readonly HotasPadMemory hotasGuard = new HotasPadMemory();
+    HotasFlightState flightState;
     static XPad ToPad(HotasPadState v) {
         return new XPad { Buttons = v.Buttons, LeftTrigger = v.LeftTrigger, RightTrigger = v.RightTrigger,
             LeftX = v.LeftX, LeftY = v.LeftY, RightX = v.RightX, RightY = v.RightY };
@@ -499,10 +500,13 @@ sealed class Bridge : ApplicationContext {
         // when Windows delivers adjacent timer ticks slightly under 25 ms.
         ++sequence;
         string line = String.Format(System.Globalization.CultureInfo.InvariantCulture,
-            "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}\n", sequence,
+            "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}|{11}|{12}|{13}|{14}\n", sequence,
             active ? pad.Buttons : 0, active ? pad.RightX : 0, active ? pad.RightY : 0,
             active ? pad.LeftX : 0, active ? pad.LeftY : 0, active ? Math.Max(slot, 0) : -1, // HOTAS-only play has no XInput slot; Lua only needs a valid 0-3
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), tapSequence, tapDirection);
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), tapSequence, tapDirection,
+            // Shaped flight axes (thousandths) and the mask of valid ones; zero while the game is not in front.
+            active ? flightState.Pitch : 0, active ? flightState.Yaw : 0, active ? flightState.Roll : 0,
+            active ? flightState.Throttle : 0, active ? flightState.Mask : 0);
         Atomic(inputPath, line);
     }
     void Tick(object sender, EventArgs e) {
@@ -530,7 +534,10 @@ sealed class Bridge : ApplicationContext {
                     state.Pad = ToPad(HotasPad.Merge(gamepadConnected ? FromPad(state.Pad) : new HotasPadState(), layer));
                     connected = true;
                 }
-            }
+                // Precision flight axes: shaped here, applied by the game script. An axis whose device is unplugged drops out.
+                flightState = HotasPad.ComposeFlight(hotasMap, hotas);
+                if (flightState.Mask != 0) connected = true;
+            } else flightState = new HotasFlightState();
             bool active = focused && connected;
             // A held fire trigger or confirmation button must not become a
             // dialog click, or a flight action when that dialog closes.
@@ -774,6 +781,8 @@ static class Program {
                 bool up = false; HotasPadState s = new HotasPadState();
                 for (int i = 0; i < 20; i++) { joysticks.Poll(); s = HotasPad.Compose(map, joysticks, out up); System.Threading.Thread.Sleep(25); }
                 for (int d = 0; d < map.Devices.Count; d++) report.AppendLine("device " + d + " " + map.Devices[d].Guid + " connected=" + joysticks.Connected(d));
+                HotasFlightState flight = HotasPad.ComposeFlight(map, joysticks);
+                report.AppendLine("flight axes: mask=" + flight.Mask + " pitch=" + flight.Pitch + " yaw=" + flight.Yaw + " roll=" + flight.Roll + " throttle=" + flight.Throttle);
                 report.AppendLine("connected=" + up + " buttons=" + s.Buttons + " lt=" + s.LeftTrigger + " rt=" + s.RightTrigger +
                     " lx=" + s.LeftX + " ly=" + s.LeftY + " rx=" + s.RightX + " ry=" + s.RightY);
             }

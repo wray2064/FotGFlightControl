@@ -11,6 +11,7 @@ function run(source, name) {
 run(`
   hooks, telemetry, cursor_calls = {}, {}, 0
   BUTTON_CONTROL_NORMAL, BUTTON_CONTROL_LUA_ADDITIVE = 0, 1
+  FLIGHT_CONTROL_NORMAL, FLIGHT_CONTROL_LUA_STEERING, FLIGHT_CONTROL_LUA_FULL = "NORMAL", "STEERING", "FULL"
   engine = { addHook = function(name, fn) hooks[name] = fn end }
   mn = { getMissionFilename = function() return "practice" end }
   ba = { setControlMode = function() return "" end }
