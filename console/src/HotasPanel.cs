@@ -510,7 +510,9 @@ partial class ControllerSetup {
   var d=hotasProfile.Devices[i];
   bool online=i<hotasMatches.Count&&hotasMatches[i]!=null&&hotasMatches[i].Connected;
   int room=Math.Max(10,(chipWidth-34)/7);
-  return (online?"● ":"○ ")+(d.Name.Length>room?d.Name.Substring(0,room-1)+"…":d.Name);
+  string twin=HotasModel.TwinSuffix(hotasProfile,i);
+  room=Math.Max(8,room-twin.Length);
+  return (online?"● ":"○ ")+(d.Name.Length>room?d.Name.Substring(0,room-1)+"…":d.Name)+twin;
  }
 
  void ShowHotasDevice() {

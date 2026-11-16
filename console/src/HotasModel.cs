@@ -115,6 +115,17 @@ static class HotasModel {
   return String.Join("-",names);
  }
 
+ // Two devices with the same name (a pair of identical sticks) are told apart as #1 and #2.
+ internal static string TwinSuffix(HardwareProfile profile,int index) {
+  if(profile==null||index<0||index>=profile.Devices.Count)return "";
+  string name=profile.Devices[index].Name;
+  int total=profile.Devices.Count(d=>d.Name==name);
+  if(total<2)return "";
+  int rank=0;
+  for(int i=0;i<index;i++)if(profile.Devices[i].Name==name)rank++;
+  return " #"+(rank+1);
+ }
+
  internal static string ShortName(string name){return name.Length<=14?name:name.Substring(0,13)+"…";}
 
  internal static string Describe(HardwareProfile profile,FlightAxisBinding b,Group group) {
@@ -125,6 +136,6 @@ static class HotasModel {
    kind=="AxisButton"?"Axis "+(b.InputIndex+1)+(b.Direction<0?" low side":" high side"):
    kind=="Axis"?"Axis "+(b.InputIndex+1)+(b.Direction>0?" high side":b.Direction<0?" low side":"")+(b.Invert?" (inverted)":""):
    "Button "+(b.InputIndex+1);
-  return ShortName(device)+" / "+text;
+  return ShortName(device)+TwinSuffix(profile,b.DeviceIndex)+" / "+text;
  }
 }
