@@ -1,5 +1,7 @@
 # Web copy: Flight Control HOTAS preview
 
+> **PLACEMENT (updated 16 Nov 2026): this is an EXPERIMENTAL branch.** All of this lives in its own **HOTAS (experimental)** tab on the Flight Control page, and the HOTAS guide is its own section inside that tab. **Nothing on the regular page is replaced.** Sections 2 (hero), 7 ("Own a HOTAS?" boxes) and 9 (regular changelog) below are therefore **not to be applied to the regular page**; section 9 appears only inside the tab, and section 2 is replaced by the one-line teaser in section 12. Video: https://youtu.be/EyNQRSUJw8I (section 13). The finished tab is built from this file by `hotas-tab/build-hotas-tab.js` into `hotas-tab.html`; edit this file and rebuild rather than editing the HTML.
+
 Ready-to-paste text for https://manictrashpanda.dev/games/FotGFlightControl/ . Wording follows the existing page (plain, first person where the page already is, no promises beyond what is tested). Items in **[brackets]** need a decision or a value from the author before publishing. Nothing here has been published.
 
 ---
@@ -9,7 +11,7 @@ Ready-to-paste text for https://manictrashpanda.dev/games/FotGFlightControl/ . W
 - **Title:** Flight Control for Fate of the Galaxy: gamepad and HOTAS controls | Manic Trash Panda
 - **Meta description:** Free, open-source controller add-on for Fate of the Galaxy. Command wheels, tap/hold actions and menu navigation on a gamepad, and now a HOTAS preview: map any joystick, throttle or pedals to the game and to the wheels.
 
-## 2. Hero paragraph (replace the opening paragraph; keep the existing first-person story paragraph below it)
+## 2. Hero paragraph (NOT USED while this is an experimental branch; the regular page keeps its own hero. Original note: replace the opening paragraph; keep the existing first-person story paragraph below it)
 
 More commands, fewer compromises. Flight Control is a free controller add-on for Fate of the Galaxy. It brings D-pad command wheels, tap/hold actions, gamepad-friendly menu navigation and a deeply configurable layout to the Windows game, and now a **HOTAS preview**: assign any joystick, throttle or pedals to the game's controls and to Flight Control's wheels. It all runs from Hangar Bay, one app to launch, set up and look after it.
 
@@ -81,7 +83,7 @@ Full guide: **[link to HOTAS-Manual page or PDF]**.
 - A preview-only note: "The HOTAS preview changes the Console, the launcher and the wheel script. Setup backs up your pilot before it changes anything, and the HOTAS tab backs up again before each Apply."
 - Keep the existing security paragraph. The new programs are not code-signed, same as before.
 
-## 7. Replace the existing "Own a HOTAS?" boxes
+## 7. Existing "Own a HOTAS?" boxes (leave the regular page as it is; this text is for the tab only)
 
 **Current text to replace:** "Flight Control is gamepad-only today. If you fly with a stick and throttle, share an anonymous hardware profile…" and the "HOTAS Flight Control project · experimental" block.
 
@@ -137,4 +139,16 @@ Flight Control now has a HOTAS preview for Fate of the Galaxy 2: assign any joys
 - The screenshots are 1140 by 776 PNGs from the real Console with demo controllers (Logitech Freedom 2.4 and PXN pedals). They contain no personal data. Provide 2x or crops if the layout needs them.
 - Do not state that HOTAS is "fully supported" or "tested on many devices". Use "preview" wherever HOTAS is named in a headline.
 - The version number, date, ZIP name, size and SHA-256 are placeholders until the release is packaged. Run the normal packaging, then fill the checksum.
-- The manual is provided as Markdown and as a standalone HTML page (`manual/`). Either can be hosted as the "HOTAS guide".
+- The manual is provided as Markdown, as a standalone HTML page, and already built into the tab as its own "Guide (manual)" section. It is separate from the regular Flight Control documentation.
+
+## 12. Teaser on the regular page (optional, the only change outside the tab)
+
+One line, placed where the author prefers, for example under the download button:
+
+> **Experimental:** a HOTAS preview (joystick, throttle, pedals) is available in the **HOTAS (experimental)** tab. It is a separate experimental branch and does not change the regular download.
+
+## 13. Video
+
+- Watch: https://youtu.be/EyNQRSUJw8I (about 4 minutes, captions burned in; chapters are listed on the YouTube description and in the tab).
+- The tab shows a click-to-play poster (`video/thumbnail.png`) and loads the youtube-nocookie player only after the visitor presses play, so the page makes no YouTube request until then.
+- Narration is an AI voice. Say so if the site has a place for it.

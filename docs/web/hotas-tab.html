@@ -1,0 +1,226 @@
+<!-- Flight Control: HOTAS tab (EXPERIMENTAL branch codex/flight-control-hotas). Self-contained: one scoped <style>, one optional <script>. -->
+<section class="fc-hotas" id="hotas" data-experimental="true" aria-labelledby="hotas-title">
+<style>
+.fc-hotas{--bg:#000;--panel:#08090a;--ink:#f7dc52;--dim:#b39d4d;--line:#957d13;--green:#66e752;--text:#ece6c4;--warn:#ff8a4a;color:var(--text);font:16px/1.6 "Segoe UI",system-ui,sans-serif}
+@media (prefers-color-scheme: light){.fc-hotas{--bg:#fffdf2;--panel:#fff;--ink:#5c4a00;--dim:#7a6a2a;--line:#c9b04a;--green:#2a7d1c;--text:#222;--warn:#a33a00}}
+.fc-hotas *,.fc-hotas *::before,.fc-hotas *::after{box-sizing:border-box}
+.fc-hotas h1,.fc-hotas h2,.fc-hotas h3,.fc-hotas h4{font-family:Consolas,"Courier New",monospace;color:var(--ink);letter-spacing:.02em;line-height:1.25}
+.fc-hotas h1{font-size:2rem;margin:.2em 0 .3em}.fc-hotas h2{font-size:1.4rem;margin:1.8em 0 .5em;border-left:4px solid var(--line);padding-left:.6em}
+.fc-hotas h3{font-size:1.12rem;margin:1.6em 0 .4em}
+.fc-hotas a{color:var(--ink)}.fc-hotas a:focus-visible,.fc-hotas button:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.fc-hotas code{font-family:Consolas,monospace;background:var(--panel);border:1px solid var(--line);padding:.05em .3em;border-radius:3px;color:var(--green)}
+.fc-hotas .fc-banner{border:2px solid var(--warn);background:var(--panel);padding:.8em 1em;margin:0 0 1.2em}
+.fc-hotas .fc-banner strong.fc-tag{display:inline-block;background:var(--warn);color:#000;font-family:Consolas,monospace;padding:.05em .5em;margin-right:.5em;letter-spacing:.08em}
+.fc-hotas .fc-eyebrow{font-family:Consolas,monospace;color:var(--green);letter-spacing:.12em;font-size:.85rem}
+.fc-hotas .fc-nav{display:flex;flex-wrap:wrap;gap:.5rem;margin:1.2em 0;border-bottom:1px solid var(--line);padding-bottom:.6em}
+.fc-hotas .fc-nav a{font-family:Consolas,monospace;text-decoration:none;border:1px solid var(--line);padding:.3em .8em;background:var(--panel)}
+.fc-hotas .fc-nav a[aria-current="true"]{background:var(--ink);color:var(--bg)}
+.fc-hotas .fc-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;padding:0;list-style:none;margin:1em 0}
+.fc-hotas .fc-cards li{border:1px solid var(--line);background:var(--panel);padding:.9em 1em}
+.fc-hotas .fc-cards b{font-family:Consolas,monospace;color:var(--green);display:block}
+.fc-hotas figure{margin:1.2em 0}.fc-hotas figure img{max-width:100%;height:auto;border:1px solid var(--line);display:block}
+.fc-hotas figcaption{font-size:.85rem;color:var(--dim);margin-top:.4em}
+.fc-hotas blockquote{margin:1em 0;padding:.6em 1em;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--ink)}
+.fc-hotas .fc-scroll{overflow-x:auto}.fc-hotas table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95rem}
+.fc-hotas th,.fc-hotas td{border:1px solid var(--line);padding:.45em .6em;text-align:left;vertical-align:top}.fc-hotas th{background:var(--panel);color:var(--ink);font-family:Consolas,monospace}
+.fc-hotas .fc-video{position:relative;aspect-ratio:16/9;background:#000;border:1px solid var(--line);max-width:960px}
+.fc-hotas .fc-video img,.fc-hotas .fc-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover}
+.fc-hotas .fc-video button{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:0;cursor:pointer;color:#000}
+.fc-hotas .fc-video button span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--green);padding:.5em 1.4em;font:700 1.2rem Consolas,monospace}
+.fc-hotas .fc-chapters{columns:2 280px;padding-left:1.2em}.fc-hotas .fc-chapters li{break-inside:avoid}
+.fc-hotas details{border:1px solid var(--line);background:var(--panel);margin:.5em 0;padding:.5em 1em}.fc-hotas summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.fc-hotas mark.fc-todo{background:#ffe14d;color:#000;padding:0 .2em;font-weight:700}
+.fc-hotas .fc-guide{border-top:2px solid var(--line);margin-top:2em;padding-top:1em}
+.fc-hotas [hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.fc-hotas *{scroll-behavior:auto!important}}
+</style>
+
+<div class="fc-banner" role="note"><strong class="fc-tag">EXPERIMENTAL</strong>This is the <strong>HOTAS preview</strong>, built on a separate experimental branch (<code>codex/flight-control-hotas</code>). It is not part of the regular Flight Control release, and the regular version works without it. Fate of the Galaxy 2.0.2 only.</div>
+
+<p class="fc-eyebrow">HOTAS &middot; EXPERIMENTAL PREVIEW</p>
+<h1 id="hotas-title">Your stick, your throttle, your pedals.</h1>
+
+<nav class="fc-nav" aria-label="HOTAS sections">
+<a href="#hotas-overview" data-fc-panel="overview">Overview</a>
+<a href="#hotas-video" data-fc-panel="video">Video tutorial</a>
+<a href="#hotas-guide" data-fc-panel="guide">Guide (manual)</a>
+<a href="#hotas-get" data-fc-panel="get">Download and report</a>
+</nav>
+
+<div id="hotas-overview" data-fc-section="overview">
+<p>The HOTAS tab finds every joystick, throttle and pedal set the game can see and lets you assign them by using them. Pick an action, move the control, and it is assigned. It works across several devices at once, so a stick and a set of pedals can fly together, and the command wheels work from them too.</p>
+<figure><img src="hotas/screenshots/01-hotas-tab-overview.png" alt="The HOTAS tab in the Flight Control Console, showing a joystick with its axes, hat and buttons labelled with the actions assigned to them" loading="lazy"><figcaption>The HOTAS tab in the Flight Control Console, showing a joystick with its axes, hat and buttons labelled with the actions assigned to them</figcaption></figure>
+<ul class="fc-cards">
+<li><b>01</b><strong>Press to assign.</strong> Choose an action, then move the axis, press the button or push the hat on any device. Flight Control listens to all of them at once and ignores jittery axes. You can also click the control in the live picture.</li>
+<li><b>02</b><strong>Several devices.</strong> Stick, throttle, pedals, button box. Game controls can use up to four devices, and wheel controls can use as many as you have. A gamepad can stay connected alongside.</li>
+<li><b>03</b><strong>Game controls and wheels.</strong> Flying controls, weapons, targeting, throttle, energy, views and squad commands go straight to the game. The command wheels, menus and gamepad-style buttons run through Flight Control, so they keep their tap and hold actions.</li>
+<li><b>04</b><strong>One button, different jobs.</strong> Put fire on a button and wheel select on the same button: it fires in flight and confirms inside a wheel. Wheel cancel and the secondary trigger work the same way. Good for a Freedom 2.4 with few buttons, or for choosing without moving your fingers.</li>
+<li><b>05</b><strong>Encoder wheels.</strong> Turn a rotary encoder to step round a command wheel one entry at a time, then press to select. Two ordinary buttons work too.</li>
+<li><b>06</b><strong>A picture of your gear.</strong> Live bars, buttons and hats you can drag into place, with an optional photo of your own device behind them.</li>
+<li><b>07</b><strong>Back to the gamepad in one click.</strong> Gamepad mode removes the HOTAS bindings and restores how the game was set up before. Your HOTAS profile is kept for next time.</li>
+<li><b>08</b><strong>Dead zones, curves and calibration.</strong> Open the axes dialog to see each flying axis live, measure it, and tune its dead zone, curve and range. Precision mode (experimental) applies the settings per axis, which the game itself cannot do; the game's own mode can use the measurement to set its one dead zone.</li>
+<li><b>09</b><strong>Careful with your files.</strong> Everything is backed up before Apply, with a one-click restore. Shared profiles carry no serial numbers and no file paths from your PC.</li>
+</ul>
+<h2 id="hotas-tested">Tested so far</h2>
+<p>HOTAS support is a preview. It has been flown with a Logitech Freedom 2.4 and a handheld gamepad on Fate of the Galaxy 2.0.2: joystick axes and buttons as game controls, several devices at once, and the command wheels driven from the joystick. Hat directions as game controls, axes used as buttons, inverted axes, rotary encoders, Precision flight axes and some of the extra game actions have not been tried on many devices yet. Fate of the Galaxy 1.1.x does not support HOTAS yet. If you have a HOTAS, I would love to hear how it goes: dev@manictrashpanda.dev.</p>
+<h2 id="hotas-whatsnew">What is in the experimental branch</h2>
+<ul>
+<li><strong>HOTAS tab.</strong> Find your controllers, assign by pressing or moving a control, live preview you can arrange, several devices at once.</li>
+<li><strong>Game controls from a HOTAS.</strong> Axes, buttons, axis sides as buttons, inverted axes and the first hat's four directions, with about 80 game actions.</li>
+<li><strong>Wheels from a HOTAS.</strong> Wheel D-pad directions, select, cancel and the gamepad-style buttons from any device, with their tap and hold actions.</li>
+<li><strong>One button, different jobs.</strong> Wheel select and cancel act only while a wheel is open; triggers pause while a wheel is open.</li>
+<li><strong>Encoder wheels.</strong> Step clockwise and anticlockwise round an open wheel.</li>
+<li><strong>Gamepad mode.</strong> Switch the game back to the gamepad and return to HOTAS without losing your profile.</li>
+<li><strong>Profiles.</strong> <code>.fchotas</code> files without serial numbers or file paths; a device can be remapped to your own.</li>
+<li><strong>Axis settings.</strong> A flight axes dialog with live pictures, calibration, dead zone, saturation and curve per axis (Precision mode, experimental), or a measured dead zone for the game's own handling.</li>
+<li><strong>Safer Apply.</strong> Backups before every change, a restore button, a warning before anything is removed, and a warning when applying gamepad settings would redirect HOTAS devices.</li>
+<li>Not yet: Fate of the Galaxy 1.1.x, hats beyond the first for game actions, diagonal hat directions for game actions.</li>
+</ul>
+</div>
+
+<div id="hotas-video" data-fc-section="video">
+<h2>Video tutorial</h2>
+<p>About four minutes, with captions: scanning, assigning, wheels, encoders, flight axes, backups and sharing.</p>
+<div class="fc-video" data-fc-video="EyNQRSUJw8I">
+<img src="hotas/video/thumbnail.png" alt="HOTAS Setup, full tutorial: title card with the Flight Control Console" loading="lazy">
+<button type="button" aria-label="Play the HOTAS tutorial video"><span>&#9654; PLAY</span></button>
+<noscript><a href="https://youtu.be/EyNQRSUJw8I">Watch the tutorial on YouTube</a></noscript>
+</div>
+<p><small>The video loads from YouTube only when you press play. <a href="https://youtu.be/EyNQRSUJw8I" rel="noopener">Open it on YouTube</a>.</small></p>
+<h3>Chapters</h3>
+<ol class="fc-chapters">
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=0" rel="noopener" data-fc-seek="0">0:00 Welcome</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=20" rel="noopener" data-fc-seek="20">0:20 Turn on Advanced</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=37" rel="noopener" data-fc-seek="37">0:37 Scan your devices</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=56" rel="noopener" data-fc-seek="56">0:56 Press to assign</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=80" rel="noopener" data-fc-seek="80">1:20 Game and Flight Control actions</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=106" rel="noopener" data-fc-seek="106">1:46 One button, different jobs</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=128" rel="noopener" data-fc-seek="128">2:08 Encoders and dials</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=146" rel="noopener" data-fc-seek="146">2:26 Flight axes</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=179" rel="noopener" data-fc-seek="179">2:59 Apply and go back</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=199" rel="noopener" data-fc-seek="199">3:19 Save and share</a></li>
+<li><a href="https://youtu.be/EyNQRSUJw8I?t=221" rel="noopener" data-fc-seek="221">3:41 If something is missing</a></li>
+</ol>
+</div>
+
+<div id="hotas-guide" class="fc-guide" data-fc-section="guide">
+<h2>HOTAS guide</h2>
+<p>The manual for the experimental HOTAS preview. It is separate from the regular Flight Control documentation.</p>
+<p>Fly Fate of the Galaxy 2 with a joystick, throttle and pedals, and keep Flight Control's command wheels. This guide covers the HOTAS tab in the Flight Control Console.</p>
+<blockquote><strong>Preview.</strong> HOTAS support is new and has been tested with a Logitech Freedom 2.4 and a handheld gamepad. Hats, axes used as buttons, rotary encoders and some of the extra game actions have not been tried on many devices yet. Section 13 lists exactly what is and is not confirmed.</blockquote>
+<h3 id="hotas-1-what-you-need">1. What you need</h3>
+<ul><li>Fate of the Galaxy <strong>2.0.2</strong>, installed through Flight Control (MyMod). Fate of the Galaxy 1.1.x (classic) does not support HOTAS yet.</li><li>Windows 64-bit, and the Flight Control Console and launcher from this build.</li><li><strong>Controls: Advanced.</strong> HOTAS is an advanced feature, so its tab is greyed out and cannot be clicked until the Controls switch is set to Advanced.</li><li>Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, neither can Flight Control (see section 10).</li><li>Close the game before you press Apply.</li></ul>
+<h3 id="hotas-2-quick-start">2. Quick start</h3>
+<ol><li>Open the Flight Control Console and set <strong>Controls</strong> (right end of the tab row) to <strong>Advanced</strong>. The <strong>HOTAS</strong> tab is switched off in Simple. Then choose the <strong>HOTAS</strong> tab. It scans your controllers straight away.</li><li>Move a control on each device. Its picture lights up, so you can tell which device is which.</li><li>Pick an action on the left, for example <strong>Pitch</strong>, then move the stick. The assignment is made when the signal is clear.</li><li>Repeat for the rest of your controls. Click <strong>Control not listed?</strong> if something does not show up.</li><li>Close the game and press <strong>Apply to pilot</strong>. Launch the game with the Flight Control launcher.</li></ol>
+<figure><img src="hotas/screenshots/01-hotas-tab-overview.png" alt="The HOTAS tab with two controllers and their assignments" loading="lazy"><figcaption>The HOTAS tab with two controllers and their assignments</figcaption></figure>
+<p>Your work saves itself. You do not need to save a file to keep it.</p>
+<h3 id="hotas-3-the-hotas-tab">3. The HOTAS tab</h3>
+<p><strong>Controllers.</strong> Each connected device has a button along the top, with a dot that is filled while the device is connected. The picture below it shows live values: bars for axes, circles for buttons and a dial for each hat. A device you unplug stays in your profile and comes back when you plug it in again.</p>
+<figure><img src="hotas/screenshots/04-second-controller.png" alt="A second controller selected" loading="lazy"><figcaption>A second controller selected</figcaption></figure>
+<p><strong>Actions.</strong> The list has two parts.</p>
+<ul><li><strong>Game</strong> actions are the game's own controls: flight axes, weapons, targeting, throttle and thrust, energy and shields, views, squad and mission commands.</li><li><strong>Flight Control</strong> actions are the command wheels and gamepad-style buttons: wheel D-pad directions, select and cancel, the face buttons, bumpers, stick clicks, triggers and sticks.</li></ul>
+<p>Type in the box above the list to filter it.</p>
+<p><strong>Assigning.</strong> Choose an action, then press the button, move the axis or push the hat on any device. Flight Control listens to all your devices at once and ignores axes that jitter on their own. You can also click a control in the picture to assign it without touching the hardware.</p>
+<figure><img src="hotas/screenshots/02-listening-for-a-control.png" alt="Listening for a control" loading="lazy"><figcaption>Listening for a control</figcaption></figure>
+<ul><li>Axes that you want as a button (a throttle lever used as a switch) work: move the axis towards the side you want.</li><li><strong>Invert axis</strong> flips an axis.</li><li><strong>Clear</strong> removes an assignment.</li></ul>
+<h3 id="hotas-4-two-kinds-of-action">4. Two kinds of action</h3>
+<div class="fc-scroll"><table><thead><tr><th></th><th>Game actions</th><th>Flight Control actions</th></tr></thead><tbody><tr><td>What they are</td><td>The game's own bindings</td><td>The wheels, gestures and gamepad-style buttons</td></tr><tr><td>Where they run</td><td>In the game</td><td>In the Flight Control launcher, on a virtual gamepad</td></tr><tr><td>Limits</td><td>Four joystick devices; axes 1 to 8; buttons 1 to 128; only the first hat, four directions</td><td>None of those</td></tr><tr><td>Can share one input</td><td>No, one input has one job</td><td>Yes</td></tr></tbody></table></div>
+<p>Use game actions for the ship's flying controls and for anything that always does the same thing. Use Flight Control actions for the wheels, and for any button that must do different things at different times.</p>
+<figure><img src="hotas/screenshots/05-game-action-on-a-hat.png" alt="A game action on a hat direction" loading="lazy"><figcaption>A game action on a hat direction</figcaption></figure>
+<h3 id="hotas-5-one-button-different-jobs">5. One button, different jobs</h3>
+<p>A gamepad button does one thing in flight and another inside a wheel. You can do the same on a joystick.</p>
+<ul><li><strong>Wheel: select</strong> and <strong>Wheel: cancel</strong> act only while a wheel is open.</li><li><strong>Right trigger</strong> and <strong>Left trigger</strong> fire the primary and secondary weapons, and are paused while a wheel is open.</li></ul>
+<p>Assign one physical button to <strong>Right trigger</strong> and <strong>Wheel: select</strong>. In flight it fires. In a wheel it confirms and does not fire. Do the same with another button for <strong>Left trigger</strong> and <strong>Wheel: cancel</strong>.</p>
+<p>A button that you hold through a selection is ignored in flight until you let go, so choosing an entry does not fire a shot as the wheel closes.</p>
+<p>The face buttons, bumpers and stick clicks keep their flight action from the <strong>Buttons</strong> tab, shown under the list when you select one.</p>
+<figure><img src="hotas/screenshots/07-flight-meaning-of-a-button.png" alt="What a Flight Control button does in flight" loading="lazy"><figcaption>What a Flight Control button does in flight</figcaption></figure>
+<p><strong>Why not a game action?</strong> The game does not pause its own bindings while a wheel is open, so a button bound to Fire primary in the game would fire while you used the wheel. The HOTAS tab warns you when one input drives both a game action and a Flight Control action.</p>
+<figure><img src="hotas/screenshots/03-wheel-roles.png" alt="Wheel roles" loading="lazy"><figcaption>Wheel roles</figcaption></figure>
+<h3 id="hotas-6-encoder-wheels">6. Encoder wheels</h3>
+<p>A rotary encoder usually shows up as two buttons, one pulse per click in each direction. Assign <strong>Wheel: step clockwise</strong> and <strong>Wheel: step anticlockwise</strong>, turning the encoder in each direction when asked. While a wheel is open, each click moves the highlight one entry round the wheel and wraps at the ends. <strong>Wheel: select</strong> confirms.</p>
+<p>Fast turning is queued, up to 16 steps, and played back one at a time. Two ordinary buttons work in place of an encoder.</p>
+<h3 id="hotas-7-several-devices">7. Several devices</h3>
+<p>Use as many devices as you have: a stick, a throttle, pedals, a button box. Each device is a button along the top of the preview. Identical devices without serial numbers (two of the same pedals) are told apart by the order Windows lists them. Game actions can use up to four devices. Flight Control actions can use any number.</p>
+<p>You can use a gamepad and a HOTAS at the same time. The HOTAS is layered over the gamepad in the launcher.</p>
+<h3 id="hotas-8-the-preview">8. The preview</h3>
+<ul><li><strong>Arrange preview</strong> lets you drag each control to where it is on your real device.</li><li><strong>Background image</strong> adds a picture of your device behind the controls. The picture stays on your PC and is never saved into a shared profile.</li><li><strong>Reset layout</strong> returns to the automatic arrangement.</li></ul>
+<figure><img src="hotas/screenshots/06-arrange-preview.png" alt="Arranging the preview" loading="lazy"><figcaption>Arranging the preview</figcaption></figure>
+<h3 id="hotas-9-flight-axes-dead-zones-curves-and-calibration">9. Flight axes: dead zones, curves and calibration</h3>
+<p>Press <strong>Axes…</strong> (beside Clear) to see and tune your flying axes: pitch, yaw, roll and the throttle. First choose how they are handled.</p>
+<ul><li><strong>Game.</strong> The game handles the axes, with one dead zone and one sensitivity for every axis (the Flight response tab). Nothing per axis is applied. The dialog still shows each axis live, and <strong>Calibrate…</strong> measures it and can set the game's dead zone for you.</li><li><strong>Precision (experimental).</strong> Flight Control reads the axes itself and steers the ship through the game script. Each axis gets its own dead zone, curve and calibration. Apply clears the game's own axis bindings so the game does not also act on them.</li></ul>
+<p>In Precision, for the axis you pick:</p>
+<div class="fc-scroll"><table><thead><tr><th>Setting</th><th>What it does</th></tr></thead><tbody><tr><td>Dead zone</td><td>The part of the travel around the centre that counts as zero. The rest is stretched to full, so there is no jump when the stick leaves it. A lever has its dead zone at both ends.</td></tr><tr><td>Full deflection at</td><td>How far you have to move before the axis already counts as full. Lower it if the stick cannot quite reach its end stop.</td></tr><tr><td>Curve</td><td>Positive makes the centre gentler and the ends faster, negative the opposite.</td></tr><tr><td>Invert this axis</td><td>Flips the direction.</td></tr></tbody></table></div>
+<p>The picture shows the reading against the calibrated range, the dead zone in red, and the response curve with a live dot on it.</p>
+<figure><img src="hotas/screenshots/09-axis-settings-precision.png" alt="The flight axes dialog in Precision mode: a live reading against the calibrated range, the dead zone, and the response curve with a live point" loading="lazy"><figcaption>The flight axes dialog in Precision mode: a live reading against the calibrated range, the dead zone, and the response curve with a live point</figcaption></figure>
+<figure><img src="hotas/screenshots/10-axis-settings-game-mode.png" alt="The same dialog in Game mode, showing the game's own single dead zone" loading="lazy"><figcaption>The same dialog in Game mode, showing the game's own single dead zone</figcaption></figure>
+<p><strong>Calibrate…</strong> measures the axis in two steps. Leave it alone for two seconds, so Flight Control learns where it rests and how much it wobbles. Then move it through its whole range, to every end, for six seconds. A throttle lever needs only the sweep. The result recentres a worn stick, stretches a short one to full travel, and recommends a dead zone from the wobble. <strong>Use recommended dead zone</strong> applies it, and <strong>Reset calibration</strong> goes back to the full range.</p>
+<p>Precision needs the Flight Control launcher and applies only while the game window is in front. If the launcher's data stops, the game goes back to its own handling, which has no axis bindings in Precision, so the ship stops steering until the data returns. Keyboard throttle keys, match speed and the afterburner keep working. Because Precision replaces the game's axis handling, the global dead zone and sensitivity on the Flight response tab no longer apply to these axes.</p>
+<h3 id="hotas-10-when-a-control-is-missing">10. When a control is missing</h3>
+<p>Press <strong>Control not listed?</strong> and use the control. If it lights up, it is listed and ready to assign. If nothing happens, the game cannot see it either. Try another mode on the device, or set the control to a button in the manufacturer's software, then press <strong>Scan controllers</strong>.</p>
+<h3 id="hotas-11-applying-backups-and-switching-back">11. Applying, backups and switching back</h3>
+<p><strong>Apply to pilot</strong> writes your assignments for the selected pilot. Close the game first.</p>
+<ul><li>Game actions are written to Flight Control's control table, and your devices are set as the game's joysticks.</li><li>Flight Control actions are written to a small map file that the launcher reads.</li><li>Before anything is changed, a backup is made. <strong>Restore backup</strong> puts back exactly what the last Apply changed.</li><li>If something that was installed is not in your profile any more, Apply tells you before it removes it.</li></ul>
+<p><strong>Gamepad mode</strong> switches the game back to the gamepad: it removes the HOTAS bindings and the map, and puts the pilot's preset and joystick selection back as they were before you first applied HOTAS. Your HOTAS profile is kept, so <strong>Apply to pilot</strong> brings it straight back.</p>
+<p>If you apply gamepad settings on the Flight response tab while HOTAS is applied, you are warned first, because that points the game's first joystick at the gamepad. If it happens, the HOTAS tab tells you the slots no longer match and Apply re-syncs them.</p>
+<p>Applying only Flight Control actions never touches the pilot's preset, the control table or the game's joysticks, so a gamepad setup keeps working beside a HOTAS used only for wheels and buttons.</p>
+<h3 id="hotas-12-sharing-profiles">12. Sharing profiles</h3>
+<ul><li><strong>Save profile</strong> writes a <code>.fchotas</code> file. It contains your assignments, device names and layout. It does not contain device serial numbers or any picture path.</li><li><strong>Open profile</strong> loads one. Anything personal is stripped, the file is checked, and your own profile is kept as a backup first.</li><li>A shared profile matches your hardware by device model. For a different model, right-click a device button along the top and choose one of your own devices to use in its place.</li><li>Wheel layouts, macros and button actions live in the <strong>Profiles</strong> tab and are shared separately. A HOTAS setup that relies on a button's quick-press action needs that profile too.</li></ul>
+<h3 id="hotas-13-what-is-confirmed">13. What is confirmed</h3>
+<p>Confirmed in the game: joystick axes and buttons as game actions, several devices at once, Flight Control wheels driven from a joystick, one button with different jobs by state.</p>
+<p>Not yet confirmed on many devices: game actions on a hat, axes used as buttons, inverted axes, the extra game actions beyond fire, targeting and weapons, rotary encoders, and Precision flight axes (calibration, dead zones and curves). If one of these misbehaves, please report it (see below).</p>
+<p>Not available: Fate of the Galaxy 1.1.x, hats other than the first for game actions, and diagonal hat directions for game actions (they work for Flight Control actions).</p>
+<h3 id="hotas-14-troubleshooting">14. Troubleshooting</h3>
+<div class="fc-scroll"><table><thead><tr><th>What you see</th><th>What to do</th></tr></thead><tbody><tr><td>"Select your FotG 2 installation first"</td><td>Use <strong>Game / pilot</strong> at the bottom and pick the game folder and a pilot.</td></tr><tr><td>The ship drifts or twitches at rest in Precision</td><td>Open <strong>Axes…</strong>, calibrate that axis and use the recommended dead zone.</td></tr><tr><td>A button fires while a wheel is open</td><td>That button is bound to a game action. Use <strong>Right trigger</strong> and <strong>Wheel: select</strong> instead (section 5).</td></tr><tr><td>"The game's joystick slots no longer match"</td><td>Press <strong>Apply to pilot</strong> again, with the game closed.</td></tr><tr><td>The picture is empty</td><td>Press <strong>Scan controllers</strong>. Plug in the device first.</td></tr><tr><td>Apply fails</td><td>The Console writes the details to <code>console-error.log</code> next to it. Send that with your report.</td></tr><tr><td>You want the gamepad back</td><td>Press <strong>Gamepad mode</strong>.</td></tr></tbody></table></div>
+<h3 id="hotas-15-reporting-a-problem">15. Reporting a problem</h3>
+<p>Tell us which device, which control, what you assigned, and what happened. Include <code>console-error.log</code> if Apply failed. Send reports to dev@manictrashpanda.dev.</p>
+</div>
+
+<div id="hotas-get" data-fc-section="get">
+<h2>Install the preview</h2>
+<ol>
+<li>Install Flight Control for Fate of the Galaxy 2 as usual and play once.</li>
+<li>Open the Flight Control Console, set <strong>Controls</strong> to <strong>Advanced</strong>, and choose the <strong>HOTAS</strong> tab.</li>
+<li>Move your controls to see them light up, then pick an action and use the control to assign it.</li>
+<li>Close the game and press <strong>Apply to pilot</strong>.</li>
+<li>Start the game from the Flight Control launcher.</li>
+</ol>
+<h2>Download</h2>
+<p><mark class="fc-todo">[FotG-Flight-Control-HOTAS-experimental.zip]</mark> &middot; version <mark class="fc-todo">[1.3.0-hotas-experimental]</mark> &middot; <mark class="fc-todo">[date]</mark> &middot; size <mark class="fc-todo">[size]</mark> &middot; SHA-256 <mark class="fc-todo">[sha256]</mark></p>
+<p>This download is separate from the regular Flight Control download and does not replace it. It changes the Console, the launcher and the wheel script. Setup backs up your pilot before it changes anything, and the HOTAS tab backs up again before each Apply. The programs are not code-signed, like the regular release; the usual security notes on this page apply. Source: github.com/wray2064/FotGFlightControl, branch <code>codex/flight-control-hotas</code>. MIT for the code.</p>
+<h2>Questions</h2>
+<details><summary>Which games and versions?</summary><p>Fate of the Galaxy 2.0.2 through Flight Control. Fate of the Galaxy 1.1.x is not supported for HOTAS yet.</p></details>
+<details><summary>Which devices?</summary><p>Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, Flight Control cannot either, and the Console tells you.</p></details>
+<details><summary>Can I keep my gamepad?</summary><p>Yes. Flight Control actions can run from both at once, and Gamepad mode switches the game's own bindings back in one click.</p></details>
+<details><summary>Does a button really fire and confirm?</summary><p>Yes. Bind one button to the Right trigger and to Wheel select. In flight it fires, in a wheel it confirms and does not fire.</p></details>
+<details><summary>Will it overwrite my settings?</summary><p>Apply backs up the pilot, the game's settings and the control table first, and Restore backup puts them back. Applying only wheel actions never touches your gamepad's flight setup.</p></details>
+<details><summary>Can I share my setup?</summary><p>Yes. Save profile writes a <code>.fchotas</code> file. It has no serial numbers and no paths. Someone with a different device can pick one of theirs to take its place.</p></details>
+<details><summary>Can I set a dead zone per axis?</summary><p>In Precision mode (experimental), yes: each flying axis has its own dead zone, curve and calibration. In the game's own mode there is one dead zone for every axis, and the axes dialog can measure your axes and set it.</p></details>
+<details><summary>Is it safe?</summary><p>The code is open source and the downloads are checked against their SHA-256. The programs are not code-signed yet.</p></details>
+<h2>Send a report</h2>
+<p>Tell me what your hardware does: <a href="mailto:dev@manictrashpanda.dev">dev@manictrashpanda.dev</a>. A saved <code>.fchotas</code> profile contains no serial numbers and no file paths, so it is safe to attach.</p>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById("hotas"); if (!root) return;
+  var secs = root.querySelectorAll("[data-fc-section]"), links = root.querySelectorAll("[data-fc-panel]");
+  function show(name) {
+    for (var i = 0; i < secs.length; i++) secs[i].hidden = secs[i].getAttribute("data-fc-section") !== name;
+    for (var j = 0; j < links.length; j++) links[j].setAttribute("aria-current", links[j].getAttribute("data-fc-panel") === name ? "true" : "false");
+  }
+  for (var k = 0; k < links.length; k++) links[k].addEventListener("click", function (e) { e.preventDefault(); show(this.getAttribute("data-fc-panel")); });
+  show("overview");
+  // Without this script every section simply stacks, and the anchors still work.
+  function play(box, start) {
+    var f = document.createElement("iframe");
+    f.src = "https://www.youtube-nocookie.com/embed/" + box.getAttribute("data-fc-video") + "?autoplay=1&rel=0" + (start ? "&start=" + start : "");
+    f.title = "HOTAS tutorial"; f.allow = "autoplay; encrypted-media; picture-in-picture"; f.allowFullscreen = true;
+    box.innerHTML = ""; box.appendChild(f);
+  }
+  var box = root.querySelector("[data-fc-video]");
+  box.querySelector("button").addEventListener("click", function () { play(box, 0); });
+  var seeks = root.querySelectorAll("[data-fc-seek]");
+  for (var s = 0; s < seeks.length; s++) seeks[s].addEventListener("click", function (e) { e.preventDefault(); play(box, this.getAttribute("data-fc-seek")); box.scrollIntoView({ block: "center" }); });
+})();
+</script>
+</section>

@@ -115,6 +115,10 @@ In Precision, for the axis you pick:
 
 The picture shows the reading against the calibrated range, the dead zone in red, and the response curve with a live dot on it.
 
+![The flight axes dialog in Precision mode: a live reading against the calibrated range, the dead zone, and the response curve with a live point](screenshots/09-axis-settings-precision.png)
+
+![The same dialog in Game mode, showing the game's own single dead zone](screenshots/10-axis-settings-game-mode.png)
+
 **Calibrate…** measures the axis in two steps. Leave it alone for two seconds, so Flight Control learns where it rests and how much it wobbles. Then move it through its whole range, to every end, for six seconds. A throttle lever needs only the sweep. The result recentres a worn stick, stretches a short one to full travel, and recommends a dead zone from the wobble. **Use recommended dead zone** applies it, and **Reset calibration** goes back to the full range.
 
 Precision needs the Flight Control launcher and applies only while the game window is in front. If the launcher's data stops, the game goes back to its own handling, which has no axis bindings in Precision, so the ship stops steering until the data returns. Keyboard throttle keys, match speed and the afterburner keep working. Because Precision replaces the game's axis handling, the global dead zone and sensitivity on the Flight response tab no longer apply to these axes.
