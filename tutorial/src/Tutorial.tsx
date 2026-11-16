@@ -128,13 +128,18 @@ const Shot: React.FC<{st: Extract<Stage, {kind: 'shot'}>; f: number; len: number
           const at = Math.floor((b.at ?? 0) * len);
           const o = fade(f, at, at + 10);
           const pulse = 0.65 + 0.35 * Math.sin((f - at) / 6);
+          const nextAt = st.boxes!.map((q) => Math.floor((q.at ?? 0) * len)).filter((v) => v > at).sort((a, c) => a - c)[0] ?? 1e9;
+          const labelOn = f < nextAt;
+          const lw = b.label.length * 14.6 + 26;
+          const screenLeft = tx + b.x * s;
+          const shiftPx = Math.max(10 - screenLeft, Math.min(0, SW - 10 - (screenLeft + lw)));
           const inv = 1 / s;
           return (
-            <div key={i} style={{position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.h, opacity: o}}>
+            <div key={i} style={{position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.h, opacity: o * (labelOn ? 1 : 0.55)}}>
               <div style={{position: 'absolute', inset: -4 * inv, border: `${3 * inv}px solid ${C.green}`, borderRadius: 6 * inv, opacity: pulse, boxShadow: `0 0 ${14 * inv}px ${C.green}`}} />
               <div
                 style={{
-                  position: 'absolute', left: 0, top: b.below ? b.h + 12 * inv : -44 * inv, transformOrigin: b.below ? '0 0' : '0 100%', transform: `scale(${inv})`,
+                  position: 'absolute', left: shiftPx * inv, display: labelOn ? 'block' : 'none', top: b.below ? b.h + 12 * inv : -44 * inv, transformOrigin: b.below ? '0 0' : '0 100%', transform: `scale(${inv})`,
                   background: C.green, color: '#021', fontFamily: FONT, fontWeight: 700, fontSize: 24, padding: '4px 12px', whiteSpace: 'nowrap',
                 }}
               >
@@ -243,9 +248,9 @@ const DiagramBackup: React.FC<{f: number; len: number}> = ({f, len}) => {
   const p = f / len;
   const Node: React.FC<{x: number; label: string; sub: string; on: boolean; col?: string}> = ({x, label, sub, on, col}) => (
     <g opacity={on ? 1 : 0.3}>
-      <rect x={x} y={250} width={330} height={150} rx={8} fill="#14120a" stroke={col ?? C.yellow} strokeWidth={3} />
-      <Mono x={x + 165} y={318} textAnchor="middle" fontSize={32} fontWeight={700} fill={col ?? C.yellow}>{label}</Mono>
-      <Mono x={x + 165} y={358} textAnchor="middle" fontSize={24} fill={C.dim}>{sub}</Mono>
+      <rect x={x} y={250} width={460} height={150} rx={8} fill="#14120a" stroke={col ?? C.yellow} strokeWidth={3} />
+      <Mono x={x + 230} y={318} textAnchor="middle" fontSize={32} fontWeight={700} fill={col ?? C.yellow}>{label}</Mono>
+      <Mono x={x + 230} y={358} textAnchor="middle" fontSize={22} fill={C.dim}>{sub}</Mono>
     </g>
   );
   return (
@@ -253,18 +258,18 @@ const DiagramBackup: React.FC<{f: number; len: number}> = ({f, len}) => {
       <rect width={SW} height={SH} fill={C.panel} />
       <Mono x={80} y={80} fontSize={34} fill={C.yellow} fontWeight={700}>APPLY IS ALWAYS REVERSIBLE</Mono>
       <Node x={80} label="YOUR SETUP" sub="gamepad, pilot, map" on={p > 0.02} />
-      <Node x={715} label="BACKUP SAVED" sub="state before HOTAS" on={p > 0.3} col={C.cyan} />
-      <Node x={1350} label="HOTAS ACTIVE" sub="controls + Flight Control map" on={p > 0.45} col={C.green} />
+      <Node x={650} label="BACKUP SAVED" sub="state before HOTAS" on={p > 0.3} col={C.cyan} />
+      <Node x={1220} label="HOTAS ACTIVE" sub="controls + Flight Control map" on={p > 0.45} col={C.green} />
       <g opacity={fade(p, 0.25, 0.33)}>
-        <line x1={410} y1={325} x2={715} y2={325} stroke={C.yellow} strokeWidth={4} />
-        <Mono x={562} y={300} textAnchor="middle" fontSize={26} fill={C.yellow}>Apply</Mono>
+        <line x1={540} y1={325} x2={650} y2={325} stroke={C.yellow} strokeWidth={4} />
+        <Mono x={595} y={300} textAnchor="middle" fontSize={26} fill={C.yellow}>Apply</Mono>
       </g>
       <g opacity={fade(p, 0.42, 0.5)}>
-        <line x1={1045} y1={325} x2={1350} y2={325} stroke={C.green} strokeWidth={4} />
+        <line x1={1110} y1={325} x2={1220} y2={325} stroke={C.green} strokeWidth={4} />
       </g>
       <g opacity={fade(p, 0.62, 0.72)}>
-        <path d="M 1515 400 C 1515 560 245 560 245 400" fill="none" stroke={C.cyan} strokeWidth={4} strokeDasharray="12 8" />
-        <polygon points="245,400 233,424 257,424" fill={C.cyan} />
+        <path d="M 1450 400 C 1450 560 310 560 310 400" fill="none" stroke={C.cyan} strokeWidth={4} strokeDasharray="12 8" />
+        <polygon points="310,400 298,424 322,424" fill={C.cyan} />
         <Mono x={880} y={590} textAnchor="middle" fontSize={28} fill={C.cyan}>Restore backup  /  Gamepad mode</Mono>
       </g>
       <Mono x={80} y={670} fontSize={28} fill={C.yellow}>Close the game before Apply. Start it from the Flight Control launcher afterwards.</Mono>
