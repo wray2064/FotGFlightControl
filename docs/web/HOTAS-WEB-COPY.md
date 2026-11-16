@@ -40,7 +40,9 @@ The HOTAS tab finds every joystick, throttle and pedal set the game can see and 
 
 07 **Back to the gamepad in one click.** Gamepad mode removes the HOTAS bindings and restores how the game was set up before. Your HOTAS profile is kept for next time.
 
-08 **Careful with your files.** Everything is backed up before Apply, with a one-click restore. Shared profiles carry no serial numbers and no file paths from your PC.
+08 **Dead zones, curves and calibration.** Open the axes dialog to see each flying axis live, measure it, and tune its dead zone, curve and range. Precision mode (experimental) applies the settings per axis, which the game itself cannot do; the game's own mode can use the measurement to set its one dead zone.
+
+09 **Careful with your files.** Everything is backed up before Apply, with a one-click restore. Shared profiles carry no serial numbers and no file paths from your PC.
 
 **Screenshots to use** (all in `screenshots/`, taken from the real Console with demo controllers):
 
@@ -53,11 +55,13 @@ The HOTAS tab finds every joystick, throttle and pedal set the game can see and 
 | 05-game-action-on-a-hat.png | Optional | A game action assigned to a hat direction |
 | 06-arrange-preview.png | Beside card 06 | The preview in arrange mode, ready to drag controls into place |
 | 07-flight-meaning-of-a-button.png | Optional | A gamepad-style button showing what it does in flight |
+| 09-axis-settings-precision.png | Beside card 08 | The flight axes dialog in Precision mode: a live reading against the calibrated range, the dead zone, and the response curve with a live point |
+| 10-axis-settings-game-mode.png | Optional | The same dialog in Game mode, showing the game's own single dead zone |
 | 08-hotas-switched-off-in-simple.png | Optional, for the setup steps | The Console in Simple mode: the HOTAS tab is greyed out until Controls is set to Advanced |
 
 ## 4. "Tested so far" paragraph (replace the HOTAS part of the existing tested-so-far text)
 
-HOTAS support is a preview. It has been flown with a Logitech Freedom 2.4 and a handheld gamepad on Fate of the Galaxy 2.0.2: joystick axes and buttons as game controls, several devices at once, and the command wheels driven from the joystick. Hat directions as game controls, axes used as buttons, inverted axes, rotary encoders and some of the extra game actions have not been tried on many devices yet. Fate of the Galaxy 1.1.x does not support HOTAS yet. If you have a HOTAS, I would love to hear how it goes: dev@manictrashpanda.dev.
+HOTAS support is a preview. It has been flown with a Logitech Freedom 2.4 and a handheld gamepad on Fate of the Galaxy 2.0.2: joystick axes and buttons as game controls, several devices at once, and the command wheels driven from the joystick. Hat directions as game controls, axes used as buttons, inverted axes, rotary encoders, Precision flight axes and some of the extra game actions have not been tried on many devices yet. Fate of the Galaxy 1.1.x does not support HOTAS yet. If you have a HOTAS, I would love to hear how it goes: dev@manictrashpanda.dev.
 
 ## 5. How it works (for the install steps area)
 
@@ -102,6 +106,8 @@ Keep the link to the HOTAS project page if it stays online, reworded as "Share a
 
 **Can I share my setup?** Yes. Save profile writes a `.fchotas` file. It has no serial numbers and no paths. Someone with a different device can pick one of theirs to take its place.
 
+**Can I set a dead zone per axis?** In Precision mode (experimental), yes: each flying axis has its own dead zone, curve and calibration. In the game's own mode there is one dead zone for every axis, and the axes dialog can measure your axes and set it.
+
 **Is it safe?** The code is open source and the downloads are checked against their SHA-256. The programs are not code-signed yet.
 
 ## 9. Changelog entry (draft, goes above 1.2.0)
@@ -117,6 +123,7 @@ PREVIEW
 - **Encoder wheels.** Step clockwise and anticlockwise round an open wheel.
 - **Gamepad mode.** Switch the game back to the gamepad and return to HOTAS without losing your profile.
 - **Profiles.** `.fchotas` files without serial numbers or file paths; a device can be remapped to your own.
+- **Axis settings.** A flight axes dialog with live pictures, calibration, dead zone, saturation and curve per axis (Precision mode, experimental), or a measured dead zone for the game's own handling.
 - **Safer Apply.** Backups before every change, a restore button, a warning before anything is removed, and a warning when applying gamepad settings would redirect HOTAS devices.
 - Not yet: Fate of the Galaxy 1.1.x, hats beyond the first for game actions, diagonal hat directions for game actions.
 

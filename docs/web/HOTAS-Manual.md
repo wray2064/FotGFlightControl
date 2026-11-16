@@ -2,14 +2,14 @@
 
 Fly Fate of the Galaxy 2 with a joystick, throttle and pedals, and keep Flight Control's command wheels. This guide covers the HOTAS tab in the Flight Control Console.
 
-> **Preview.** HOTAS support is new and has been tested with a Logitech Freedom 2.4 and a handheld gamepad. Hats, axes used as buttons, rotary encoders and some of the extra game actions have not been tried on many devices yet. Section 12 lists exactly what is and is not confirmed.
+> **Preview.** HOTAS support is new and has been tested with a Logitech Freedom 2.4 and a handheld gamepad. Hats, axes used as buttons, rotary encoders and some of the extra game actions have not been tried on many devices yet. Section 13 lists exactly what is and is not confirmed.
 
 ## 1. What you need
 
 - Fate of the Galaxy **2.0.2**, installed through Flight Control (MyMod). Fate of the Galaxy 1.1.x (classic) does not support HOTAS yet.
 - Windows 64-bit, and the Flight Control Console and launcher from this build.
 - **Controls: Advanced.** HOTAS is an advanced feature, so its tab is greyed out and cannot be clicked until the Controls switch is set to Advanced.
-- Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, neither can Flight Control (see section 9).
+- Any joystick, throttle, pedals or button box that the game's own engine can see. If the game cannot see a control, neither can Flight Control (see section 10).
 - Close the game before you press Apply.
 
 ## 2. Quick start
@@ -97,11 +97,33 @@ You can use a gamepad and a HOTAS at the same time. The HOTAS is layered over th
 
 ![Arranging the preview](screenshots/06-arrange-preview.png)
 
-## 9. When a control is missing
+## 9. Flight axes: dead zones, curves and calibration
+
+Press **Axes…** (beside Clear) to see and tune your flying axes: pitch, yaw, roll and the throttle. First choose how they are handled.
+
+- **Game.** The game handles the axes, with one dead zone and one sensitivity for every axis (the Flight response tab). Nothing per axis is applied. The dialog still shows each axis live, and **Calibrate…** measures it and can set the game's dead zone for you.
+- **Precision (experimental).** Flight Control reads the axes itself and steers the ship through the game script. Each axis gets its own dead zone, curve and calibration. Apply clears the game's own axis bindings so the game does not also act on them.
+
+In Precision, for the axis you pick:
+
+| Setting | What it does |
+|---|---|
+| Dead zone | The part of the travel around the centre that counts as zero. The rest is stretched to full, so there is no jump when the stick leaves it. A lever has its dead zone at both ends. |
+| Full deflection at | How far you have to move before the axis already counts as full. Lower it if the stick cannot quite reach its end stop. |
+| Curve | Positive makes the centre gentler and the ends faster, negative the opposite. |
+| Invert this axis | Flips the direction. |
+
+The picture shows the reading against the calibrated range, the dead zone in red, and the response curve with a live dot on it.
+
+**Calibrate…** measures the axis in two steps. Leave it alone for two seconds, so Flight Control learns where it rests and how much it wobbles. Then move it through its whole range, to every end, for six seconds. A throttle lever needs only the sweep. The result recentres a worn stick, stretches a short one to full travel, and recommends a dead zone from the wobble. **Use recommended dead zone** applies it, and **Reset calibration** goes back to the full range.
+
+Precision needs the Flight Control launcher and applies only while the game window is in front. If the launcher's data stops, the game goes back to its own handling, which has no axis bindings in Precision, so the ship stops steering until the data returns. Keyboard throttle keys, match speed and the afterburner keep working. Because Precision replaces the game's axis handling, the global dead zone and sensitivity on the Flight response tab no longer apply to these axes.
+
+## 10. When a control is missing
 
 Press **Control not listed?** and use the control. If it lights up, it is listed and ready to assign. If nothing happens, the game cannot see it either. Try another mode on the device, or set the control to a button in the manufacturer's software, then press **Scan controllers**.
 
-## 10. Applying, backups and switching back
+## 11. Applying, backups and switching back
 
 **Apply to pilot** writes your assignments for the selected pilot. Close the game first.
 
@@ -116,32 +138,33 @@ If you apply gamepad settings on the Flight response tab while HOTAS is applied,
 
 Applying only Flight Control actions never touches the pilot's preset, the control table or the game's joysticks, so a gamepad setup keeps working beside a HOTAS used only for wheels and buttons.
 
-## 11. Sharing profiles
+## 12. Sharing profiles
 
 - **Save profile** writes a `.fchotas` file. It contains your assignments, device names and layout. It does not contain device serial numbers or any picture path.
 - **Open profile** loads one. Anything personal is stripped, the file is checked, and your own profile is kept as a backup first.
 - A shared profile matches your hardware by device model. For a different model, right-click a device button along the top and choose one of your own devices to use in its place.
 - Wheel layouts, macros and button actions live in the **Profiles** tab and are shared separately. A HOTAS setup that relies on a button's quick-press action needs that profile too.
 
-## 12. What is confirmed
+## 13. What is confirmed
 
 Confirmed in the game: joystick axes and buttons as game actions, several devices at once, Flight Control wheels driven from a joystick, one button with different jobs by state.
 
-Not yet confirmed on many devices: game actions on a hat, axes used as buttons, inverted axes, the extra game actions beyond fire, targeting and weapons, and rotary encoders. If one of these misbehaves, please report it (see below).
+Not yet confirmed on many devices: game actions on a hat, axes used as buttons, inverted axes, the extra game actions beyond fire, targeting and weapons, rotary encoders, and Precision flight axes (calibration, dead zones and curves). If one of these misbehaves, please report it (see below).
 
 Not available: Fate of the Galaxy 1.1.x, hats other than the first for game actions, and diagonal hat directions for game actions (they work for Flight Control actions).
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | What you see | What to do |
 |---|---|
 | "Select your FotG 2 installation first" | Use **Game / pilot** at the bottom and pick the game folder and a pilot. |
+| The ship drifts or twitches at rest in Precision | Open **Axes…**, calibrate that axis and use the recommended dead zone. |
 | A button fires while a wheel is open | That button is bound to a game action. Use **Right trigger** and **Wheel: select** instead (section 5). |
 | "The game's joystick slots no longer match" | Press **Apply to pilot** again, with the game closed. |
 | The picture is empty | Press **Scan controllers**. Plug in the device first. |
 | Apply fails | The Console writes the details to `console-error.log` next to it. Send that with your report. |
 | You want the gamepad back | Press **Gamepad mode**. |
 
-## 14. Reporting a problem
+## 15. Reporting a problem
 
 Tell us which device, which control, what you assigned, and what happened. Include `console-error.log` if Apply failed. Send reports to dev@manictrashpanda.dev.

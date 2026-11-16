@@ -92,10 +92,11 @@ partial class ControllerSetup {
   hotasInvert.CheckedChanged+=delegate{ToggleInvert();};
   detail.Controls.Add(hotasInvert,1,0);
   left.Controls.Add(detail,0,3);
-  var leftActions=Grid(2,1);leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,60));leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,40));
+  var leftActions=Grid(3,1);leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,46));leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,24));leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,30));
   hotasAssign=ActionButton("Assign: press a control",delegate{ToggleListening();});
   leftActions.Controls.Add(hotasAssign,0,0);
   leftActions.Controls.Add(ActionButton("Clear",delegate{ClearSelected();}),1,0);
+  leftActions.Controls.Add(ActionButton("Axes…",delegate{ShowAxisSettings();}),2,0);
   left.Controls.Add(leftActions,0,4);
   main.Controls.Add(left,0,0);
 
@@ -960,6 +961,9 @@ partial class ControllerSetup {
    int after=profile.FlightAxes.Values.Count(x=>x.DeviceIndex==1)+profile.Virtual.Values.Count(x=>x.DeviceIndex==1);
    if(before==0||before!=after)return "FAIL: remapping disturbed the bindings";
    HardwareInspector.Validate(profile);
+   // 10. The axes dialog: modes, sliders, calibration, recommendations.
+   string axisProblem=AxisDialog.SelfCheck(form);
+   if(axisProblem!=null)return axisProblem;
    // 9. The HOTAS tab is unavailable in Simple, and leaves the page if it was open.
    form.modeSimple.PerformClick();
    if(form.hotasTab.Enabled||form.hotasPage.Visible||form.advancedMode.Checked)return "FAIL: the HOTAS tab should be unavailable in Simple";

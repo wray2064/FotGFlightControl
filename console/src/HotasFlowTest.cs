@@ -108,7 +108,8 @@ partial class ControllerSetup {
    // 8. Precision axes: the game's own axis bindings are cleared, the map carries the flight axes, and going back restores everything.
    form.hotasProfile.AxisMode="Precision";
    form.ApplyHotas(form.hotasProfile,guids);
-   string precisionTable=File.ReadAllText(table);
+   Func<string> hotasBlock=delegate{string all=File.ReadAllText(table);int a=all.IndexOf(HotasStart),b=all.IndexOf(HotasEnd);return a<0||b<a?"":all.Substring(a,b-a);};
+   string precisionTable=hotasBlock();
    if(!System.Text.RegularExpressions.Regex.IsMatch(precisionTable,@"\$Bind: JOY_PITCH_AXIS\s+\$Primary:\s+\$Controller: CID_NONE"))return "FAIL: precision did not clear the game's pitch axis";
    if(System.Text.RegularExpressions.Regex.IsMatch(precisionTable,@"^\s*\$Flags: AXIS\s*(,|$)",System.Text.RegularExpressions.RegexOptions.Multiline))return "FAIL: precision left a native axis binding";
    var precisionMap=serializer.Deserialize<HotasMapFile>(File.ReadAllText(mapPath));
@@ -117,7 +118,7 @@ partial class ControllerSetup {
    form.hotasProfile.AxisMode="Game";
    form.ApplyHotas(form.hotasProfile,guids);
    if(serializer.Deserialize<HotasMapFile>(File.ReadAllText(mapPath)).Flight!=null)return "FAIL: Game mode still sends flight axes";
-   if(!File.ReadAllText(table).Contains("$Flags: AXIS, RELATIVE"))return "FAIL: Game mode did not restore the native axes";
+   if(!hotasBlock().Contains("$Flags: AXIS, RELATIVE"))return "FAIL: Game mode did not restore the native axes";
    form.ReturnToGamepad();
    if(File.ReadAllText(table)!=clean||File.Exists(mapPath))return "FAIL: switching back after precision left something behind";
    form.Close();

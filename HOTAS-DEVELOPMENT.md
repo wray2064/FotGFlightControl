@@ -89,3 +89,22 @@ controls, Wheel step clockwise / counter-clockwise, active only while a wheel is
 bridge. The bridge polls every 25 ms, so a detent pulse of a few milliseconds can be missed; counting SDL button-down events
 between ticks and replaying them as one-tick pulses with a gap tick (about 20 steps per second) fixes that. Two ordinary
 buttons can stand in for an encoder when testing everything except very fast spinning.
+
+## Flight axes: Game and Precision
+
+The game gives every joystick axis one global dead zone and one sensitivity, plus an invert flag, and has no per-axis
+calibration. **Axes…** in the HOTAS tab switches the profile's `AxisMode` between:
+
+- **Game**: the HOTAS block binds the flight axes natively as before. The dialog measures axes and can set the global dead zone.
+- **Precision**: each flight axis has `HotasAxisSettings` (dead zone, saturation, curve, calibration min/centre/max, invert). Apply clears
+  the five game axis actions (CID_NONE) and writes the axes into the map file under `Flight`. The bridge shapes them
+  (`HotasAxisMath` in `setup/HotasInput.cs`) and appends `|pitch|yaw|roll|throttle|mask` (thousandths, mask 1/2/4 stick axes,
+  8 absolute throttle, 16 relative throttle) to the input line it already writes. The wheel script (`precision_frame`) sets
+  `FLIGHT_CONTROL_LUA_STEERING` (or `FLIGHT_CONTROL_LUA_FULL` when a throttle axis is mapped) and writes `ci.Pitch`, `Heading`,
+  `Bank` with the game's own signs (pitch and bank negated, bank times 1.5). With a throttle axis it takes the engine's own result
+  each frame, so keys and match speed still work, and replaces it only when the lever moves (absolute) or integrates the rate
+  (relative). Stale data, a dialog, a lost window, the end of a mission or any Lua fault hands control back to the engine.
+- The Lua is covered by `scripts/test-precision-axes.cjs` (and the encoder step), run with the fengari harness:
+  `node scripts/test-precision-axes.cjs <path to fengari>`, like the other `scripts/test-*.cjs`. The bridge reads real axes through
+  `--hotas-probe`, which now also prints the flight state.
+- Calibration (`AxisCalibrator` in `console/src/HotasAxisTools.cs`) measures rest (centre, wobble) and sweep (travel). A lever only sweeps.

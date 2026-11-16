@@ -107,3 +107,15 @@ Console, then this record. No other changes were made outside this checkout, and
   them as pilots (fixed by renaming to `.hotas` / `.map`); Apply failed when creating a new file (fixed in the save helper).
 - On this install the pilot preset is already `default` and the table has no FotG Classic Native preset, so Gamepad mode on
   this install falls back to `default` with the HOTAS block removed.
+
+## 16 Nov 2026: axis configuration (dead zones, curves, calibration)
+
+- The game has one global dead zone and sensitivity for all joystick axes and no calibration, so per-axis control needs Flight
+  Control to process the axes. Built as an opt-in **Precision** mode (default stays Game): shared axis math, bridge shaping, game-script
+  steering through the Lua control modes with a fail-safe release, apply support, and an **Axes…** dialog with live plots, sliders and a
+  two-step calibration (rest, sweep) that recommends a dead zone.
+- Checked: axis math and calibration unit tests, a Lua test suite in the fengari harness (it also found and confirmed the encoder
+  step), table and map generation, the apply/switch-over test with precision, and the bridge reading the real Freedom 2.4's flight axes.
+- Not checked in the game: steering, throttle behaviour and the feel of the curves. Things to look at first: pitch and bank directions
+  and strength against Game mode, throttle (absolute and relative) including the keys, what happens in the external camera and free-look
+  views, and alt-tabbing out and back.

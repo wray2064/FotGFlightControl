@@ -60,6 +60,7 @@ sealed class HotasAxisSettings {
     public double Saturation = 1.0;    // 0.1 to 1: the point of travel that already counts as full deflection
     public double Curve = 0.0;         // -1 to 1: softer (positive) or sharper (negative) around the centre
     public int CalMin, CalCenter, CalMax;
+    public int Noise;                  // peak-to-peak wobble measured at rest during calibration (raw units); informational
     public bool Invert;
 
     public bool Valid() {
@@ -69,7 +70,7 @@ sealed class HotasAxisSettings {
     }
     public bool Calibrated { get { return CalMax > CalMin; } }
     public HotasAxisSettings Copy() {
-        return new HotasAxisSettings { Deadzone = Deadzone, Saturation = Saturation, Curve = Curve, CalMin = CalMin, CalCenter = CalCenter, CalMax = CalMax, Invert = Invert };
+        return new HotasAxisSettings { Deadzone = Deadzone, Saturation = Saturation, Curve = Curve, CalMin = CalMin, CalCenter = CalCenter, CalMax = CalMax, Noise = Noise, Invert = Invert };
     }
 }
 
