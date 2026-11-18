@@ -25,20 +25,19 @@ partial class ControllerSetup : Form {
   cockpitShell.RowStyles[0]=new RowStyle(SizeType.Absolute,0);
   FitCockpit();
  }
- string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory;while(p!=null){if(Directory.Exists(Path.Combine(p,"kn_portable")))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
+ string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory;while(p!=null){if(GameLayout.Valid(p))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
  void AddLabel(string text,int x,int y){Label l=new Label();l.Text=text;l.SetBounds(x,y,750,48);Controls.Add(l);l.SendToBack();}
  Button Button(string text,int x,int y,Action act){Button b=new Button();b.Text=text;b.SetBounds(x,y,200,35);b.Click+=delegate{try{act();}catch(Exception e){MessageBox.Show(e.Message,Text);}};Controls.Add(b);return b;}
  string PilotPath(){if(pilots.SelectedItem==null)throw new Exception("Select a native pilot first.");return Path.Combine(prefs,"data","players",pilots.SelectedItem+".json");}
- static string SettingsPath(string prefsRoot){
-  string gameRoot=Path.GetFullPath(Path.Combine(prefsRoot,"..","..",".."));
+ static string SettingsPath(string gameRoot,string prefsRoot){
   if(GameInstall.HasMyMod(gameRoot))return Path.Combine(prefsRoot,"data","FotG_2_settings.ini");
   string active=Path.Combine(prefsRoot,"data","GamepadMods_settings.ini");
   return File.Exists(active)?active:Path.Combine(prefsRoot,"data","FotG_R_settings.ini");
  }
- string SettingsPath(){return SettingsPath(prefs);}
+ string SettingsPath(){return SettingsPath(root.Text.Trim(),prefs);}
  Dictionary<string,object> Read(string path){return json.Deserialize<Dictionary<string,object>>(File.ReadAllText(path));}
  Dictionary<string,object> Section(Dictionary<string,object> d,string key){return (Dictionary<string,object>)d[key];}
- void LoadPilots(){prefs=Path.Combine(root.Text,"kn_portable","HardLightProductions","FreeSpaceOpen");pilots.Items.Clear();string dir=Path.Combine(prefs,"data","players");if(!Directory.Exists(dir))return;foreach(string f in Directory.GetFiles(dir,"*.json"))pilots.Items.Add(Path.GetFileNameWithoutExtension(f));if(pilots.Items.Count>0)pilots.SelectedIndex=0;LoadControllerSlot();}
+ void LoadPilots(){prefs=GameLayout.Prefs(root.Text);pilots.Items.Clear();string dir=Path.Combine(prefs,"data","players");if(!Directory.Exists(dir))return;foreach(string f in Directory.GetFiles(dir,"*.json"))pilots.Items.Add(Path.GetFileNameWithoutExtension(f));if(pilots.Items.Count>0)pilots.SelectedIndex=0;LoadControllerSlot();}
  void LoadControllerSlot(){try{string ini=SettingsPath();if(!File.Exists(ini))return;Match match=Regex.Match(File.ReadAllText(ini),@"(?im)^XInputSlot\s*=\s*([0-3])\s*$");int saved;if(match.Success&&Int32.TryParse(match.Groups[1].Value,out saved))slot.SelectedIndex=saved;}catch(IOException){}}
  void LoadPilot(){try{var s=Section(Section(Read(PilotPath()),"sections"),"settings");sensitivity.Value=Math.Max(0,Math.Min(9,Convert.ToInt32(s["joy_sensitivity"])));deadzone.Value=Math.Max(0,Math.Min(45,Convert.ToInt32(s["joy_dead_zone_size"])));useMouse.Checked=Convert.ToInt32(s["use_mouse_to_fly"])!=0;}catch(Exception e){MessageBox.Show(e.Message,Text);}}
  void Poll(){State s;bool connected=XInputGetState((uint)slot.SelectedIndex,out s)==0;status.Text=connected?"CONTROLLER ONLINE / SLOT "+slot.SelectedIndex:"CONTROLLER OFFLINE";padView.Connected=connected;padView.UpdatePad(connected?s.pad:new Pad());if(!connected){calibrating=false;live.Text="Connect a controller or select another slot.";return;}var p=s.pad;double max=new int[]{p.lx,p.ly,p.rx,p.ry}.Max(v=>Math.Abs((double)v))/32768.0;if(calibrating)drift=Math.Max(drift,max);live.Text=String.Format("{0}\r\nCENTER DRIFT  {1:F1}%",calibrating?"SAMPLING / KEEP STICKS CENTERED":"LIVE INPUT MONITOR",drift*100);} void EnsureClosed(){if(AutoConfirm.HasValue)return;if(Process.GetProcesses().Any(p=>p.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))throw new Exception("Close FreeSpace Open before changing or restoring settings.");}

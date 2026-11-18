@@ -10,7 +10,7 @@ $selfTest = Start-Process -FilePath (Join-Path $workspace 'console\ControllerSet
 if ($selfTest.ExitCode -ne 0) { throw "Console self-test failed with exit code $($selfTest.ExitCode)" }
 
 # Release version: change it here for each public release.
-$version = '1.2.0'
+$version = '1.2.1'
 $buildInfo = [IO.File]::ReadAllText((Join-Path $workspace 'setup\BuildInfo.cs'))
 if ($buildInfo -notmatch ('Version = "' + [regex]::Escape($version) + '"')) { throw "setup\BuildInfo.cs does not say version $version." }
 $name = 'FotG-Flight-Control-HOTAS-' + $version

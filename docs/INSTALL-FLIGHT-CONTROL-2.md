@@ -2,7 +2,7 @@
 
 1. Install FotG 2.0.2 with its SDL3 engine and MyMod template. Run it once, create a pilot, and exit.
 2. Extract the entire player ZIP. Close Hangar Bay and WheelBridge if upgrading.
-3. Run Setup.exe and point it to the folder containing Knossos.NET.exe and kn_portable. Click Install / Repair.
+3. Run Setup.exe and point it to the folder that contains `kn_portable` (portable Knossos), or your Knossos library folder (full Knossos: the folder that holds `FotG_2` and `bin`, by default `Documents\Freespace2-mods`; Knossos shows it in Settings). Click Install / Repair.
 4. Open Hangar Bay.exe beside Knossos. On Deploy, select the base game or an installed compatible mission pack, then choose Standard Flight.
 5. Use Console for Flight Response, Wheels, Buttons and Profiles. Close the game before applying changes.
 

@@ -478,9 +478,9 @@ partial class ControllerSetup {
    int at=Array.IndexOf(args,"--game");
    if(at<0||at+1>=args.Length)throw new Exception("Usage: ControllerSetup.exe --reserve-wheel --game <game-root>");
    string game=Path.GetFullPath(args[at+1]);
-   string prefsRoot=Path.Combine(game,"kn_portable","HardLightProductions","FreeSpaceOpen");
+   string prefsRoot=GameLayout.Prefs(game);
    string players=Path.Combine(prefsRoot,"data","players");
-   string ini=SettingsPath(prefsRoot);
+   string ini=SettingsPath(game,prefsRoot);
    if(!Directory.Exists(players)||!File.Exists(ini))throw new Exception("Native portable pilot folder or active game settings INI was not found.");
    if(System.Diagnostics.Process.GetProcesses().Length>0&&
       Array.Exists(System.Diagnostics.Process.GetProcesses(),p=>p.ProcessName.StartsWith("fs2_open",StringComparison.OrdinalIgnoreCase)))

@@ -3,11 +3,35 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Web.Script.Serialization;
+using Microsoft.Win32.SafeHandles;
 using System.Windows.Forms;
 
 [assembly: System.Reflection.AssemblyTitle("Flight Control Setup")]
 [assembly: System.Reflection.AssemblyDescription("Installs and repairs Flight Control, a gamepad add-on for Fate of the Galaxy.")]
+
+// Setup is a Windows-program (no console of its own), so "Setup.exe --install ..." in a command prompt would show
+// nothing. Attach to the console it was started from, or to the redirected output when there is one.
+static class CliConsole {
+    [DllImport("kernel32.dll")] static extern bool AttachConsole(int processId);
+    [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int handle);
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    static extern IntPtr CreateFile(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+    // True when someone can see what is written; "attached" is true when a parent console was joined.
+    internal static bool Attach(out bool attached) {
+        attached = false;
+        IntPtr handle = GetStdHandle(-11);
+        if (handle != IntPtr.Zero && handle != new IntPtr(-1)) return true;
+        if (!AttachConsole(-1)) return false;
+        IntPtr con = CreateFile("CONOUT$", 0x40000000, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
+        if (con == new IntPtr(-1)) return false;
+        var writer = new StreamWriter(new FileStream(new SafeFileHandle(con, true), FileAccess.Write)) { AutoFlush = true };
+        Console.SetOut(writer); Console.SetError(writer);
+        attached = true;
+        return true;
+    }
+}
 
 internal sealed class WheelSetup : Form {
     static readonly Color Background = Color.Black;
@@ -256,9 +280,9 @@ internal sealed class WheelSetup : Form {
         }
         Check();
     }
-    static string GameLibrary(string root) { return Path.Combine(root, "kn_portable", "Library", "FotG_R"); }
+    static string GameLibrary(string root) { return Path.Combine(GameLayout.Library(root), "FotG_R"); }
     static string GameManifest(string root, string version) {
-        return version=="2.0.2" ? Path.Combine(root, @"kn_portable\Library\FotG_2\FotG_2-2.0.2\mod.json") : Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json");
+        return version=="2.0.2" ? Path.Combine(GameLayout.Library(root), @"FotG_2\FotG_2-2.0.2\mod.json") : Path.Combine(GameLibrary(root), "FotG_R-" + version, "mod.json");
     }
     // The newest supported release present, or null.
     static string GameVersion(string root) {
@@ -275,7 +299,7 @@ internal sealed class WheelSetup : Form {
     static string FindGame() {
         string here = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         string parent = Path.GetDirectoryName(here);
-        string[] direct = { here, parent, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Fate of the Galaxy 1.1.0"), @"C:\Games\Fate of the Galaxy 1.1.0", @"C:\Games\FotG" };
+        string[] direct = { here, parent, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Fate of the Galaxy 1.1.0"), @"C:\Games\Fate of the Galaxy 1.1.0", @"C:\Games\FotG", GameLayout.KnossosLibrary(), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Freespace2-mods") };
         foreach (string path in direct) if (!String.IsNullOrEmpty(path) && LooksLikeGame(path)) return path;
         foreach (string basePath in new[] { parent, @"C:\Games" }) {
             if (String.IsNullOrEmpty(basePath) || !Directory.Exists(basePath)) continue;
@@ -284,7 +308,7 @@ internal sealed class WheelSetup : Form {
         }
         return "";
     }
-    void Browse() { using (var dialog = new FolderBrowserDialog { Description = "Choose the Fate of the Galaxy folder containing kn_portable" }) {
+    void Browse() { using (var dialog = new FolderBrowserDialog { Description = "Choose the Fate of the Galaxy folder: the one containing kn_portable, or your Knossos library folder" }) {
         if (dialog.ShowDialog(this) == DialogResult.OK) gamePath.Text = dialog.SelectedPath;
     } }
     void Check() {
@@ -294,10 +318,10 @@ internal sealed class WheelSetup : Form {
         play.Enabled = false;
         configure.Enabled = false;
         string root = gamePath.Text.Trim().Trim('"');
-        if (root.Length == 0) { verdict.Text = "CHOOSE THE FATE OF THE GALAXY GAME FOLDER"; details.Text = "Select the folder that contains kn_portable. The game must be installed separately."; return; }
+        if (root.Length == 0) { verdict.Text = "CHOOSE THE FATE OF THE GALAXY GAME FOLDER"; details.Text = "Select the folder that contains kn_portable, or your Knossos library folder (the one that holds FotG_R or FotG_2 and bin). The game must be installed separately."; return; }
         try { root = Path.GetFullPath(root); } catch { verdict.Text = "INVALID FOLDER PATH"; details.Text = "Choose the game folder with Browse game."; return; }
         // Report the actual problem: wrong folder, unsupported release, or missing engine.
-        if (!Directory.Exists(Path.Combine(root, "kn_portable"))) { verdict.Text = "GAME FOLDER NOT FOUND"; details.Text = "This folder has no kn_portable folder. Choose the Fate of the Galaxy folder that contains kn_portable."; return; }
+        if (!GameLayout.Valid(root)) { verdict.Text = "GAME FOLDER NOT FOUND"; details.Text = GameLayout.WhatIsWrong(root); return; }
         string version = GameVersion(root);
         usingOverride = false;
         verifiedOnline = false;
@@ -312,7 +336,7 @@ internal sealed class WheelSetup : Form {
                 SetOverride(false);
                 string[] found = InstalledVersions(root);
                 verdict.Text = "UNSUPPORTED GAME VERSION";
-                details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in kn_portable\\Library\\FotG_R.\r\n")
+                details.Text = (found.Length > 0 ? "Installed: Fate of the Galaxy " + String.Join(", ", found) + ".\r\n" : "No Fate of the Galaxy release was found in the game library's FotG_R folder.\r\n")
                     + "This build supports Fate of the Galaxy " + SupportedText() + "." + (pendingUpdate != null ? " Flight Control " + pendingUpdate.Version + " is available: click UPDATE above." : " Check for a newer Flight Control release at manictrashpanda.dev/games/FotGFlightControl.")
                     + (newest != null ? "\r\n\r\nIf you know " + newest + " works, tick OVERRIDE VERSION CHECK to install anyway. Compatibility cannot be guaranteed while the override is in use, until Flight Control is updated for this version." : "");
                 return;
@@ -323,13 +347,13 @@ internal sealed class WheelSetup : Form {
         }
         checkedVersion = version;
         EngineInfo engine = GameInstall.FindEngine(root, version);
-        if (engine == null) { verdict.Text = "GAME ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO engine in kn_portable\\Library\\bin. Launch the game once from Knossos (or use Modify > Verify there) so it installs the engine, then click Check again."; return; }
+        if (engine == null) { verdict.Text = "GAME ENGINE NOT FOUND"; details.Text = "Fate of the Galaxy " + version + " was found, but not its FSO engine in the game library's bin folder. Launch the game once from Knossos (or use Modify > Verify there) so it installs the engine, then click Check again."; return; }
         try {
             var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<System.Collections.Generic.Dictionary<string, object>>(File.ReadAllText(GameManifest(root, version)));
             if (!manifest.ContainsKey("version") || Convert.ToString(manifest["version"]) != version) { verdict.Text = "UNSUPPORTED GAME VERSION"; details.Text = "The FotG_R-" + version + " folder's manifest reports a different version. Repair the game in Knossos, then click Check again."; return; }
         } catch { verdict.Text = "GAME MANIFEST COULD NOT BE READ"; details.Text = "The game installation may be incomplete."; return; }
         validatedRoot = root;
-        string prefs = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen", "data");
+        string prefs = Path.Combine(GameLayout.Prefs(root), "data");
         bool ini = File.Exists(Path.Combine(prefs, version=="2.0.2"?"FotG_2_settings.ini":"FotG_R_settings.ini"));
         string pilots = Path.Combine(prefs, "players");
         bool pilot = false;
@@ -385,14 +409,29 @@ internal sealed class WheelSetup : Form {
     // installs without the window; output goes to standard output, exit code 0 on success.
     static int InstallCli(string[] args) {
         Func<string, string> value = name => { int i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; };
+        bool attached;
+        bool visible = CliConsole.Attach(out attached);
+        if (attached) Console.Out.WriteLine();
+        var report = new System.Text.StringBuilder();
+        Action<string> say = line => { report.AppendLine(line); if (visible) Console.Out.WriteLine(line); };
         string game = value("--game");
-        if (game == null) { Console.Error.WriteLine("Usage: Setup.exe --install --game <folder> [--game-version <version>] [--override-version-check] [--skip-pilot-reservation]"); return 2; }
+        if (game == null) {
+            say("Usage: Setup.exe --install --game <folder> [--game-version <version>] [--override-version-check] [--skip-pilot-reservation]");
+            say("<folder> is the folder that contains kn_portable, or your Knossos library folder (for example Documents\\Freespace2-mods).");
+            if (!visible) MessageBox.Show(report.ToString().Trim(), "Flight Control Setup");
+            return 2;
+        }
         try {
             Installer.Run(new InstallOptions { GameRoot = game.Trim('"'), GameVersion = value("--game-version"), PackageRoot = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
                 OverrideVersionCheck = args.Contains("--override-version-check"), SkipPilotReservation = args.Contains("--skip-pilot-reservation") },
-                line => Console.Out.WriteLine(line), line => Console.Out.WriteLine("WARNING: " + line));
-            Console.Out.Flush(); return 0;
-        } catch (Exception e) { Console.Out.WriteLine(e.Message); Console.Out.Flush(); return 1; }
+                line => say(line), line => say("WARNING: " + line));
+            if (visible) Console.Out.Flush();
+            return 0;
+        } catch (Exception e) {
+            say(e.Message);
+            if (visible) Console.Out.Flush(); else MessageBox.Show(report.ToString().Trim(), "Flight Control Setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 1;
+        }
     }
     void OpenInstalled(string name) {
         if (validatedRoot == null) throw new InvalidOperationException("Choose the game folder first.");

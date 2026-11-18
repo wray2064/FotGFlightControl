@@ -9,7 +9,7 @@ does not include the game or engine.
    Connect your gamepad before running Setup.
 2. Download the gamepad wheel release ZIP and extract the whole folder.
 3. Double-click **Setup.exe**. It finds common game locations; use **Browse game**
-   if it does not find yours. Select the folder containing `kn_portable`.
+   if it does not find yours. Select the folder that contains `kn_portable` (portable Knossos), or your Knossos library folder (full Knossos: the folder that holds `FotG_2` and `bin`, by default `Documents\Freespace2-mods`; Knossos shows it in Settings).
 4. Click **Install / Repair**. Setup backs up existing pilot controls and any
    earlier Flight Control files, then identifies the connected controller through
    the engine's SDL library.
@@ -76,7 +76,9 @@ backup**. The console saves both the bridge slot and FSO joystick. Restart
 the game. A disconnected saved pad will not silently switch to another one.
 
 Advanced users can run `Setup.exe --install --game "C:\path\to\Fate of the Galaxy"`
-from a command prompt; it prints each step and exits with 0 on success. Add
+from a command prompt (the folder is the one that holds `kn_portable`, or your Knossos library folder; no
+backslash at the end); it prints each step in that window and exits with 0 on success. The prompt returns
+at once because Setup is a Windows program; in PowerShell use `Start-Process -Wait` to wait for it. Add
 `--skip-pilot-reservation` to leave pilots unchanged. This is the same Install /
 Repair the window runs; Setup never runs a script.
 

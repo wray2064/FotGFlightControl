@@ -29,7 +29,7 @@ static class Installer {
     static readonly UTF8Encoding Utf8NoBom = new UTF8Encoding(false);
 
     static string Stamp() { return DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"); }
-    static string Release(string root, string version) { return Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version); }
+    static string Release(string root, string version) { return Path.Combine(GameLayout.Library(root), "FotG_R", "FotG_R-" + version); }
 
     public static void Run(InstallOptions o, Action<string> log, Action<string> warn) {
         string root = Path.GetFullPath(o.GameRoot).TrimEnd('\\');
@@ -49,13 +49,13 @@ static class Installer {
             gameVersion = SupportedVersions.FirstOrDefault(v => File.Exists(Path.Combine(Release(root, v), "mod.json")));
         }
         if (gameVersion == null)
-            throw new InstallException("Select a complete Fate of the Galaxy " + supportedText + " Windows installation (the folder containing kn_portable).");
+            throw new InstallException("Select a complete Fate of the Galaxy " + supportedText + " Windows installation (the folder containing kn_portable, or your Knossos library folder). " + GameLayout.WhatIsWrong(root));
         if (versionOverridden)
             warn("VERSION CHECK OVERRIDDEN: Fate of the Galaxy " + gameVersion + " is not on this build's supported list (" + supportedText + "). Compatibility cannot be guaranteed until Flight Control is updated for this version.");
 
         EngineInfo engine = GameInstall.FindEngine(root, gameVersion);
         if (engine == null)
-            throw new InstallException("Fate of the Galaxy " + gameVersion + " was found, but not its FSO engine in kn_portable\\Library\\bin. Launch the game once from Knossos so it installs the engine, then try again.");
+            throw new InstallException("Fate of the Galaxy " + gameVersion + " was found, but not its FSO engine in the game library's bin folder. Launch the game once from Knossos so it installs the engine, then try again.");
         string engineSdl = engine.Sdl3 ? "sdl3" : "sdl2";
         log("Engine: " + engine.Label);
         var manifest = new JavaScriptSerializer { MaxJsonLength = 16777216 }.Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(Release(root, gameVersion), "mod.json")));
@@ -73,7 +73,7 @@ static class Installer {
             throw new InstallException("The control defaults of Fate of the Galaxy " + gameVersion + " are not in a layout Flight Control recognises, so nothing was changed. Wait for a Flight Control update for this version. Details: " + e.Message);
         }
 
-        string prefsData = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen", "data");
+        string prefsData = Path.Combine(GameLayout.Prefs(root), "data");
         if (!o.SkipPilotReservation) {
             string players = Path.Combine(prefsData, "players");
             if (!Directory.Exists(players) || !File.Exists(Path.Combine(prefsData, "FotG_R_settings.ini")))
@@ -228,7 +228,7 @@ static class Installer {
     static void InstallMyMod(InstallOptions o, string root, Action<string> log) {
         if (Running("fs2_open") || Running("WheelBridge") || (!o.KeepHangarBay && Running("Hangar Bay")))
             throw new InstallException("Close the game, WheelBridge, and Hangar Bay before installing.");
-        string prefs = Path.Combine(root, @"kn_portable\HardLightProductions\FreeSpaceOpen");
+        string prefs = GameLayout.Prefs(root);
         string ini = Path.Combine(prefs, @"data\FotG_2_settings.ini");
         string players = Path.Combine(prefs, @"data\players");
         if (!File.Exists(ini) || !Directory.Exists(players) || !Directory.GetFiles(players, "*.json").Any())
@@ -238,7 +238,7 @@ static class Installer {
         string source = Path.Combine(o.PackageRoot, "FotG_Gamepad_Wheel");
         string support = Path.Combine(root, "Flight Control Console");
         string core = GameInstall.MyModCore(root);
-        string stock = Path.Combine(root, @"kn_portable\Library\FotG_2\FotG_2-2.0.2\FG_Core\data\tables\Controlconfigdefaults.tbl");
+        string stock = Path.Combine(GameLayout.Library(root), @"FotG_2\FotG_2-2.0.2\FG_Core\data\tables\Controlconfigdefaults.tbl");
         string table = Path.Combine(core, @"data\tables\Controlconfigdefaults.tbl");
         string config = Path.Combine(core, @"data\tables\lua\zz_fotg_wheel_config-sct.lua");
         if (!File.Exists(stock))
@@ -302,7 +302,7 @@ static class Installer {
             }
             throw;
         }
-        log("Installed Flight Control into MyMod. Open Hangar Bay.exe beside Knossos.NET.exe.");
+        log("Installed Flight Control into MyMod. Open Hangar Bay.exe in " + root + ".");
     }
 
     static bool Running(string prefix) {
@@ -431,7 +431,7 @@ static class Presets {
 
     // Knossos installs a release as package folders (FG_Core\data\...) or one merged data folder.
     public static string TablePath(string root, string version) {
-        string release = Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version);
+        string release = Path.Combine(GameLayout.Library(root), "FotG_R", "FotG_R-" + version);
         foreach (string c in new[] { @"FG_Core\data\tables\Controlconfigdefaults.tbl", @"data\tables\Controlconfigdefaults.tbl" }) {
             string p = Path.Combine(release, c);
             if (File.Exists(p)) return p;
