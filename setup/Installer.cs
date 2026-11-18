@@ -48,8 +48,10 @@ static class Installer {
         } else {
             gameVersion = SupportedVersions.FirstOrDefault(v => File.Exists(Path.Combine(Release(root, v), "mod.json")));
         }
+        if (gameVersion == null && File.Exists(Path.Combine(GameLayout.Library(root), "FotG_2", "FotG_2-2.0.2", "mod.json")))
+            throw new InstallException("Fate of the Galaxy 2.0.2 was found, but not a MyMod for it. Flight Control installs into a MyMod: in Knossos, create a MyMod for Fate of the Galaxy 2 (it appears as MyMod-1.0.0 inside the FotG_2 folder of your library), then run Setup again.");
         if (gameVersion == null)
-            throw new InstallException("Select a complete Fate of the Galaxy " + supportedText + " Windows installation (the folder containing kn_portable, or your Knossos library folder). " + GameLayout.WhatIsWrong(root));
+            throw new InstallException("Select a complete Fate of the Galaxy " + supportedText + " Windows installation (the folder containing kn_portable, or your Knossos library folder)." + (GameLayout.Valid(root) ? "" : " " + GameLayout.WhatIsWrong(root)));
         if (versionOverridden)
             warn("VERSION CHECK OVERRIDDEN: Fate of the Galaxy " + gameVersion + " is not on this build's supported list (" + supportedText + "). Compatibility cannot be guaranteed until Flight Control is updated for this version.");
 
