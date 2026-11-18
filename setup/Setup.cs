@@ -286,7 +286,7 @@ internal sealed class WheelSetup : Form {
     }
     // The newest supported release present, or null.
     static string GameVersion(string root) {
-        if (GameInstall.HasMyMod(root) && File.Exists(GameManifest(root,"2.0.2"))) return "2.0.2";
+        if (File.Exists(GameManifest(root,"2.0.2")) && (GameInstall.HasMyMod(root) || !SupportedVersions.Any(v => File.Exists(GameManifest(root, v))))) return "2.0.2";
         foreach (string version in SupportedVersions) if (File.Exists(GameManifest(root, version))) return version;
         return null;
     }
@@ -326,11 +326,6 @@ internal sealed class WheelSetup : Form {
         usingOverride = false;
         verifiedOnline = false;
         checkedVersion = null;
-        if (version == null && File.Exists(GameManifest(root, "2.0.2")) && !GameInstall.HasMyMod(root)) {
-            verdict.Text = "MYMOD NOT FOUND";
-            details.Text = "Fate of the Galaxy 2.0.2 was found, but not a MyMod for it. Flight Control installs into a MyMod: in Knossos, create a MyMod for Fate of the Galaxy 2 (it appears as MyMod-1.0.0 inside the FotG_2 folder of your library), then run Setup again.";
-            return;
-        }
         if (version == null) {
             string newest = NewestInstalledVersion(root);
             ShowOverride(newest != null);

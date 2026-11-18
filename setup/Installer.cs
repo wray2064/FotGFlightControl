@@ -33,6 +33,8 @@ static class Installer {
 
     public static void Run(InstallOptions o, Action<string> log, Action<string> warn) {
         string root = Path.GetFullPath(o.GameRoot).TrimEnd('\\');
+        // FotG 2 with no classic release: make sure its MyMod exists (a vanilla Knossos cannot create one).
+        if (!SupportedVersions.Any(v => File.Exists(Path.Combine(Release(root, v), "mod.json")))) MyModTemplate.Ensure(root, log);
         if (GameInstall.HasMyMod(root)) { InstallMyMod(o, root, log); return; }
         string supportedText = String.Join(", ", SupportedVersions.Reverse());
         bool versionOverridden = false;
@@ -48,8 +50,6 @@ static class Installer {
         } else {
             gameVersion = SupportedVersions.FirstOrDefault(v => File.Exists(Path.Combine(Release(root, v), "mod.json")));
         }
-        if (gameVersion == null && File.Exists(Path.Combine(GameLayout.Library(root), "FotG_2", "FotG_2-2.0.2", "mod.json")))
-            throw new InstallException("Fate of the Galaxy 2.0.2 was found, but not a MyMod for it. Flight Control installs into a MyMod: in Knossos, create a MyMod for Fate of the Galaxy 2 (it appears as MyMod-1.0.0 inside the FotG_2 folder of your library), then run Setup again.");
         if (gameVersion == null)
             throw new InstallException("Select a complete Fate of the Galaxy " + supportedText + " Windows installation (the folder containing kn_portable, or your Knossos library folder)." + (GameLayout.Valid(root) ? "" : " " + GameLayout.WhatIsWrong(root)));
         if (versionOverridden)
@@ -240,7 +240,11 @@ static class Installer {
         string source = Path.Combine(o.PackageRoot, "FotG_Gamepad_Wheel");
         string support = Path.Combine(root, "Flight Control Console");
         string core = GameInstall.MyModCore(root);
-        string stock = Path.Combine(GameLayout.Library(root), @"FotG_2\FotG_2-2.0.2\FG_Core\data\tables\Controlconfigdefaults.tbl");
+        // Knossos installs FotG 2 either as one folder per package (FG_Core\...) or merged into one data folder.
+        string fotg2 = Path.Combine(GameLayout.Library(root), "FotG_2", "FotG_2-2.0.2");
+        string stock = Path.Combine(fotg2, "FG_Core", "data", "tables", "Controlconfigdefaults.tbl");
+        if (!File.Exists(stock) && File.Exists(Path.Combine(fotg2, "data", "tables", "Controlconfigdefaults.tbl")))
+            stock = Path.Combine(fotg2, "data", "tables", "Controlconfigdefaults.tbl");
         string table = Path.Combine(core, @"data\tables\Controlconfigdefaults.tbl");
         string config = Path.Combine(core, @"data\tables\lua\zz_fotg_wheel_config-sct.lua");
         if (!File.Exists(stock))
