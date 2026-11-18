@@ -20,16 +20,77 @@ sealed class EngineInfo {
     public string Label;    // for messages, e.g. "FSO 26.0.1 (SDL2, AVX)"
 }
 
+// Where a Knossos game lives. Portable Knossos keeps everything under <folder>\kn_portable. A full (installed)
+// Knossos keeps the library in a folder of its own (by default Documents\Freespace2-mods), with the mods and the
+// engine builds directly inside it, and the pilots and settings under %APPDATA%\HardLightProductions\FreeSpaceOpen.
+// "root" is the folder the player chooses: the one that holds kn_portable, or the library folder itself.
+static class GameLayout {
+    internal static bool Portable(string root) { return Directory.Exists(Path.Combine(root, "kn_portable")); }
+    internal static bool LooksLikeLibrary(string folder) {
+        try {
+            return Directory.Exists(Path.Combine(folder, "bin"))
+                || Directory.Exists(Path.Combine(folder, "FotG_R")) || Directory.Exists(Path.Combine(folder, "FotG_2"));
+        } catch { return false; }
+    }
+    // A folder Setup can work with: a portable Knossos folder or a Knossos library.
+    internal static bool Valid(string root) { return Portable(root) || LooksLikeLibrary(root); }
+    // The library relative to root ("" when root is the library itself).
+    internal static string LibraryRel(string root) {
+        return Portable(root) || !LooksLikeLibrary(root) ? @"kn_portable\Library" : "";
+    }
+    internal static string Library(string root) { string rel = LibraryRel(root); return rel.Length == 0 ? root : Path.Combine(root, rel); }
+    // A path inside the library, relative to root, for -mod arguments.
+    internal static string Rel(string root, string insideLibrary) {
+        string rel = LibraryRel(root); return rel.Length == 0 ? insideLibrary : rel + @"\" + insideLibrary;
+    }
+    // The FSO preferences folder (the one that holds data\players): inside kn_portable, or in %APPDATA% for a full Knossos.
+    internal static string Prefs(string root) {
+        if (Portable(root) || !LooksLikeLibrary(root)) return Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen");
+        // FSO_PREFERENCES_PATH is the engine's own override for this folder; honour it when it is set.
+        string custom = Environment.GetEnvironmentVariable("FSO_PREFERENCES_PATH");
+        if (!String.IsNullOrEmpty(custom)) return custom;
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HardLightProductions", "FreeSpaceOpen");
+    }
+    // The library folder a full Knossos.NET has saved in its settings, or "".
+    internal static string KnossosLibrary() {
+        try {
+            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KnossosNET", "settings.json");
+            if (!File.Exists(file)) return "";
+            string text = File.ReadAllText(file);
+            int key = text.IndexOf("\"base_path\"", StringComparison.Ordinal);
+            if (key < 0) return "";
+            int at = text.IndexOf(':', key) + 1;
+            while (at > 0 && at < text.Length && Char.IsWhiteSpace(text[at])) at++;
+            if (at <= 0 || at >= text.Length || text[at] != '"') return "";
+            var sb = new System.Text.StringBuilder();
+            for (int i = at + 1; i < text.Length && text[i] != '"'; i++) {
+                if (text[i] == '\\' && i + 1 < text.Length) i++;
+                sb.Append(text[i]);
+            }
+            return sb.ToString();
+        } catch { return ""; }
+    }
+    // Why a folder was refused, in the player's words.
+    internal static string WhatIsWrong(string root) {
+        bool knossosApp = File.Exists(Path.Combine(root, "Knossos.NET.exe")) || File.Exists(Path.Combine(root, "Knossos.NET"));
+        string saved = KnossosLibrary();
+        return (knossosApp ? "This looks like the Knossos app folder, not the game library. " : "This folder has no kn_portable folder and does not look like a Knossos library. ")
+            + "Choose the folder that holds the Fate of the Galaxy mod folders (FotG_R or FotG_2) and bin: the folder that contains kn_portable (portable Knossos), "
+            + "or your Knossos library folder (in Knossos, Settings shows it; the default is Documents\\Freespace2-mods)."
+            + (saved.Length > 0 ? " Knossos reports your library as " + saved + "." : "");
+    }
+}
+
 static class GameInstall {
     const string Sdl3Package = "FSO_2601SDL3-1.0.0";
     [DllImport("kernel32.dll")] static extern bool IsProcessorFeaturePresent(uint feature);
     const uint PF_AVX = 39, PF_AVX2 = 40;
     static bool Has(uint feature) { try { return IsProcessorFeaturePresent(feature); } catch { return false; } }
 
-    static string Bin(string root) { return Path.Combine(root, "kn_portable", "Library", "bin"); }
+    static string Bin(string root) { return Path.Combine(GameLayout.Library(root), "bin"); }
 
     internal static string MyModCore(string root) {
-        return Path.Combine(root, "kn_portable", "Library", "FotG_2", "MyMod-1.0.0", "core");
+        return Path.Combine(GameLayout.Library(root), "FotG_2", "MyMod-1.0.0", "core");
     }
 
     internal static bool HasMyMod(string root) {
@@ -75,7 +136,7 @@ static class GameInstall {
                 return FromFolder(Path.Combine(Bin(root), "FSO_2601SDL3-26.0.1-1"), "FSO 26.0.1-1");
             var sdl3 = FromFolder(Path.Combine(Bin(root), Sdl3Package), "FSO 26.0.1-SDL3");
             if (sdl3 != null) return sdl3;
-            string manifest = Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + gameVersion, "mod.json");
+            string manifest = Path.Combine(GameLayout.Library(root), "FotG_R", "FotG_R-" + gameVersion, "mod.json");
             string wanted = gameVersion != null ? DependencyVersion(manifest) : null;
             if (wanted != null) {
                 var dep = FromFolder(Path.Combine(Bin(root), "FSO-" + wanted), "FSO " + wanted);

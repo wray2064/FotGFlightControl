@@ -1,6 +1,6 @@
 # Flight Control for Fate of the Galaxy
 
-**Flight Control 1.2.0** supports Fate of the Galaxy 2.0.2 through MyMod and the final classic FotG 1.1.3. On Windows, create a pilot in FotG, close the game, extract the player ZIP, and run Setup.exe. Select the folder containing Knossos and kn_portable. Launch Hangar Bay.exe from that game folder.
+**Flight Control 1.2.1** supports Fate of the Galaxy 2.0.2 through MyMod and the final classic FotG 1.1.3. On Windows, create a pilot in FotG, close the game, extract the player ZIP, and run Setup.exe. Select the folder containing Knossos and kn_portable. Launch Hangar Bay.exe from that game folder.
 
 See [Help](Help.html), the [preview install guide](docs/INSTALL-FLIGHT-CONTROL-2.md), and the [changelog](CHANGELOG.md). The Classic details below describe the established 1.x install path.
 
@@ -33,13 +33,13 @@ The [Flight Response](docs/screenshots/flight-response.jpg), [Macro Deck](docs/s
 
 1. Install Fate of the Galaxy 1.1.0, 1.1.1, 1.1.2 or 1.1.3 with its FSO 26.0.1 engine. Run the unmodified game once and create a pilot, then exit. Connect the gamepad before running Setup.
 2. Extract the entire ZIP. Close the game and any older FotG controller companion.
-3. Double-click **Setup.exe**. It finds common game locations; otherwise choose the folder containing `kn_portable` with **Browse game**. Click **Install / Repair**.
+3. Double-click **Setup.exe**. It finds common game locations; otherwise choose the folder that contains `kn_portable` (portable Knossos), or your Knossos library folder (full Knossos: the folder that holds `FotG_2` and `bin`, by default `Documents\Freespace2-mods`; Knossos shows it in Settings) with **Browse game**. Click **Install / Repair**.
 4. Open **Hangar Bay.exe** in the game folder. On Deploy, choose the base game or an installed mission pack, then launch Standard Flight or OpenXR VR. The original game launcher runs without Flight Control.
 5. Use Hangar Bay **Console** for flight response, macros, axes, wheel text and button actions; **Service** for backups, repair and controller selection; and **Guide** for built-in help. Advanced wheel layouts can be shared as JSON profiles. Save Wheel and restart the game after wheel changes.
 
 To switch controllers, close the game, open Hangar Bay **Service → Choose controller** (or Console → Flight Response), choose the XInput slot whose preview responds, and press **Apply with backup**. The console matches that slot to FSO's SDL joystick and saves both choices in the active game profile. Restart the game afterward. If SDL cannot identify which physical pad matches the slot, choose it from the device list. A disconnected saved slot stays disconnected in game instead of silently controlling the ship with another pad.
 
-See the [step-by-step installation guide](docs/INSTALL.md) and [test checklist](docs/TESTING.md). Setup installs by itself and runs no scripts. Advanced users can run the same install from a command prompt: `Setup.exe --install --game "C:\path\to\Fate of the Galaxy"`.
+See the [step-by-step installation guide](docs/INSTALL.md) and [test checklist](docs/TESTING.md). Setup installs by itself and runs no scripts. Advanced users can run the same install from a command prompt. From a command prompt or PowerShell, run `Setup.exe --install --game "<folder>"`, where `<folder>` is the folder described above, with no backslash at the end. Setup is a Windows program, so the prompt returns at once; the output appears in the same window. To wait for it, use `Start-Process .\Setup.exe -ArgumentList '--install','--game','<folder>' -Wait` in PowerShell.
 
 The installer checks the game/engine version, copies only its own `GamepadMods/FotG_Gamepad_Wheel` directory, and creates two launchers. The wheel launcher uses a separate `GamepadMods_settings.ini` profile; installation identifies the connected controller through the engine's own SDL library (SDL2 or SDL3) and selects it in that profile, together with the order of its stick axes, backing up any prior profile. The Hangar Bay Console edits this active profile. The installer also backs up each existing native v4 pilot before reserving A, B, X, Y, LB, RB, Start, L3, R3 and D-pad joystick bindings; those inputs are delivered to the wheel instead. RT produces the normal mouse-primary-fire input in flight. Existing keyboard bindings, game scripts, engine, campaigns and saves remain in place. Add `--skip-pilot-reservation` to `Setup.exe --install` to install files without changing pilots, then press **Reserve wheel buttons** in the console for each pilot before testing.
 

@@ -36,9 +36,9 @@ static class FlightDevices {
  static string GameVersion(string root){
   string overridePath=Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","version-override.txt");
   if(File.Exists(overridePath)){string value=File.ReadAllText(overridePath).Trim();
-   if(Regex.IsMatch(value,@"^\d+(\.\d+){1,3}$")&&File.Exists(Path.Combine(root,"kn_portable","Library","FotG_R","FotG_R-"+value,"mod.json")))return value;}
+   if(Regex.IsMatch(value,@"^\d+(\.\d+){1,3}$")&&File.Exists(Path.Combine(GameLayout.Library(root),"FotG_R","FotG_R-"+value,"mod.json")))return value;}
   foreach(string value in new[]{"1.1.3","1.1.2","1.1.1","1.1.0"})
-   if(File.Exists(Path.Combine(root,"kn_portable","Library","FotG_R","FotG_R-"+value,"mod.json")))return value;
+   if(File.Exists(Path.Combine(GameLayout.Library(root),"FotG_R","FotG_R-"+value,"mod.json")))return value;
   return null;
  }
  public static List<FlightDevice> List(string gameRoot){

@@ -40,7 +40,7 @@ internal static class HangarProgram {
  // Returns the files that could not be removed.
  internal static List<string> RemoveInstalled(string game){
   string root=Path.GetFullPath(game).TrimEnd('\\');
-  if(!Directory.Exists(Path.Combine(root,"kn_portable")))throw new Exception("This is not a Fate of the Galaxy folder; nothing was removed.");
+  if(!GameLayout.Valid(root))throw new Exception("This is not a Fate of the Galaxy folder; nothing was removed.");
   if(GameInstall.HasMyMod(root)){var gone=new List<string>();RemoveMyMod(root,gone);return gone;}
   string addon=Path.GetFullPath(Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel"));
   string parent=Path.GetFullPath(Path.Combine(root,"GamepadMods"));
@@ -144,7 +144,7 @@ internal sealed class HangarBay : Form {
   backups.Resize+=delegate{FitBackupColumns();};
  }
  void FitBackupColumns(){if(backups.Columns.Count<3)return;int w=Math.Max(300,backups.ClientSize.Width-4);int a=Math.Max(190,(int)(w*0.24)),b=Math.Max(190,(int)(w*0.25));backups.Columns[0].Width=a;backups.Columns[1].Width=b;backups.Columns[2].Width=Math.Max(80,w-a-b);}
- static string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');while(p!=null){if(Directory.Exists(Path.Combine(p,"kn_portable")))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
+ static string FindGame(){string p=AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');while(p!=null){if(GameLayout.Valid(p))return p;var d=Directory.GetParent(p);p=d==null?null:d.FullName;}return "";}
  void Nav(FlowLayoutPanel bar,string name,Action action){int index=navButtons.Count;var b=Button(name,delegate{SetSection(index);action();});b.Kind=ButtonKind.Nav;b.Width=198;b.Height=56;b.Margin=new Padding(0,0,0,6);navButtons.Add(b);bar.Controls.Add(b);}
  VectorButton Button(string name,Action action){var b=new VectorButton{Text=name,Height=48,BackColor=Color.FromArgb(10,29,40),ForeColor=ink,Font=new Font("Consolas",11,FontStyle.Bold),Cursor=Cursors.Hand,AccessibleName=name};b.Click+=delegate{try{action();}catch(Exception e){MessageBox.Show(e.Message,"Hangar Bay",MessageBoxButtons.OK,MessageBoxIcon.Error);}};return b;}
  Label Label(string text,int height,int size=11){return new Label{Text=text,Dock=DockStyle.Top,Height=height,ForeColor=ink,Font=new Font("Consolas",size,FontStyle.Bold),Padding=new Padding(0,8,0,0)};}
@@ -165,7 +165,7 @@ internal sealed class HangarBay : Form {
   p.Controls.Add(content);p.Controls.SetChildIndex(content,0);RefreshPacks();
  }
  void RefreshPacks(){bool myMod=GameInstall.HasMyMod(root);packs.Items.Clear();packs.Items.Add(new Pack{Name=myMod?"Fate of the Galaxy 2 / MyMod":"Fate of the Galaxy / base game",Path=null});
-  string library=Path.Combine(root,"kn_portable","Library");if(Directory.Exists(library))foreach(string manifest in Directory.GetFiles(library,"mod.json",SearchOption.AllDirectories)){
+  string library=GameLayout.Library(root);if(Directory.Exists(library))foreach(string manifest in Directory.GetFiles(library,"mod.json",SearchOption.AllDirectories)){
    try{string folder=Path.GetDirectoryName(manifest);if(folder.IndexOf(Path.DirectorySeparatorChar+"bin"+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)>=0)continue;
     var obj=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(manifest));string id=Convert.ToString(obj.ContainsKey("id")?obj["id"]:"");
     if(id=="MyMod"||!obj.ContainsKey("parent")||Convert.ToString(obj["parent"])!=(myMod?"FotG_2":"FotG_R"))continue;
@@ -201,7 +201,7 @@ internal sealed class HangarBay : Form {
   var listLabel=Label("BACKUPS   /   SELECT A ROW, THEN OPEN BACKUP",40,10);listLabel.ForeColor=muted;listLabel.Padding=new Padding(0,16,0,0);p.Controls.Add(listLabel);p.Controls.SetChildIndex(listLabel,0);
   backups.Columns.Clear();backups.Columns.Add("Date / snapshot",220);backups.Columns.Add("Category",190);backups.Columns.Add("Folder",570);FitBackupColumns();backups.Dock=DockStyle.Fill;p.Controls.Add(backups);p.Controls.SetChildIndex(backups,0);RefreshBackups();
  }
- void RefreshBackups(){backups.Items.Clear();string[] sources={Path.Combine(root,"GamepadMods","_WheelInstallBackups"),Path.Combine(root,"kn_portable","HardLightProductions","FreeSpaceOpen","ControllerSetupBackups")};foreach(string folder in sources)if(Directory.Exists(folder))foreach(string path in Directory.GetDirectories(folder).OrderByDescending(x=>x)){var row=new ListViewItem(Path.GetFileName(path));row.SubItems.Add(folder.Contains("_Wheel")?"Installer snapshot":"Pilot and settings");row.SubItems.Add(path);row.Tag=path;backups.Items.Add(row);}}
+ void RefreshBackups(){backups.Items.Clear();string[] sources={Path.Combine(root,"GamepadMods","_WheelInstallBackups"),Path.Combine(GameLayout.Prefs(root),"ControllerSetupBackups")};foreach(string folder in sources)if(Directory.Exists(folder))foreach(string path in Directory.GetDirectories(folder).OrderByDescending(x=>x)){var row=new ListViewItem(Path.GetFileName(path));row.SubItems.Add(folder.Contains("_Wheel")?"Installer snapshot":"Pilot and settings");row.SubItems.Add(path);row.Tag=path;backups.Items.Add(row);}}
  void OpenBackup(){if(backups.SelectedItems.Count==0)throw new Exception("Select a backup first.");Process.Start("explorer.exe","\""+(string)backups.SelectedItems[0].Tag+"\"");}
  void SelectController(){SetSection(1);ShowConsole();console.FocusControllerSlot();status.Text="  SELECT THE ACTIVE XINPUT SLOT, THEN APPLY WITH BACKUP. RESTART THE GAME TO SWITCH CONTROLLERS.";}
  void Repair(){

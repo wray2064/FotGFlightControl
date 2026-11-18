@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+Setup, Hangar Bay, the Console and the bridge now work with a full (installed) Knossos, not only portable Knossos.
+
+- **Full Knossos installs.** Choose your Knossos library folder (the one that holds `FotG_2` and `bin`, by default `Documents\Freespace2-mods`). Pilots and settings are read from `%APPDATA%\HardLightProductions\FreeSpaceOpen`. If you pick the Knossos app folder, Setup now says which folder to choose.
+- **`Setup.exe --install` prints its output** in the command prompt it was started from, and shows a message when it fails and no prompt is attached.
+
 ## 1.2.0
 
 One release for Fate of the Galaxy 2.0.2 and the final classic FotG 1.1.3. Changes since 1.1.4:

@@ -290,7 +290,7 @@ sealed class Bridge : ApplicationContext {
         this.vrMode = vrMode;
         this.extraMod = extraMod;
         root = Path.GetFullPath(gameRoot);
-        preferences = Path.Combine(root, "kn_portable", "HardLightProductions", "FreeSpaceOpen");
+        preferences = GameLayout.Prefs(root);
         inputPath = Path.Combine(preferences, "data", "players", "fotg-wheel-input.txt");
         statePath = Path.Combine(preferences, "data", "players", "fotg-wheel-state.txt");
         bool myMod = GameInstall.HasMyMod(root);
@@ -328,13 +328,13 @@ sealed class Bridge : ApplicationContext {
         string version = GameVersion(root);
         if (version == null) throw new FileNotFoundException("No supported Fate of the Galaxy release (" + String.Join(", ", SupportedVersions) + ") was found in this game folder. If the game was updated, run Flight Control Setup again.");
         EngineInfo engine = GameInstall.FindEngine(root, version);
-        if (engine == null) throw new FileNotFoundException("The Fate of the Galaxy engine (FSO) was not found in kn_portable\\Library\\bin. Launch the game once from Knossos, then try again.");
+        if (engine == null) throw new FileNotFoundException("The Fate of the Galaxy engine (FSO) was not found in the game library's bin folder. Launch the game once from Knossos, then try again.");
         string exe = engine.Exe;
-        string basePath = @"kn_portable\Library\FotG_R\FotG_R-" + version;
+        string basePath = GameLayout.Rel(root, @"FotG_R\FotG_R-" + version);
         StringBuilder paths = new StringBuilder(@"GamepadMods\FotG_Gamepad_Wheel");
         if (!String.IsNullOrEmpty(extraMod)) {
             string selected = Path.GetFullPath(Path.Combine(root, extraMod));
-            string library = Path.GetFullPath(Path.Combine(root, "kn_portable", "Library"));
+            string library = Path.GetFullPath(GameLayout.Library(root));
             if (!selected.StartsWith(library + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                 || !File.Exists(Path.Combine(selected, "mod.json")))
                 throw new InvalidOperationException("The selected mission pack must be an installed Knossos mod in this game library.");
@@ -351,7 +351,7 @@ sealed class Bridge : ApplicationContext {
         game = Process.Start(info);
     }
     void LaunchMyMod() {
-        string library = Path.Combine(root, "kn_portable", "Library");
+        string library = GameLayout.Library(root);
         const string wheel = @"FotG_2\MyMod-1.0.0\core";
         const string basePath = @"FotG_2\FotG_2-2.0.2";
         if (!File.Exists(Path.Combine(library, wheel, @"data\tables\lua\zzz_fotg_wheel-sct.lua")))
@@ -381,7 +381,7 @@ sealed class Bridge : ApplicationContext {
     static readonly string[] SupportedVersions = { "1.1.3", "1.1.2", "1.1.1", "1.1.0" };
     static readonly string[] GamePackages = {"FG_Core", "FG_Effects", "FG_Maps1", "FG_Maps2", "FG_Maps3", "FG_Maps4", "FG_Maps5", "FG_Models", "FG_Music", "FG_SndVA", "FG_UI"};
     static bool HasRelease(string root, string version) {
-        return File.Exists(Path.Combine(root, "kn_portable", "Library", "FotG_R", "FotG_R-" + version, "mod.json"));
+        return File.Exists(Path.Combine(GameLayout.Library(root), "FotG_R", "FotG_R-" + version, "mod.json"));
     }
     // An install with the version check overridden records its release in version-override.txt;
     // otherwise the newest supported release present is used.
