@@ -54,7 +54,11 @@ static class GameLayout {
     // The library folder a full Knossos.NET has saved in its settings, or "".
     internal static string KnossosLibrary() {
         try {
-            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KnossosNET", "settings.json");
+            string data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KnossosNET");
+            string file = Path.Combine(data, "settings.json");
+            if (!File.Exists(file) && Directory.Exists(data))
+                foreach (string sub in Directory.GetDirectories(data))   // a custom launcher keeps it in a folder named for its mod
+                    if (File.Exists(Path.Combine(sub, "settings.json"))) { file = Path.Combine(sub, "settings.json"); break; }
             if (!File.Exists(file)) return "";
             string text = File.ReadAllText(file);
             int key = text.IndexOf("\"base_path\"", StringComparison.Ordinal);
@@ -78,6 +82,83 @@ static class GameLayout {
             + "Choose the folder that holds the Fate of the Galaxy mod folders (FotG_R or FotG_2) and bin: the folder that contains kn_portable (portable Knossos), "
             + "or your Knossos library folder (in Knossos, Settings shows it; the default is Documents\\Freespace2-mods)."
             + (saved.Length > 0 ? " Knossos reports your library as " + saved + "." : "");
+    }
+}
+
+// A vanilla Knossos has no way to create the MyMod that Flight Control installs into (only the Fate of the Galaxy 2
+// launcher makes one). Setup creates the same minimal private mod: a mod.json that depends on FotG_2 and the SDL3
+// engine, and an empty core package folder. Knossos lists it as a private mod; nothing of the game itself is touched.
+static class MyModTemplate {
+    const string Json = @"{
+  ""mod_source"": ""nebula"",
+  ""installed"": true,
+  ""id"": ""MyMod"",
+  ""title"": ""MyMod"",
+  ""type"": ""mod"",
+  ""parent"": ""FotG_2"",
+  ""version"": ""1.0.0"",
+  ""private"": true,
+  ""stability"": null,
+  ""description"": """",
+  ""notes"": """",
+  ""logo"": null,
+  ""tile"": null,
+  ""banner"": null,
+  ""release_thread"": null,
+  ""videos"": [],
+  ""screenshots"": [],
+  ""attachments"": [],
+  ""first_release"": null,
+  ""last_update"": null,
+  ""cmdline"": """",
+  ""mod_flag"": [
+    ""MyMod"",
+    ""FotG_2""
+  ],
+  ""dev_mode"": true,
+  ""custom_build"": null,
+  ""owners"": null,
+  ""packages"": [
+    {
+      ""name"": ""core"",
+      ""notes"": """",
+      ""status"": ""required"",
+      ""dependencies"": [
+        {
+          ""id"": ""FotG_2"",
+          ""version"": "">=2.0.2"",
+          ""packages"": []
+        },
+        {
+          ""id"": ""FSO_2601SDL3"",
+          ""version"": "">=26.0.1-1"",
+          ""packages"": []
+        }
+      ],
+      ""environment"": null,
+      ""folder"": ""core"",
+      ""is_vp"": false,
+      ""files"": [],
+      ""filelist"": [],
+      ""executables"": [],
+      ""check_notes"": null,
+      ""isEnabled"": true
+    }
+  ]
+}";
+
+    internal static bool HasFotG2(string root) {
+        return File.Exists(Path.Combine(GameLayout.Library(root), "FotG_2", "FotG_2-2.0.2", "mod.json"));
+    }
+
+    // Creates MyMod 1.0.0 when FotG 2.0.2 is installed and no MyMod exists. Returns true when it was created.
+    internal static bool Ensure(string root, Action<string> log) {
+        if (GameInstall.HasMyMod(root) || !HasFotG2(root)) return false;
+        string mod = Path.Combine(GameLayout.Library(root), "FotG_2", "MyMod-1.0.0");
+        Directory.CreateDirectory(Path.Combine(mod, "core", "data"));
+        File.WriteAllText(Path.Combine(mod, "mod.json"), Json.Replace("\r\n", "\n").Replace("\n", "\r\n"), new System.Text.UTF8Encoding(false));
+        log("Created MyMod 1.0.0 for Fate of the Galaxy 2 in your library (Knossos lists it as a private mod).");
+        return true;
     }
 }
 
