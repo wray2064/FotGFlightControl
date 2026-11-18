@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.1 HOTAS (experimental)
+## 1.2.2 HOTAS (experimental)
 
 An experimental branch of 1.2.0 with a HOTAS tab, for Fate of the Galaxy **2.0.2 only**. It does not support FotG 1.1.3 or earlier. It is published separately from the regular 1.2.0 download while players help define what the HOTAS support should do before it is merged into the main release.
 
@@ -13,6 +13,7 @@ An experimental branch of 1.2.0 with a HOTAS tab, for Fate of the Galaxy **2.0.2
 - **Shared profiles.** `.fchotas` files with no serial numbers or file paths; a device can be remapped to your own.
 - **Full Knossos installs.** Setup, Hangar Bay, the Console and the bridge now work with a full (installed) Knossos as well as portable Knossos. Choose your Knossos library folder (the one that holds `FotG_2` and `bin`, by default `Documents\Freespace2-mods`); pilots and settings are read from `%APPDATA%\HardLightProductions\FreeSpaceOpen`. If you pick the Knossos app folder, Setup now says which folder to choose.
 - **`Setup.exe --install` prints its output** in the command prompt it was started from, and shows a message when it fails and no prompt is attached.
+- **MyMod is created for you** when FotG 2.0.2 is installed without one (a vanilla Knossos cannot make it), and Fate of the Galaxy 2 installed by a vanilla Knossos (data merged in one folder) is found. Setup also finds your library from a custom launcher's Knossos settings.
 - Updates for this build come from the HOTAS page, so the regular 1.2.0 download is never offered as an update.
 
 Everything in 1.2.0 below is included.
