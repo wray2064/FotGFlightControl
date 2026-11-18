@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2
+
+Works with a vanilla (full) Knossos library that has no MyMod and keeps Fate of the Galaxy 2's data merged.
+
+- **MyMod is created for you.** A vanilla Knossos cannot make the MyMod that Flight Control installs into (only the Fate of the Galaxy 2 launcher does), so Setup now creates the same minimal private mod when FotG 2.0.2 is installed without one.
+- **Fate of the Galaxy 2 installed by a vanilla Knossos** keeps its data in one folder (`data	ables`) instead of per-package folders; Setup now finds the control table in either layout.
+- Setup also finds your library from a custom launcher's own Knossos settings.
+
 ## 1.2.1
 
 Setup, Hangar Bay, the Console and the bridge now work with a full (installed) Knossos, not only portable Knossos.
