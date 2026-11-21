@@ -89,7 +89,7 @@ internal sealed class HangarBay : Form {
   navigation.Controls.Add(heading);
   var menu=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(8,8,8,0)};
   navigation.Controls.Add(menu);navigation.Controls.SetChildIndex(menu,0);
-  Nav(menu,"01  DEPLOY",Home);Nav(menu,"02  CONSOLE",ShowConsole);Nav(menu,"03  SERVICE",Maintenance);Nav(menu,"04  GUIDE",Help);
+  Nav(menu,"01  DEPLOY",Home);Nav(menu,"02  CONSOLE",ShowConsole);Nav(menu,"03  SERVICE",Maintenance);Nav(menu,"04  GUIDE",Help);Nav(menu,"05  DIAGNOSE",Diagnose);
   SetSection(0);
   Home();
  }
@@ -173,11 +173,22 @@ internal sealed class HangarBay : Form {
    }catch{} }
   packs.SelectedIndex=0;
  }
- void Launch(bool vr){if(String.IsNullOrEmpty(root))throw new Exception("Game installation not found. Open Hangar Bay from the game folder.");
+ void Launch(bool vr,bool diagnose=false){if(String.IsNullOrEmpty(root))throw new Exception("Game installation not found. Open Hangar Bay from the game folder.");
   string bridge=GameInstall.HasMyMod(root)?Path.Combine(root,"Flight Control Console","WheelBridge.exe"):Path.Combine(root,"GamepadMods","FotG_Gamepad_Wheel","WheelBridge.exe");if(!File.Exists(bridge))throw new Exception("Controller bridge missing. Open Maintenance to repair the installation.");
   var pack=packs.SelectedItem as Pack;var info=new ProcessStartInfo(bridge){WorkingDirectory=root,UseShellExecute=false};
-  info.Arguments="--game \""+root+"\""+(vr?" --vr":"")+(pack!=null&&pack.Path!=null?" --extra-mod \""+pack.Path+"\"":"");
-  Process.Start(info);status.Text="  STARTING "+(pack==null?"BASE GAME":pack.Name)+(vr?" / VR":"");
+  info.Arguments="--game \""+root+"\""+(vr?" --vr":"")+(diagnose?" --diagnose":"")+(pack!=null&&pack.Path!=null?" --extra-mod \""+pack.Path+"\"":"");
+  Process.Start(info);status.Text="  STARTING "+(diagnose?"DIAGNOSTIC FLIGHT / ":"")+(pack==null?"BASE GAME":pack.Name)+(vr?" / VR":"");
+ }
+ void Diagnose(){var p=Page("05   /   DIAGNOSTICS");
+  p.AutoScrollMinSize=new Size(0,520);
+  var content=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(0,18,0,0)};
+  content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+  content.RowStyles.Add(new RowStyle(SizeType.Absolute,250));content.RowStyles.Add(new RowStyle(SizeType.Absolute,80));content.RowStyles.Add(new RowStyle(SizeType.Absolute,12));content.RowStyles.Add(new RowStyle(SizeType.Absolute,70));
+  var info=Note("Something not working with a stick, throttle or pedals?\nThis starts the game as usual, but records what your devices report, what Flight Control sends and what the game does with it. When you quit the game, one ZIP report is built for the developer. Nothing is sent anywhere.\n\nWhile you fly:\n   F8   with the lever fully FORWARD\n   F7   with the lever fully BACK\n   F9   whenever something looks wrong\n\nLook through the ZIP before you share it. It has no serial numbers or user name.",250,muted);
+  info.TextAlign=ContentAlignment.TopLeft;content.Controls.Add(info,0,0);
+  var start=Button("START  ·  DIAGNOSTIC FLIGHT",delegate{Launch(false,true);});start.Kind=ButtonKind.Primary;start.Subtitle="Records devices, bindings and the throttle the game sees";start.Dock=DockStyle.Fill;start.Font=new Font("Consolas",13,FontStyle.Bold);start.Margin=Padding.Empty;content.Controls.Add(start,0,1);
+  var reports=Button("OPEN  ·  DIAGNOSTIC REPORTS",delegate{string folder=Path.Combine(root,"Flight Control Diagnostics");Directory.CreateDirectory(folder);Process.Start(new ProcessStartInfo(folder){UseShellExecute=true});});reports.Subtitle="Show the finished ZIP reports in Explorer";reports.Dock=DockStyle.Fill;reports.Font=new Font("Consolas",13,FontStyle.Bold);reports.Margin=Padding.Empty;content.Controls.Add(reports,0,3);
+  p.Controls.Add(content);p.Controls.SetChildIndex(content,0);
  }
  void ShowConsole(){Clear();if(console==null||console.IsDisposed){console=new ControllerSetup();console.SetEmbedded();console.TopLevel=false;console.FormBorderStyle=FormBorderStyle.None;console.Dock=DockStyle.Fill;}host.Controls.Add(console);console.Show();console.BringToFront();}
  void Maintenance(){var p=Page("03   /   SERVICE DECK");

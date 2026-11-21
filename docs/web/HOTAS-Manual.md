@@ -172,3 +172,13 @@ Not available: Fate of the Galaxy 1.1.x, hats other than the first for game acti
 ## 15. Reporting a problem
 
 Tell us which device, which control, what you assigned, and what happened. Include `console-error.log` if Apply failed. Send reports to dev@manictrashpanda.dev.
+
+### Diagnostic report
+
+If a control works in the Flight Control tab but not in the game (a throttle that works for a moment and then stops, for example), record a diagnostic flight. It gives us what we need to see.
+
+1. Close the game. Open **Hangar Bay** and choose **05 Diagnose**, then **Start diagnostic flight**. The game starts as usual.
+2. Start a mission and fly. With the lever fully **forward** press **F8**. With it fully **back** press **F7**. Whenever something looks wrong, press **F9**. The keys work while the game is in front.
+3. Quit the game. A ZIP report is built and shown in Explorer, in the folder **Flight Control Diagnostics** in your game folder.
+
+The report records what your devices report, what Flight Control sent, the game's own bindings for the joystick axes, and the throttle the ship really had. It also copies your HOTAS profile and the control settings the game uses, without serial numbers, your Windows user name or your pilot's name. Nothing is sent anywhere. Look through the ZIP before you share it, then send it to dev@manictrashpanda.dev.

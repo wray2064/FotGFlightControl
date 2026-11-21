@@ -312,7 +312,65 @@ sealed class Bridge : ApplicationContext {
         }
     }
 
-    public Bridge(string gameRoot, bool launch, bool vrMode, string extraMod) {
+
+    // ---- diagnostic mode (WheelBridge.exe --diagnose): record, then build one ZIP for the developer ----
+    DiagRecorder diag;
+    string diagWheelRoot, diagEngine;
+    bool diagMyMod;
+    long diagLimitMs;
+    void StartDiagnostics(bool myMod, string wheelRoot, int seconds) {
+        try {
+            EngineInfo engine = GameInstall.FindEngine(root, myMod ? null : GameVersion(root));
+            if (engine == null || !engine.Sdl3) throw new InvalidOperationException("Diagnostics need the FotG SDL3 engine.");
+            diagWheelRoot = wheelRoot; diagMyMod = myMod; diagEngine = engine.Label;
+            if (seconds > 0) diagLimitMs = seconds * 1000L;
+            string players = Path.Combine(preferences, "data", "players");
+            foreach (string old in Directory.GetFiles(players, "fotg-diag-*.csv")) { try { File.Delete(old); } catch { } }
+            string dir = Path.Combine(root, "Flight Control Diagnostics", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+            diag = new DiagRecorder(dir, Path.GetDirectoryName(engine.Exe));
+            File.WriteAllText(Path.Combine(players, "fotg-diag-on.txt"), "on");
+            diag.Event("start", "Flight Control " + BuildInfo.Version + ", engine " + engine.Label);
+            try { tray.Text = "Diagnostic: F9 problem, F8 forward, F7 back"; } catch { }
+        } catch (Exception ex) {
+            diag = null;
+            MessageBox.Show("Diagnostic mode could not start: " + ex.Message, "Flight Control diagnostics");
+        }
+    }
+    static string WindowsName() {
+        try {
+            string key = @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion";
+            return Convert.ToString(Microsoft.Win32.Registry.GetValue(key, "ProductName", "Windows")) + " " + Convert.ToString(Microsoft.Win32.Registry.GetValue(key, "DisplayVersion", ""))
+                + " build " + Convert.ToString(Microsoft.Win32.Registry.GetValue(key, "CurrentBuild", "")) + (Environment.Is64BitOperatingSystem ? " (64-bit)" : " (32-bit)");
+        } catch { return "Windows"; }
+    }
+    void FinishDiagnostics() {
+        if (diag == null) return;
+        string dir = diag.Dir;
+        try {
+            diag.Event("stop", "");
+            diag.Dispose(); diag = null;
+            string players = Path.Combine(preferences, "data", "players");
+            try { File.Delete(Path.Combine(players, "fotg-diag-on.txt")); } catch { }
+            int n = 0;
+            foreach (string f in Directory.GetFiles(players, "fotg-diag-*.csv").OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                File.Move(f, Path.Combine(dir, "lua-" + (++n).ToString("000") + ".csv"));
+            string table = diagMyMod ? Path.Combine(GameInstall.MyModCore(root), "data", "tables", "Controlconfigdefaults.tbl") : null;
+            string config = Path.Combine(diagWheelRoot, "data", "tables", "lua", "zz_fotg_wheel_config-sct.lua");
+            string settings = DiagReport.CollectSettings(dir, root, Path.Combine(preferences, "data"), table, config);
+            string environment = "Flight Control " + BuildInfo.Version + " (" + (diagMyMod ? "Fate of the Galaxy 2 / MyMod" : "classic") + ")\r\n"
+                + "Game: " + (diagMyMod ? "2.0.2" : (GameVersion(root) ?? "?")) + ", engine " + diagEngine + "\r\nWindows: " + WindowsName() + "\r\n"
+                + "Recorded: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+            string zip = DiagReport.Package(dir, DiagReport.Build(dir, settings, environment));
+            if (diagLimitMs > 0) { File.WriteAllText(Path.Combine(dir, "..", "last-report.txt"), zip); return; }   // test runs: no windows
+            try { Process.Start("explorer.exe", "/select,\"" + zip + "\""); } catch { }
+            MessageBox.Show("The diagnostic report is ready:\n\n" + zip + "\n\nLook through it before sharing: it holds your HOTAS profile, device names, and what the game and the bridge saw. It has no serial numbers or user name.",
+                "Flight Control diagnostics");
+        } catch (Exception ex) {
+            MessageBox.Show("The diagnostic report could not be finished: " + ex.Message + "\n\nThe raw capture is in " + dir, "Flight Control diagnostics");
+        }
+    }
+
+    public Bridge(string gameRoot, bool launch, bool vrMode, string extraMod, bool diagnose = false, int diagSeconds = 0) {
         if (!launch) startedUtc = DateTime.MinValue;
         this.vrMode = vrMode;
         this.extraMod = extraMod;
@@ -331,6 +389,7 @@ sealed class Bridge : ApplicationContext {
         slot = preferredSlot;
         Directory.CreateDirectory(Path.GetDirectoryName(inputPath));
         StartHotas(myMod);
+        if (diagnose) StartDiagnostics(myMod, wheelRoot, diagSeconds);
         tray.Icon = SystemIcons.Application;
         tray.Visible = true;
         ContextMenuStrip menu = new ContextMenuStrip();
@@ -338,7 +397,7 @@ sealed class Bridge : ApplicationContext {
             string help = Path.Combine(root, "GamepadMods", "FotG_Gamepad_Wheel", "Help.html");
             if (File.Exists(help)) Process.Start(help);
         });
-        menu.Items.Add("Exit controller bridge", null, delegate { ExitThread(); });
+        menu.Items.Add(diagnose ? "Stop diagnostics and save the report" : "Exit controller bridge", null, delegate { ExitThread(); });
         tray.ContextMenuStrip = menu;
         tray.DoubleClick += delegate { if (File.Exists(statePath)) Process.Start("notepad.exe", statePath); };
         if (launch) Launch();
@@ -547,6 +606,7 @@ sealed class Bridge : ApplicationContext {
         try {
             if (game != null && game.HasExited) { ExitThread(); return; }
             long now = clock.ElapsedMilliseconds;
+            if (diagLimitMs > 0 && now >= diagLimitMs) { ExitThread(); return; }
             double dt = Math.Max(.001, Math.Min(.05, (now-lastTick)/1000.0));
             lastTick = now;
             ReadState(now);
@@ -615,6 +675,8 @@ sealed class Bridge : ApplicationContext {
             // The game can have the state file open at the same instant we replace
             // it. Keep the bridge alive and retry on the next timer tick.
             try { Publish(publishedPad, active, now); } catch (IOException) { }
+            if (diag != null) { try { diag.Tick(sequence, focused, active, mode, gameState, hotasUp, active ? flightState.Pitch : 0, active ? flightState.Yaw : 0, active ? flightState.Roll : 0,
+                active ? flightState.Throttle : 0, active ? flightState.Mask : 0, publishedPad.Buttons, publishedPad.RightX, publishedPad.RightY, publishedPad.LeftX, publishedPad.LeftY); } catch (Exception) { } }
             string status = !connected ? (preferredSlot >= 0 ? "Wheel: XInput " + preferredSlot + " disconnected" : "Wheel: controller disconnected") : !focused ? "Wheel: waiting for FotG" : "Wheel: " + mode + " / " + (gamepadConnected ? "XInput " + slot : "") + (hotasUp ? (gamepadConnected ? " + HOTAS" : "HOTAS") : "");
             if (status != latestStatus) { tray.Text = status; latestStatus = status; }
         } catch (Exception ex) {
@@ -732,6 +794,7 @@ sealed class Bridge : ApplicationContext {
     }
     protected override void ExitThreadCore() {
         timer.Stop(); Release();
+        FinishDiagnostics();
         if (hotas != null) { hotas.Dispose(); hotas = null; }
         try { Publish(new XPad(), false, clock.ElapsedMilliseconds+100); } catch { }
         tray.Visible=false; tray.Dispose();
@@ -761,11 +824,13 @@ static class Program {
             if (args.Length > 3 && args[0] == "--hotas-probe") return HotasProbe(NormalizeGameRoot(args[1]), args[2], args[3]);
             // Diagnostic: queue synthetic button presses for the first mapped device and check they are counted.
             if (args.Length > 3 && args[0] == "--hotas-pulsetest") return HotasPulseTest(NormalizeGameRoot(args[1]), args[2], args[3]);
-            string root = null, extraMod = null; bool launch = true, vrMode = false;
+            string root = null, extraMod = null; bool launch = true, vrMode = false, diagnose = false; int diagSeconds = 0;
             for (int i=0; i<args.Length; i++) {
                 if (args[i] == "--game" && i+1<args.Length) root=args[++i];
                 else if (args[i] == "--attach") launch=false;
                 else if (args[i] == "--vr") vrMode=true;
+                else if (args[i] == "--diagnose") diagnose=true;
+                else if (args[i] == "--diagnose-seconds" && i+1<args.Length) int.TryParse(args[++i], out diagSeconds);
                 else if (args[i] == "--extra-mod" && i+1<args.Length) extraMod=args[++i];
             }
             if (String.IsNullOrWhiteSpace(root)) throw new ArgumentException("Use --game <Fate of the Galaxy game folder>.");
@@ -776,7 +841,7 @@ static class Program {
             using (Mutex mutex = new Mutex(true, @"Local\FotGGamepadWheelBridge", out created)) {
                 if (!created) throw new InvalidOperationException("The controller bridge is already running.");
                 Application.EnableVisualStyles();
-                Application.Run(new Bridge(root, launch, vrMode, extraMod));
+                Application.Run(new Bridge(root, launch, vrMode, extraMod, diagnose, diagSeconds));
             }
             return 0;
         } catch (Exception ex) { MessageBox.Show(ex.Message, "FotG controller bridge"); return 1; }
@@ -879,6 +944,7 @@ static class Program {
             mission.Read("FLIGHT|missionkey=9|missionseq=bad") != 0) return 15;
         if (!SelfTestHyperspace()) return 14;
         if (!HotasPad.SelfTest()) return 16;
+        if (!DiagReport.SelfTest()) return 40;
         if (Marshal.SizeOf(typeof(WinInput.INPUT)) != 40) return 1;
         if (Marshal.SizeOf(typeof(XPad)) != 12 || Marshal.SizeOf(typeof(XState)) != 16) return 2;
         if (Math.Abs(Math.Max(-1.0, (short)-32768 / 32767.0)) != 1) return 3;

@@ -1316,6 +1316,90 @@ function W:precision_frame(dt)
     end
 end
 
+-- Diagnostic mode (WheelBridge.exe --diagnose creates players/fotg-diag-on.txt). Every tenth of a second it records what the
+-- game and this script see (the throttle the ship really has, the throttle the script was given, the game's own joystick
+-- bindings) into small chunk files that the bridge collects when the session ends. Inert unless that file exists.
+local DIAG_ACTIONS = { "JOY_HEADING_AXIS", "JOY_PITCH_AXIS", "JOY_BANK_AXIS", "JOY_ABS_THROTTLE_AXIS", "JOY_REL_THROTTLE_AXIS" }
+
+function W:diag_flush()
+    if not self.diag_lines or #self.diag_lines == 0 then return end
+    self.diag_part = (self.diag_part or 0) + 1
+    local ok = pcall(function()
+        local file = cf.openFile(string.format("fotg-diag-%03d.csv", self.diag_part), "w", "data/players")
+        if file and file:isValid() then
+            file:write(table.concat(self.diag_lines, "\n") .. "\n")
+            file:close()
+        end
+    end)
+    self.diag_lines = {}
+    self.diag_age = 0
+    return ok
+end
+
+function W:diag_bindings()
+    for _, action in ipairs(DIAG_ACTIONS) do
+        local ok, name = pcall(function()
+            local binding = io.Keybinding[action]
+            return binding and binding:getInputName(true) or "none"
+        end)
+        self.diag_lines[#self.diag_lines + 1] = "B|" .. action .. "|" .. (ok and tostring(name or ""):gsub("[|\r\n]", "/") or "unavailable")
+    end
+end
+
+function W:diag_sample()
+    local cruise, thrust, speed
+    pcall(function()
+        local ci = ba.getControlInfo()
+        if ci then cruise = ci.ForwardCruise end
+    end)
+    pcall(function()
+        local ship = player_ship()
+        if ship then
+            local physics = ship.Physics
+            if physics then
+                pcall(function() thrust = physics.ForwardThrust end)
+                pcall(function() speed = physics:getSpeed() end)
+            end
+        end
+    end)
+    local mode = "?"
+    pcall(function() mode = tostring(ba.setControlMode()) end)
+    local input = self.input or {}
+    local function n(value) return value ~= nil and string.format("%.3f", value) or "" end
+    self.diag_lines[#self.diag_lines + 1] = table.concat({
+        "S", tostring(input.sequence or -1), n(self.diag_clock), tostring(self.state), mode, tostring(input.axis_mask or 0),
+        tostring(input.axis_throttle or ""), n(cruise), n(self.precision_throttle), n(speed), n(thrust) }, "|")
+end
+
+function W:diag_frame(dt)
+    self.diag_check = (self.diag_check or 0) - dt
+    if self.diag_check <= 0 then
+        self.diag_check = 2
+        local on = false
+        pcall(function()
+            local file = cf.openFile("fotg-diag-on.txt", "r", "data/players")
+            if file and file:isValid() then on = true end
+            if file then file:close() end
+        end)
+        if on and not self.diag_on then
+            self.diag_on, self.diag_lines, self.diag_part, self.diag_age, self.diag_sample_age, self.diag_clock = true, {}, 0, 0, 0, 0
+            self:diag_bindings()
+        elseif not on and self.diag_on then
+            self:diag_flush()
+            self.diag_on = false
+        end
+    end
+    if not self.diag_on then return end
+    self.diag_clock = self.diag_clock + dt
+    self.diag_sample_age = self.diag_sample_age + dt
+    self.diag_age = self.diag_age + dt
+    if self.diag_sample_age >= 0.1 then
+        self.diag_sample_age = 0
+        if is_flight_state(self.state) then self:diag_sample() end
+    end
+    if self.diag_age >= 1 then self:diag_flush() end
+end
+
 function W:frame()
     if self.dialog_depth > 0 then return end
     local dt = clipped(ba.getRealFrametime() or 0.016, 0, 0.2)
@@ -1363,6 +1447,7 @@ function W:frame()
     end
     self:poll_input(dt)
     self:precision_frame(dt)
+    self:diag_frame(dt)
     if self.input_age > 0.35 then self:close_panel(true) end
     self:refresh_comm()
     local buttons = self.input.buttons or 0
